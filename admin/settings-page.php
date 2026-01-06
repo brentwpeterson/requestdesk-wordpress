@@ -82,7 +82,26 @@ function requestdesk_settings_page() {
     $recent_syncs = $wpdb->get_results("SELECT * FROM $table_name ORDER BY sync_date DESC LIMIT 10");
     ?>
     
-    <div class="wrap">
+    <style>
+    /* Full-width layout for Settings */
+    .wrap.requestdesk-settings {
+        margin: 20px 20px 0 2px !important;
+        max-width: none !important;
+        width: calc(100vw - 180px) !important;
+        box-sizing: border-box !important;
+    }
+    .wrap.requestdesk-settings > * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    @media (max-width: 782px) {
+        .wrap.requestdesk-settings {
+            width: calc(100vw - 50px) !important;
+        }
+    }
+    </style>
+
+    <div class="wrap requestdesk-settings">
         <h1>RequestDesk Connector Settings <span style="color: #666; font-size: 0.7em; font-weight: normal;">v<?php echo REQUESTDESK_VERSION; ?></span></h1>
 
         <div class="notice notice-info" style="margin-bottom: 20px;">

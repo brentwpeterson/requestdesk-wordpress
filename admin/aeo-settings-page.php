@@ -38,18 +38,7 @@ function requestdesk_aeo_settings_page() {
             'auto_display_qa_frontend' => isset($_POST['auto_display_qa_frontend']),
             'qa_frontend_title' => sanitize_text_field($_POST['qa_frontend_title']),
             'qa_frontend_max_pairs' => intval($_POST['qa_frontend_max_pairs']),
-            'qa_frontend_min_confidence' => floatval($_POST['qa_frontend_min_confidence']),
-            // Schema Type Settings (AI-First)
-            'schema_article' => isset($_POST['schema_article']),
-            'schema_faq' => isset($_POST['schema_faq']),
-            'schema_howto' => isset($_POST['schema_howto']),
-            'schema_breadcrumb' => isset($_POST['schema_breadcrumb']),
-            'schema_product' => isset($_POST['schema_product']),
-            'schema_local_business' => isset($_POST['schema_local_business']),
-            'schema_video' => isset($_POST['schema_video']),
-            'schema_course' => isset($_POST['schema_course']),
-            'schema_detection_mode' => sanitize_text_field($_POST['schema_detection_mode'] ?? 'auto'),
-            'schema_detection_confidence' => floatval($_POST['schema_detection_confidence'] ?? 0.6)
+            'qa_frontend_min_confidence' => floatval($_POST['qa_frontend_min_confidence'])
         );
 
         update_option('requestdesk_aeo_settings', $settings);
@@ -70,18 +59,7 @@ function requestdesk_aeo_settings_page() {
         'auto_display_qa_frontend' => false,
         'qa_frontend_title' => 'Frequently Asked Questions',
         'qa_frontend_max_pairs' => 5,
-        'qa_frontend_min_confidence' => 0.7,
-        // Schema Type Defaults (AI-First)
-        'schema_article' => true,
-        'schema_faq' => true,
-        'schema_howto' => true,
-        'schema_breadcrumb' => true,
-        'schema_product' => true,
-        'schema_local_business' => true,
-        'schema_video' => true,
-        'schema_course' => true,
-        'schema_detection_mode' => 'auto',
-        'schema_detection_confidence' => 0.6
+        'qa_frontend_min_confidence' => 0.7
     ));
 
     // Get system status
@@ -276,139 +254,20 @@ function requestdesk_aeo_settings_page() {
 
             <div class="card">
                 <h2>🏷️ Schema Markup Generation</h2>
-                <p class="description" style="margin-bottom: 15px; font-size: 14px;">
-                    <strong>AI-First Schema:</strong> These schema types are optimized for AI search engines and LLMs (ChatGPT, Claude, Perplexity, Google AI Overviews).
-                </p>
-
                 <table class="form-table">
                     <tr>
-                        <th scope="row">Core Schema Types</th>
-                        <td>
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_article" value="1" <?php checked($settings['schema_article'] ?? true, true); ?>>
-                                <strong>Article Schema</strong> - Blog posts and news content
-                            </label>
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_faq" value="1" <?php checked($settings['schema_faq'] ?? true, true); ?>>
-                                <strong>FAQ Schema</strong> - Question/Answer pairs for AI assistants
-                            </label>
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_howto" value="1" <?php checked($settings['schema_howto'] ?? true, true); ?>>
-                                <strong>HowTo Schema</strong> - Step-by-step instructions
-                            </label>
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_breadcrumb" value="1" <?php checked($settings['schema_breadcrumb'] ?? true, true); ?>>
-                                <strong>Breadcrumb Schema</strong> - Navigation path (always recommended for AI)
-                            </label>
-                            <p class="description">Core schema types are always available based on content detection.</p>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row">Enhanced Schema Types</th>
-                        <td>
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_product" value="1" <?php checked($settings['schema_product'] ?? true, true); ?>>
-                                <strong>Product/Review Schema</strong> - Product pages with pricing, ratings, availability
-                            </label>
-                            <p class="description" style="margin-left: 25px; margin-bottom: 12px; color: #666;">
-                                Auto-detects: WooCommerce products, price patterns ($XX.XX), ratings, buy buttons
-                            </p>
-
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_local_business" value="1" <?php checked($settings['schema_local_business'] ?? true, true); ?>>
-                                <strong>LocalBusiness Schema</strong> - Business location, hours, contact info
-                            </label>
-                            <p class="description" style="margin-left: 25px; margin-bottom: 12px; color: #666;">
-                                Auto-detects: Addresses, phone numbers, business hours, location pages
-                            </p>
-
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_video" value="1" <?php checked($settings['schema_video'] ?? true, true); ?>>
-                                <strong>Video Schema</strong> - Embedded video content
-                            </label>
-                            <p class="description" style="margin-left: 25px; margin-bottom: 12px; color: #666;">
-                                Auto-detects: YouTube, Vimeo, HTML5 video, WordPress video blocks
-                            </p>
-
-                            <label style="display: block; margin-bottom: 8px;">
-                                <input type="checkbox" name="schema_course" value="1" <?php checked($settings['schema_course'] ?? true, true); ?>>
-                                <strong>Course Schema</strong> - Educational and training content
-                            </label>
-                            <p class="description" style="margin-left: 25px; margin-bottom: 12px; color: #666;">
-                                Auto-detects: LearnDash/LifterLMS courses, learning objectives, enrollment CTAs
-                            </p>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row">Schema Detection Mode</th>
-                        <td>
-                            <select name="schema_detection_mode">
-                                <option value="auto" <?php selected($settings['schema_detection_mode'] ?? 'auto', 'auto'); ?>>
-                                    Automatic Detection (Recommended)
-                                </option>
-                                <option value="claude_enhanced" <?php selected($settings['schema_detection_mode'] ?? 'auto', 'claude_enhanced'); ?>>
-                                    Claude AI Enhanced (uses AI for smarter detection)
-                                </option>
-                            </select>
-                            <p class="description">
-                                How schema types are determined for each piece of content.
-                            </p>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row">Detection Sensitivity</th>
-                        <td>
-                            <select name="schema_detection_confidence">
-                                <option value="0.4" <?php selected($settings['schema_detection_confidence'] ?? 0.6, 0.4); ?>>
-                                    Low (40%) - Generate more schema, may include false positives
-                                </option>
-                                <option value="0.6" <?php selected($settings['schema_detection_confidence'] ?? 0.6, 0.6); ?>>
-                                    Medium (60%) - Balanced (Recommended)
-                                </option>
-                                <option value="0.8" <?php selected($settings['schema_detection_confidence'] ?? 0.6, 0.8); ?>>
-                                    High (80%) - Only generate when confident
-                                </option>
-                            </select>
-                            <p class="description">
-                                Minimum confidence level required before auto-generating a schema type.
-                            </p>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <th scope="row">Legacy: Generate FAQ Schema</th>
+                        <th scope="row">Generate FAQ Schema</th>
                         <td>
                             <label>
                                 <input type="checkbox" name="generate_faq_schema" value="1" <?php checked($settings['generate_faq_schema'], true); ?>>
-                                Automatically generate FAQ structured data from Q&A pairs
+                                Automatically generate FAQ structured data
                             </label>
                             <p class="description">
-                                Creates schema.org FAQ markup for extracted Q&A pairs. This setting works with the FAQ Schema toggle above.
+                                Creates schema.org FAQ markup for extracted Q&A pairs. Helps AI engines understand your content structure.
                             </p>
                         </td>
                     </tr>
                 </table>
-
-                <div class="postbox" style="margin: 15px 0; background: #f0f6fc; border-color: #0073aa;">
-                    <h3 style="padding: 10px 15px; margin: 0; background: #e8f4fd; border-bottom: 1px solid #0073aa;">
-                        🤖 AI-First Schema Benefits
-                    </h3>
-                    <div class="inside" style="padding: 15px;">
-                        <p><strong>Why Schema Matters for AI Engines:</strong></p>
-                        <ul style="list-style: disc; margin-left: 20px;">
-                            <li><strong>Improved Citations:</strong> Schema makes your content easier for AI assistants to cite accurately</li>
-                            <li><strong>Better Understanding:</strong> Structured data helps LLMs understand entity relationships</li>
-                            <li><strong>Featured Answers:</strong> Schema increases chances of appearing in AI-generated summaries</li>
-                            <li><strong>Knowledge Graph:</strong> Schema.org markup feeds into knowledge graphs used by AI systems</li>
-                        </ul>
-                        <p style="font-style: italic; margin-top: 15px; color: #555;">
-                            "Generative AI search tools now use structured data as a key signal of authority and clarity."
-                        </p>
-                    </div>
-                </div>
             </div>
 
             <div class="card">
@@ -568,37 +427,161 @@ function requestdesk_aeo_analytics_page() {
     $freshness_analytics = $freshness_tracker->get_freshness_analytics();
     $posts_needing_attention = $freshness_tracker->get_posts_needing_attention(20);
     ?>
+    <style>
+    /* Full-width layout for Dashboard */
+    .wrap.requestdesk-dashboard {
+        margin: 20px 20px 0 2px !important;
+        max-width: none !important;
+        width: calc(100vw - 180px) !important;
+        box-sizing: border-box !important;
+    }
+    .wrap.requestdesk-dashboard > * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .requestdesk-dashboard .dashboard-card {
+        background: #fff;
+        border: 1px solid #c3c4c7;
+        box-shadow: 0 1px 1px rgba(0,0,0,.04);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .requestdesk-dashboard .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    .requestdesk-dashboard .stat-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+        border: 1px solid #e2e4e7;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+    }
+    .requestdesk-dashboard .stat-card .stat-value {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .requestdesk-dashboard .stat-card .stat-label {
+        font-size: 13px;
+        color: #646970;
+        margin-top: 5px;
+    }
+    .requestdesk-dashboard .stat-card .stat-details {
+        font-size: 12px;
+        color: #8c8f94;
+        margin-top: 10px;
+    }
+    .requestdesk-dashboard .freshness-bar {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        margin: 20px 0;
+    }
+    .requestdesk-dashboard .freshness-item {
+        text-align: center;
+        padding: 15px 10px;
+        border-radius: 8px;
+    }
+    .requestdesk-dashboard .freshness-item .count {
+        font-size: 28px;
+        font-weight: 700;
+    }
+    .requestdesk-dashboard .freshness-item .label {
+        font-size: 13px;
+        font-weight: 600;
+        margin-top: 5px;
+    }
+    .requestdesk-dashboard .freshness-item .range {
+        font-size: 11px;
+        color: #666;
+    }
+    @media (max-width: 1200px) {
+        .requestdesk-dashboard .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .requestdesk-dashboard .freshness-bar {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    @media (max-width: 782px) {
+        .wrap.requestdesk-dashboard {
+            width: calc(100vw - 50px) !important;
+        }
+        .requestdesk-dashboard .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        .requestdesk-dashboard .freshness-bar {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    </style>
 
-    <div class="wrap">
-        <h1>AEO Analytics Dashboard</h1>
+    <div class="wrap requestdesk-dashboard">
+        <h1>📊 AEO Analytics Dashboard</h1>
+        <p style="color: #646970; margin-bottom: 20px;">Monitor your content's Answer Engine Optimization performance across all posts and pages.</p>
 
-        <div class="card">
-            <h2>📊 Content Statistics Overview</h2>
-            <div class="analytics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-                <div class="metric-card" style="background: #f9f9f9; padding: 20px; border-left: 4px solid #0073aa;">
-                    <h3>Citation Statistics</h3>
-                    <div class="metric-value" style="font-size: 32px; font-weight: bold; color: #0073aa;"><?php echo $citation_analytics['total_statistics']; ?></div>
-                    <div class="metric-details">
-                        <p>High Quality: <strong><?php echo $citation_analytics['high_quality_stats']; ?></strong></p>
-                        <p>Posts with Stats: <strong><?php echo $citation_analytics['posts_with_stats']; ?></strong></p>
-                        <p>Avg per Post: <strong><?php echo $citation_analytics['avg_stats_per_post']; ?></strong></p>
-                    </div>
+        <!-- Stats Overview Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" style="color: #0073aa;"><?php echo $citation_analytics['total_statistics']; ?></div>
+                <div class="stat-label">Total Citations</div>
+                <div class="stat-details">Citation-ready statistics</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #46b450;"><?php echo $citation_analytics['high_quality_stats']; ?></div>
+                <div class="stat-label">High Quality</div>
+                <div class="stat-details">Premium citations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #9b59b6;"><?php echo $citation_analytics['posts_with_stats']; ?></div>
+                <div class="stat-label">Posts with Stats</div>
+                <div class="stat-details">Avg <?php echo $citation_analytics['avg_stats_per_post']; ?> per post</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: <?php echo $freshness_analytics['avg_freshness_score'] >= 60 ? '#46b450' : ($freshness_analytics['avg_freshness_score'] >= 40 ? '#f0ad4e' : '#d63638'); ?>;"><?php echo $freshness_analytics['avg_freshness_score']; ?>%</div>
+                <div class="stat-label">Avg Freshness</div>
+                <div class="stat-details"><?php echo $freshness_analytics['needs_attention']; ?> need attention</div>
+            </div>
+        </div>
+
+        <!-- Content Freshness Breakdown -->
+        <div class="dashboard-card">
+            <h2 style="margin-top: 0;">🕒 Content Freshness Breakdown</h2>
+            <div class="freshness-bar">
+                <div class="freshness-item" style="background: #e8f5e9;">
+                    <div class="count" style="color: #46b450;"><?php echo $freshness_analytics['excellent_count']; ?></div>
+                    <div class="label" style="color: #46b450;">Excellent</div>
+                    <div class="range">80-100%</div>
                 </div>
-
-                <div class="metric-card" style="background: #f9f9f9; padding: 20px; border-left: 4px solid #46b450;">
-                    <h3>Content Freshness</h3>
-                    <div class="metric-value" style="font-size: 32px; font-weight: bold; color: #46b450;"><?php echo $freshness_analytics['avg_freshness_score']; ?>%</div>
-                    <div class="metric-details">
-                        <p>Excellent: <strong><?php echo $freshness_analytics['excellent_count']; ?></strong></p>
-                        <p>Good: <strong><?php echo $freshness_analytics['good_count']; ?></strong></p>
-                        <p>Needs Work: <strong><?php echo $freshness_analytics['needs_attention']; ?></strong></p>
-                    </div>
+                <div class="freshness-item" style="background: #e3f2fd;">
+                    <div class="count" style="color: #0073aa;"><?php echo $freshness_analytics['good_count']; ?></div>
+                    <div class="label" style="color: #0073aa;">Good</div>
+                    <div class="range">60-79%</div>
+                </div>
+                <div class="freshness-item" style="background: #fff8e1;">
+                    <div class="count" style="color: #f0ad4e;"><?php echo $freshness_analytics['fair_count']; ?></div>
+                    <div class="label" style="color: #f0ad4e;">Fair</div>
+                    <div class="range">40-59%</div>
+                </div>
+                <div class="freshness-item" style="background: #fff3e0;">
+                    <div class="count" style="color: #f56e28;"><?php echo $freshness_analytics['poor_count']; ?></div>
+                    <div class="label" style="color: #f56e28;">Poor</div>
+                    <div class="range">20-39%</div>
+                </div>
+                <div class="freshness-item" style="background: #ffebee;">
+                    <div class="count" style="color: #d63638;"><?php echo $freshness_analytics['critical_count']; ?></div>
+                    <div class="label" style="color: #d63638;">Critical</div>
+                    <div class="range">0-19%</div>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <h2>🎯 Statistic Types Distribution</h2>
+        <!-- Statistic Types Distribution -->
+        <div class="dashboard-card">
+            <h2 style="margin-top: 0;">🎯 Statistic Types Distribution</h2>
             <?php if (!empty($citation_analytics['top_stat_types'])): ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
@@ -619,44 +602,15 @@ function requestdesk_aeo_analytics_page() {
                 </tbody>
             </table>
             <?php else: ?>
-            <p>No statistics data available yet. <a href="<?php echo admin_url('admin.php?page=requestdesk-aeo-bulk'); ?>">Run bulk analysis</a> to generate data.</p>
+            <p>No statistics data available yet. <a href="<?php echo admin_url('admin.php?page=requestdesk-aeo-bulk-optimizer'); ?>">Run bulk analysis</a> to generate data.</p>
             <?php endif; ?>
         </div>
 
-        <div class="card">
-            <h2>🕒 Content Freshness Breakdown</h2>
-            <div class="freshness-chart" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin: 20px 0;">
-                <div class="freshness-item" style="text-align: center; padding: 15px; background: #e8f5e8; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #46b450;"><?php echo $freshness_analytics['excellent_count']; ?></div>
-                    <div style="color: #46b450;">Excellent</div>
-                    <small>80-100%</small>
-                </div>
-                <div class="freshness-item" style="text-align: center; padding: 15px; background: #f0f8ff; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #0073aa;"><?php echo $freshness_analytics['good_count']; ?></div>
-                    <div style="color: #0073aa;">Good</div>
-                    <small>60-79%</small>
-                </div>
-                <div class="freshness-item" style="text-align: center; padding: 15px; background: #fff8e1; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #ffb900;"><?php echo $freshness_analytics['fair_count']; ?></div>
-                    <div style="color: #ffb900;">Fair</div>
-                    <small>40-59%</small>
-                </div>
-                <div class="freshness-item" style="text-align: center; padding: 15px; background: #fff3e0; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #f56e28;"><?php echo $freshness_analytics['poor_count']; ?></div>
-                    <div style="color: #f56e28;">Poor</div>
-                    <small>20-39%</small>
-                </div>
-                <div class="freshness-item" style="text-align: center; padding: 15px; background: #ffebee; border-radius: 8px;">
-                    <div style="font-size: 24px; font-weight: bold; color: #d63638;"><?php echo $freshness_analytics['critical_count']; ?></div>
-                    <div style="color: #d63638;">Critical</div>
-                    <small>0-19%</small>
-                </div>
-            </div>
-        </div>
-
         <?php if (!empty($posts_needing_attention)): ?>
-        <div class="card">
-            <h2>⚠️ Content Needing Attention</h2>
+        <!-- Content Needing Attention -->
+        <div class="dashboard-card">
+            <h2 style="margin-top: 0;">⚠️ Content Needing Attention</h2>
+            <p style="color: #646970; margin-bottom: 15px;">These posts have low freshness scores and may need updating to maintain AEO performance.</p>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -677,7 +631,7 @@ function requestdesk_aeo_analytics_page() {
                             <strong><a href="<?php echo get_edit_post_link($post->ID); ?>"><?php echo esc_html($post->post_title); ?></a></strong>
                             <div class="row-actions">
                                 <span class="edit"><a href="<?php echo get_edit_post_link($post->ID); ?>">Edit</a> | </span>
-                                <span class="view"><a href="<?php echo get_permalink($post->ID); ?>">View</a></span>
+                                <span class="view"><a href="<?php echo get_permalink($post->ID); ?>" target="_blank">View</a></span>
                             </div>
                         </td>
                         <td>
@@ -696,6 +650,16 @@ function requestdesk_aeo_analytics_page() {
             </table>
         </div>
         <?php endif; ?>
+
+        <!-- Quick Actions -->
+        <div class="dashboard-card">
+            <h2 style="margin-top: 0;">⚡ Quick Actions</h2>
+            <p>
+                <a href="<?php echo admin_url('admin.php?page=requestdesk-aeo-bulk-optimizer'); ?>" class="button button-primary">Open Bulk Optimizer</a>
+                <a href="<?php echo admin_url('admin.php?page=requestdesk-aeo-bulk'); ?>" class="button">Bulk Tools</a>
+                <a href="<?php echo admin_url('admin.php?page=requestdesk-settings'); ?>" class="button">Settings</a>
+            </p>
+        </div>
     </div>
     <?php
 }
@@ -793,7 +757,26 @@ function requestdesk_aeo_bulk_page() {
     ));
     ?>
 
-    <div class="wrap">
+    <style>
+    /* Full-width layout for Bulk Tools */
+    .wrap.requestdesk-bulk-tools {
+        margin: 20px 20px 0 2px !important;
+        max-width: none !important;
+        width: calc(100vw - 180px) !important;
+        box-sizing: border-box !important;
+    }
+    .wrap.requestdesk-bulk-tools > * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    @media (max-width: 782px) {
+        .wrap.requestdesk-bulk-tools {
+            width: calc(100vw - 50px) !important;
+        }
+    }
+    </style>
+
+    <div class="wrap requestdesk-bulk-tools">
         <h1>Bulk AEO Tools</h1>
 
         <!-- Site Rescan Tools -->
