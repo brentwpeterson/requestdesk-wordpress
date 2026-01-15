@@ -100,11 +100,11 @@ function requestdesk_template_importer_page() {
                         <select name="template_type" id="template_type" class="regular-text" required>
                             <option value="">Choose Template...</option>
                             <option value="aeo_homepage">🎯 AEO Homepage Template</option>
-                            <option value="aeo_service_page" disabled>🔧 Service Page (Coming Soon)</option>
+                            <option value="service_page">🔧 Service Page Template</option>
                             <option value="aeo_about_page">📋 AEO About Page Template</option>
                             <option value="auto_detect">🔍 Auto-Detect from CSV</option>
                         </select>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">💡 <strong>Tip:</strong> Use "Auto-Detect" if your CSV has a <code>template_type</code> column (homepage, about)</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">💡 <strong>Tip:</strong> Use "Auto-Detect" if your CSV has a <code>template_type</code> column (homepage, about, open_base, service)</p>
                     </div>
 
                     <div>
@@ -313,10 +313,15 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 case 'about_page':
                     $detected_type = 'aeo_about_page';
                     break;
+                case 'open_base':
+                case 'service':
+                case 'service_page':
+                    $detected_type = 'service_page';
+                    break;
                 default:
                     return array(
                         'success' => false,
-                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about'
+                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service'
                     );
             }
 
@@ -336,6 +341,8 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 return requestdesk_import_aeo_homepage_csv($csv_data);
             case 'aeo_about_page':
                 return requestdesk_import_aeo_about_csv($csv_data);
+            case 'service_page':
+                return requestdesk_import_service_page_csv($csv_data);
             default:
                 return array(
                     'success' => false,
@@ -1044,5 +1051,335 @@ function requestdesk_get_about_template() {
 <!-- wp:paragraph {"style":{"color":{"background":"#fff3cd","text":"#856404"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}},"border":{"radius":"8px","color":"#ffeaa7","width":"1px"}}} -->
 <p class="has-text-color has-background has-border-color" style="border-color:#ffeaa7;border-width:1px;border-radius:8px;background-color:#fff3cd;color:#856404;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><strong>⚠️ Enhanced About Template Missing:</strong> The comprehensive AEO About template could not be loaded. This is a basic fallback. Please ensure aeo-template-about.php is properly installed.</p>
 <!-- /wp:paragraph -->';
+}
+
+/**
+ * Import Service Page with CSV data
+ */
+function requestdesk_import_service_page_csv($csv_data) {
+    global $wpdb;
+
+    // Get page title and slug from CSV
+    $page_title = sanitize_text_field($csv_data['title'] ?? 'Service Page');
+    $page_slug = sanitize_title($csv_data['page_slug'] ?? 'service-page');
+
+    // Check if page with this slug already exists
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+        $page_slug
+    ));
+
+    if ($existing) {
+        // Add timestamp to make unique
+        $page_slug = $page_slug . '-' . current_time('Y-m-d-H-i');
+    }
+
+    // Build the page content using GenerateBlocks structure
+    $template_content = requestdesk_build_service_page_content($csv_data);
+
+    // Prepare page data
+    $current_time = current_time('mysql');
+    $current_time_gmt = current_time('mysql', 1);
+
+    $page_data = array(
+        'post_author' => get_current_user_id(),
+        'post_date' => $current_time,
+        'post_date_gmt' => $current_time_gmt,
+        'post_content' => $template_content,
+        'post_title' => $page_title,
+        'post_excerpt' => sanitize_text_field($csv_data['meta_description'] ?? ''),
+        'post_status' => 'draft',
+        'comment_status' => 'closed',
+        'ping_status' => 'closed',
+        'post_password' => '',
+        'post_name' => $page_slug,
+        'to_ping' => '',
+        'pinged' => '',
+        'post_modified' => $current_time,
+        'post_modified_gmt' => $current_time_gmt,
+        'post_content_filtered' => '',
+        'post_parent' => 0,
+        'guid' => '',
+        'menu_order' => 0,
+        'post_type' => 'page',
+        'post_mime_type' => '',
+        'comment_count' => 0
+    );
+
+    // Insert the page
+    $result = $wpdb->insert($wpdb->posts, $page_data);
+
+    if ($result !== false) {
+        $page_id = $wpdb->insert_id;
+
+        // Update GUID
+        $wpdb->update(
+            $wpdb->posts,
+            array('guid' => get_permalink($page_id)),
+            array('ID' => $page_id)
+        );
+
+        // Set page to GP Canvas template for full-width layout
+        update_post_meta($page_id, '_wp_page_template', 'page-builder-canvas.php');
+
+        // Set GeneratePress layout options for full-width
+        update_post_meta($page_id, '_generate_sidebar_layout', 'no-sidebar');
+        update_post_meta($page_id, '_generate_content_width', 'full-width');
+
+        // Auto-enable landing page styling (removes header, enables full-width hero)
+        update_post_meta($page_id, '_requestdesk_landing_page', true);
+
+        // Set Yoast SEO meta if available
+        if (!empty($csv_data['meta_title'])) {
+            update_post_meta($page_id, '_yoast_wpseo_title', sanitize_text_field($csv_data['meta_title']));
+        }
+        if (!empty($csv_data['meta_description'])) {
+            update_post_meta($page_id, '_yoast_wpseo_metadesc', sanitize_text_field($csv_data['meta_description']));
+        }
+
+        return array(
+            'success' => true,
+            'page_id' => $page_id,
+            'page_title' => $page_title,
+            'template_name' => 'Service Page Template'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => 'Database insertion failed: ' . $wpdb->last_error
+        );
+    }
+}
+
+/**
+ * Build Service Page Content from CSV data
+ * Uses native WordPress Group blocks for maximum compatibility
+ */
+function requestdesk_build_service_page_content($csv_data) {
+    $content = '';
+
+    // Hero Section - Dark navy background
+    $hero_tagline = esc_html($csv_data['hero_tagline'] ?? '');
+    $title = esc_html($csv_data['title'] ?? 'Service Page');
+    $subtitle = esc_html($csv_data['subtitle'] ?? '');
+    $hero_cta_text = esc_html($csv_data['hero_cta_text'] ?? 'Get Started');
+    $hero_cta_url = esc_url($csv_data['hero_cta_url'] ?? '#');
+    $hero_image_url = esc_url($csv_data['hero_image_url'] ?? '');
+    $hero_image_alt = esc_attr($csv_data['hero_image_alt'] ?? '');
+
+    // Hero using wp:cover for full-width background
+    $content .= '<!-- wp:cover {"customOverlayColor":"#1e3a5f","isUserOverlayColor":true,"minHeight":500,"align":"full","style":{"spacing":{"padding":{"top":"80px","bottom":"80px","left":"40px","right":"40px"}}}} -->
+<div class="wp-block-cover alignfull" style="padding-top:80px;padding-right:40px;padding-bottom:80px;padding-left:40px;min-height:500px"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim" style="background-color:#1e3a5f"></span><div class="wp-block-cover__inner-container"><!-- wp:columns -->
+<div class="wp-block-columns"><!-- wp:column {"width":"60%"} -->
+<div class="wp-block-column" style="flex-basis:60%"><!-- wp:paragraph {"style":{"color":{"text":"#4ecdc4"}},"fontSize":"small"} -->
+<p class="has-text-color has-small-font-size" style="color:#4ecdc4"><strong>' . $hero_tagline . '</strong></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":1,"style":{"color":{"text":"#ffffff"}}} -->
+<h1 class="wp-block-heading has-text-color" style="color:#ffffff">' . $title . '</h1>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph {"style":{"color":{"text":"#ffffff"}}} -->
+<p class="has-text-color" style="color:#ffffff">' . $subtitle . '</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons -->
+<div class="wp-block-buttons"><!-- wp:button {"style":{"color":{"background":"#4ecdc4","text":"#ffffff"}}} -->
+<div class="wp-block-button"><a class="wp-block-button__link has-text-color has-background wp-element-button" href="' . $hero_cta_url . '" style="color:#ffffff;background-color:#4ecdc4">' . $hero_cta_text . '</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons --></div>
+<!-- /wp:column -->
+
+<!-- wp:column {"width":"40%"} -->
+<div class="wp-block-column" style="flex-basis:40%">';
+
+    if (!empty($hero_image_url)) {
+        $content .= '<!-- wp:image {"sizeSlug":"large"} -->
+<figure class="wp-block-image size-large"><img src="' . $hero_image_url . '" alt="' . $hero_image_alt . '"/></figure>
+<!-- /wp:image -->';
+    }
+
+    $content .= '</div>
+<!-- /wp:column --></div>
+<!-- /wp:columns --></div></div>
+<!-- /wp:cover -->';
+
+    // Sections 1-5 with alternating backgrounds using wp:group
+    $backgrounds = array(
+        1 => '#ffffff',
+        2 => '#f5f5f5',
+        3 => '#ffffff',
+        4 => '#f5f5f5',
+        5 => '#ffffff',
+    );
+
+    for ($i = 1; $i <= 5; $i++) {
+        $heading_key = "section_{$i}_heading";
+        $content_key = "section_{$i}_content";
+
+        if (!empty($csv_data[$heading_key]) || !empty($csv_data[$content_key])) {
+            $section_heading = esc_html($csv_data[$heading_key] ?? '');
+            $section_content = wp_kses_post($csv_data[$content_key] ?? '');
+            $bg_color = $backgrounds[$i];
+
+            $content .= '<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"60px","bottom":"60px","left":"40px","right":"40px"}},"color":{"background":"' . $bg_color . '"}}} -->
+<div class="wp-block-group alignfull has-background" style="background-color:' . $bg_color . ';padding-top:60px;padding-right:40px;padding-bottom:60px;padding-left:40px"><!-- wp:group {"layout":{"type":"constrained","contentSize":"1200px"}} -->
+<div class="wp-block-group">';
+
+            if (!empty($section_heading)) {
+                $content .= '<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">' . $section_heading . '</h2>
+<!-- /wp:heading -->';
+            }
+
+            if (!empty($section_content)) {
+                // Convert HTML to WordPress blocks
+                $content .= requestdesk_html_to_blocks($section_content);
+            }
+
+            $content .= '</div>
+<!-- /wp:group --></div>
+<!-- /wp:group -->';
+        }
+    }
+
+    // CTA Section - Green background
+    $cta_heading = esc_html($csv_data['cta_heading'] ?? '');
+    $cta_text = esc_html($csv_data['cta_text'] ?? '');
+    $cta_button_text = esc_html($csv_data['cta_button_text'] ?? 'Get Started');
+    $cta_button_url = esc_url($csv_data['cta_button_url'] ?? '#');
+
+    if (!empty($cta_heading) || !empty($cta_text)) {
+        $content .= '<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"60px","bottom":"60px","left":"40px","right":"40px"}},"color":{"background":"#4ecdc4"}}} -->
+<div class="wp-block-group alignfull has-background" style="background-color:#4ecdc4;padding-top:60px;padding-right:40px;padding-bottom:60px;padding-left:40px"><!-- wp:group {"layout":{"type":"constrained","contentSize":"800px"}} -->
+<div class="wp-block-group"><!-- wp:heading {"textAlign":"center","level":2,"style":{"color":{"text":"#1e3a5f"}}} -->
+<h2 class="wp-block-heading has-text-align-center has-text-color" style="color:#1e3a5f">' . $cta_heading . '</h2>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph {"align":"center","style":{"color":{"text":"#1e3a5f"}}} -->
+<p class="has-text-align-center has-text-color" style="color:#1e3a5f">' . $cta_text . '</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->
+<div class="wp-block-buttons"><!-- wp:button {"style":{"color":{"background":"#ffffff","text":"#1e3a5f"}}} -->
+<div class="wp-block-button"><a class="wp-block-button__link has-text-color has-background wp-element-button" href="' . $cta_button_url . '" style="color:#1e3a5f;background-color:#ffffff">' . $cta_button_text . '</a></div>
+<!-- /wp:button --></div>
+<!-- /wp:buttons --></div>
+<!-- /wp:group --></div>
+<!-- /wp:group -->';
+    }
+
+    return $content;
+}
+
+/**
+ * Convert HTML content to WordPress blocks
+ * Handles <p>, <ul>, <ol>, <h2>, <h3>, <h4> tags
+ */
+function requestdesk_html_to_blocks($html) {
+    $output = '';
+
+    // If already WordPress blocks, return as-is
+    if (strpos(trim($html), '<!-- wp:') === 0) {
+        return $html;
+    }
+
+    // Use DOMDocument to parse HTML
+    $dom = new DOMDocument();
+    // Suppress warnings for HTML5 tags and encode entities
+    @$dom->loadHTML('<?xml encoding="UTF-8"><div>' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+
+    $body = $dom->getElementsByTagName('div')->item(0);
+    if (!$body) {
+        // Fallback: wrap in paragraph
+        return '<!-- wp:paragraph -->
+<p>' . $html . '</p>
+<!-- /wp:paragraph -->';
+    }
+
+    foreach ($body->childNodes as $node) {
+        if ($node->nodeType === XML_TEXT_NODE) {
+            $text = trim($node->textContent);
+            if (!empty($text)) {
+                $output .= '<!-- wp:paragraph -->
+<p>' . esc_html($text) . '</p>
+<!-- /wp:paragraph -->
+
+';
+            }
+            continue;
+        }
+
+        if ($node->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
+
+        $tagName = strtolower($node->nodeName);
+        $innerHTML = '';
+        foreach ($node->childNodes as $child) {
+            $innerHTML .= $dom->saveHTML($child);
+        }
+
+        switch ($tagName) {
+            case 'p':
+                $output .= '<!-- wp:paragraph -->
+<p>' . $innerHTML . '</p>
+<!-- /wp:paragraph -->
+
+';
+                break;
+
+            case 'h2':
+                $output .= '<!-- wp:heading {"level":2} -->
+<h2 class="wp-block-heading">' . $innerHTML . '</h2>
+<!-- /wp:heading -->
+
+';
+                break;
+
+            case 'h3':
+                $output .= '<!-- wp:heading {"level":3} -->
+<h3 class="wp-block-heading">' . $innerHTML . '</h3>
+<!-- /wp:heading -->
+
+';
+                break;
+
+            case 'h4':
+                $output .= '<!-- wp:heading {"level":4} -->
+<h4 class="wp-block-heading">' . $innerHTML . '</h4>
+<!-- /wp:heading -->
+
+';
+                break;
+
+            case 'ul':
+                $output .= '<!-- wp:list -->
+<ul class="wp-block-list">' . $innerHTML . '</ul>
+<!-- /wp:list -->
+
+';
+                break;
+
+            case 'ol':
+                $output .= '<!-- wp:list {"ordered":true} -->
+<ol class="wp-block-list">' . $innerHTML . '</ol>
+<!-- /wp:list -->
+
+';
+                break;
+
+            default:
+                // Wrap unknown tags in paragraph
+                $output .= '<!-- wp:paragraph -->
+<p>' . $dom->saveHTML($node) . '</p>
+<!-- /wp:paragraph -->
+
+';
+                break;
+        }
+    }
+
+    return $output;
 }
 ?>
