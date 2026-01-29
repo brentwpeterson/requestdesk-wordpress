@@ -94,22 +94,12 @@ function requestdesk_template_importer_page() {
             <form method="post" action="" enctype="multipart/form-data" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 20px;">
                 <?php wp_nonce_field('requestdesk_csv_template_import', 'requestdesk_csv_template_nonce'); ?>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <label for="template_type" style="font-weight: 600; display: block; margin-bottom: 8px;">Select Template:</label>
-                        <select name="template_type" id="template_type" class="regular-text" required>
-                            <option value="">Choose Template...</option>
-                            <option value="aeo_homepage">🎯 AEO Homepage Template</option>
-                            <option value="service_page">🔧 Service Page Template</option>
-                            <option value="aeo_about_page">📋 AEO About Page Template</option>
-                            <option value="auto_detect">🔍 Auto-Detect from CSV</option>
-                        </select>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">💡 <strong>Tip:</strong> Use "Auto-Detect" if your CSV has a <code>template_type</code> column (homepage, about, open_base, service)</p>
-                    </div>
-
+                <input type="hidden" name="template_type" value="auto_detect">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                     <div>
                         <label for="csv_file" style="font-weight: 600; display: block; margin-bottom: 8px;">Upload CSV File:</label>
                         <input type="file" name="csv_file" id="csv_file" accept=".csv" required style="width: 100%;">
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">The template type is auto-detected from the <code>template_type</code> column in your CSV (homepage, about, service).</p>
                     </div>
 
                     <div style="display: flex; align-items: end;">
@@ -129,12 +119,22 @@ function requestdesk_template_importer_page() {
                     </div>
 
                     <div>
-                        <h4 style="margin: 0 0 10px 0;">📥 Download Example:</h4>
-                        <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/aeo-universal-template-csv-example.csv'; ?>" class="button button-secondary" download="aeo-universal-template-example.csv">
-                            <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> Download Universal CSV Template
-                        </a>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">Contains examples for both Homepage and About page templates</p>
-                        <p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Use this as a starting point for your content</p>
+                        <h4 style="margin: 0 0 10px 0;">Download Examples:</h4>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-homepage.csv'; ?>" class="button button-secondary" download="example-csv-homepage.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> Homepage Template
+                            </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-about.csv'; ?>" class="button button-secondary" download="example-csv-about.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> About Page Template
+                            </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-service.csv'; ?>" class="button button-secondary" download="example-csv-service.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> Service Page Template
+                            </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-landing-page.csv'; ?>" class="button button-secondary" download="example-csv-landing-page.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> General Landing Page
+                            </a>
+                        </div>
+                        <p style="font-size: 12px; color: #666; margin-top: 8px;">Each file has one row with the <code>template_type</code> pre-filled for auto-detection.</p>
                     </div>
                 </div>
             </form>
@@ -1058,6 +1058,59 @@ function requestdesk_get_about_template() {
  */
 function requestdesk_import_service_page_csv($csv_data) {
     global $wpdb;
+
+    // Map universal template fields to service page fields when present
+    // This allows CSVs using the universal format (hero_headline, service_1_title, etc.)
+    // to work with the service page builder
+    $field_map = array(
+        'title'            => 'hero_headline',
+        'subtitle'         => 'hero_subheadline',
+        'hero_tagline'     => 'company_tagline',
+        'page_slug'        => 'hero_headline',  // will be sanitized into a slug
+    );
+    foreach ($field_map as $service_field => $universal_field) {
+        if (empty($csv_data[$service_field]) && !empty($csv_data[$universal_field])) {
+            $csv_data[$service_field] = $csv_data[$universal_field];
+        }
+    }
+
+    // Map service blocks to sections
+    for ($i = 1; $i <= 3; $i++) {
+        if (empty($csv_data["section_{$i}_heading"]) && !empty($csv_data["service_{$i}_title"])) {
+            $csv_data["section_{$i}_heading"] = $csv_data["service_{$i}_title"];
+        }
+        if (empty($csv_data["section_{$i}_content"]) && !empty($csv_data["service_{$i}_description"])) {
+            $csv_data["section_{$i}_content"] = $csv_data["service_{$i}_description"];
+        }
+    }
+
+    // Map about_description to section 4 if no section_4 exists
+    if (empty($csv_data['section_4_heading']) && !empty($csv_data['about_description'])) {
+        $csv_data['section_4_content'] = $csv_data['about_description'];
+    }
+
+    // Map FAQ content to section 5 if no section_5 exists
+    if (empty($csv_data['section_5_heading'])) {
+        $faq_html = '';
+        for ($i = 1; $i <= 4; $i++) {
+            $q = $csv_data["faq_{$i}_question"] ?? '';
+            $a = $csv_data["faq_{$i}_answer"] ?? '';
+            if (!empty($q) && !empty($a)) {
+                $faq_html .= '<h3>' . esc_html($q) . '</h3><p>' . esc_html($a) . '</p>';
+            }
+        }
+        if (!empty($faq_html)) {
+            $csv_data['section_5_heading'] = 'Frequently Asked Questions';
+            $csv_data['section_5_content'] = $faq_html;
+        }
+    }
+
+    // Map hero CTA to bottom CTA section
+    if (empty($csv_data['cta_heading']) && !empty($csv_data['hero_headline'])) {
+        $csv_data['cta_heading'] = $csv_data['hero_cta_text'] ?? 'Get Started';
+        $csv_data['cta_button_text'] = $csv_data['hero_cta_text'] ?? 'Get Started';
+        $csv_data['cta_button_url'] = $csv_data['hero_cta_url'] ?? '#';
+    }
 
     // Get page title and slug from CSV
     $page_title = sanitize_text_field($csv_data['title'] ?? 'Service Page');
