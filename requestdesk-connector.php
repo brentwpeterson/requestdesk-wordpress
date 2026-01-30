@@ -40,7 +40,8 @@ $plugin_files = array(
     'admin/aeo-template-enhanced.php',
     'admin/aeo-template-about.php',
     'includes/class-requestdesk-plugin-updater.php',
-    'includes/class-requestdesk-frontend-qa.php'
+    'includes/class-requestdesk-frontend-qa.php',
+    'includes/class-requestdesk-child-grid.php'
 );
 
 foreach ($plugin_files as $file) {
