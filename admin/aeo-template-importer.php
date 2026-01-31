@@ -99,7 +99,7 @@ function requestdesk_template_importer_page() {
                     <div>
                         <label for="csv_file" style="font-weight: 600; display: block; margin-bottom: 8px;">Upload CSV File:</label>
                         <input type="file" name="csv_file" id="csv_file" accept=".csv" required style="width: 100%;">
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">The template type is auto-detected from the <code>template_type</code> column in your CSV (homepage, about, service).</p>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">The template type is auto-detected from the <code>template_type</code> column in your CSV (homepage, about, service, leadmagnet, generateblocks).</p>
                     </div>
 
                     <div style="display: flex; align-items: end;">
@@ -132,6 +132,12 @@ function requestdesk_template_importer_page() {
                             </a>
                             <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-landing-page.csv'; ?>" class="button button-secondary" download="example-csv-landing-page.csv">
                                 <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> General Landing Page
+                            </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-leadmagnet.csv'; ?>" class="button button-secondary" download="example-csv-leadmagnet.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> Lead Magnet Page
+                            </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-generateblocks.csv'; ?>" class="button button-secondary" download="example-csv-generateblocks.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> GenerateBlocks Landing Page
                             </a>
                         </div>
                         <p style="font-size: 12px; color: #666; margin-top: 8px;">Each file has one row with the <code>template_type</code> pre-filled for auto-detection.</p>
@@ -318,10 +324,20 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 case 'service_page':
                     $detected_type = 'service_page';
                     break;
+                    break;
+                case 'leadmagnet':
+                case 'leadmagnet_page':
+                case 'lead_magnet':
+                    $detected_type = 'leadmagnet_page';
+                    break;
+                case 'generateblocks':
+                case 'gb':
+                    $detected_type = 'generateblocks';
+                    break;
                 default:
                     return array(
                         'success' => false,
-                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service'
+                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service, leadmagnet, generateblocks'
                     );
             }
 
@@ -343,6 +359,10 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 return requestdesk_import_aeo_about_csv($csv_data);
             case 'service_page':
                 return requestdesk_import_service_page_csv($csv_data);
+            case 'leadmagnet_page':
+                return requestdesk_import_leadmagnet_csv($csv_data);
+            case 'generateblocks':
+                return requestdesk_import_generateblocks_csv($csv_data);
             default:
                 return array(
                     'success' => false,
@@ -1434,5 +1454,1437 @@ function requestdesk_html_to_blocks($html) {
     }
 
     return $output;
+}
+
+/**
+ * Import GenerateBlocks Landing Page from CSV data
+ * Creates a draft page with all applicable GB V2 sections
+ */
+function requestdesk_import_generateblocks_csv($csv_data) {
+    global $wpdb;
+
+    // Get page title and slug from CSV
+    $page_title = sanitize_text_field($csv_data['page_title'] ?? 'GenerateBlocks Landing Page');
+    $page_slug = sanitize_title($csv_data['page_slug'] ?? 'gb-landing-page');
+
+    // Check if page with this slug already exists
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+        $page_slug
+    ));
+
+    if ($existing) {
+        // Add timestamp to make unique
+        $page_slug = $page_slug . '-' . current_time('Y-m-d-H-i');
+    }
+
+    // Build the page content using GenerateBlocks V2 structure
+    $template_content = requestdesk_build_generateblocks_page_content($csv_data);
+
+    // Prepare page data
+    $current_time = current_time('mysql');
+    $current_time_gmt = current_time('mysql', 1);
+
+    $page_data = array(
+        'post_author' => get_current_user_id(),
+        'post_date' => $current_time,
+        'post_date_gmt' => $current_time_gmt,
+        'post_content' => $template_content,
+        'post_title' => $page_title,
+        'post_excerpt' => sanitize_text_field($csv_data['meta_description'] ?? ''),
+        'post_status' => 'draft',
+        'comment_status' => 'closed',
+        'ping_status' => 'closed',
+        'post_password' => '',
+        'post_name' => $page_slug,
+        'to_ping' => '',
+        'pinged' => '',
+        'post_modified' => $current_time,
+        'post_modified_gmt' => $current_time_gmt,
+        'post_content_filtered' => '',
+        'post_parent' => 0,
+        'guid' => '',
+        'menu_order' => 0,
+        'post_type' => 'page',
+        'post_mime_type' => '',
+        'comment_count' => 0
+    );
+
+    // Insert the page
+    $result = $wpdb->insert($wpdb->posts, $page_data);
+
+    if ($result !== false) {
+        $page_id = $wpdb->insert_id;
+
+        // Update GUID
+        $wpdb->update(
+            $wpdb->posts,
+            array('guid' => get_permalink($page_id)),
+            array('ID' => $page_id)
+        );
+
+        // Set page to GP Canvas template for full-width layout
+        update_post_meta($page_id, '_wp_page_template', 'page-builder-canvas.php');
+
+        // Set GeneratePress layout options for full-width
+        update_post_meta($page_id, '_generate_sidebar_layout', 'no-sidebar');
+        update_post_meta($page_id, '_generate_content_width', 'full-width');
+
+        // Auto-enable landing page styling (removes header, enables full-width hero)
+        update_post_meta($page_id, '_requestdesk_landing_page', true);
+
+        // Set Yoast SEO meta if available
+        if (!empty($csv_data['meta_title'])) {
+            update_post_meta($page_id, '_yoast_wpseo_title', sanitize_text_field($csv_data['meta_title']));
+        }
+        if (!empty($csv_data['meta_description'])) {
+            update_post_meta($page_id, '_yoast_wpseo_metadesc', sanitize_text_field($csv_data['meta_description']));
+        }
+
+        return array(
+            'success' => true,
+            'page_id' => $page_id,
+            'page_title' => $page_title,
+            'template_name' => 'GenerateBlocks Landing Page'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => 'Database insertion failed: ' . $wpdb->last_error
+        );
+    }
+}
+
+/**
+ * Build GenerateBlocks Landing Page Content from CSV data
+ * Uses GenerateBlocks V2 block markup for all sections
+ *
+ * Sections (rendered if CSV data is present):
+ *   1. Hero (hero)
+ *   2. Stats (stat)
+ *   3. Feature List (feat)
+ *   4. Card Grid (card)
+ *   5. Services (serv)
+ *   6. Pricing (pric) - from template file
+ *   7. Testimonials (test)
+ *   8. FAQ (faq0)
+ *   9. Comparison Table (comp)
+ *  10. Timeline (time)
+ *  11. Team Grid (team)
+ *  12. CTA Banner (bcta)
+ *  13. Text Section (txts)
+ */
+function requestdesk_build_generateblocks_page_content($csv_data) {
+    $content = '';
+
+    // =========================================================================
+    // Section 1: Hero (dark background #0a0a0a)
+    // =========================================================================
+    if (!empty($csv_data['hero_headline'])) {
+        $hero_headline = esc_html($csv_data['hero_headline']);
+        $hero_subtitle_1 = esc_html($csv_data['hero_subtitle_1'] ?? '');
+        $hero_subtitle_2 = esc_html($csv_data['hero_subtitle_2'] ?? '');
+        $hero_subtitle_3 = esc_html($csv_data['hero_subtitle_3'] ?? '');
+        $hero_cta_text = esc_html($csv_data['hero_cta_text'] ?? 'Get Started');
+        $hero_cta_url = esc_url($csv_data['hero_cta_url'] ?? '#');
+
+        // Hero outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"hero001","tagName":"section","styles":{"paddingTop":"5rem","paddingBottom":"5rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-hero001{padding-top:5rem;padding-bottom:5rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-hero001">';
+
+        // Hero inner container (centered, max-width)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"hero002","tagName":"div","styles":{"maxWidth":"900px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","textAlign":"center"},"css":".gb-element-hero002{max-width:900px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;text-align:center}"} -->
+<div class="gb-element gb-element-hero002">';
+
+        // H1 Headline
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"hero003a","tagName":"h1","styles":{"fontSize":"clamp(2rem, 5vw, 3.25rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#ffffff","marginBottom":"1.25rem","lineHeight":"1.1"},"css":".gb-text-hero003a{font-size:clamp(2rem, 5vw, 3.25rem);font-weight:900;letter-spacing:-0.03em;color:#ffffff;margin-bottom:1.25rem;line-height:1.1}"} -->
+<h1 class="gb-text gb-text-hero003a">' . $hero_headline . '</h1>
+<!-- /wp:generateblocks/text -->';
+
+        // H2 Subtitle 1
+        if (!empty($csv_data['hero_subtitle_1'])) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"hero004a","tagName":"h2","styles":{"fontSize":"clamp(1.25rem, 3vw, 1.75rem)","fontWeight":"600","color":"#ffffff","marginBottom":"1rem","lineHeight":"1.3"},"css":".gb-text-hero004a{font-size:clamp(1.25rem, 3vw, 1.75rem);font-weight:600;color:#ffffff;margin-bottom:1rem;line-height:1.3}"} -->
+<h2 class="gb-text gb-text-hero004a">' . $hero_subtitle_1 . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // P Subtitle 2
+        if (!empty($csv_data['hero_subtitle_2'])) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"hero005a","tagName":"p","styles":{"fontSize":"1.125rem","color":"rgba(255,255,255,0.8)","marginBottom":"0.75rem","lineHeight":"1.6","maxWidth":"700px","marginLeft":"auto","marginRight":"auto"},"css":".gb-text-hero005a{font-size:1.125rem;color:rgba(255,255,255,0.8);margin-bottom:0.75rem;line-height:1.6;max-width:700px;margin-left:auto;margin-right:auto}"} -->
+<p class="gb-text gb-text-hero005a">' . $hero_subtitle_2 . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // P Subtitle 3
+        if (!empty($csv_data['hero_subtitle_3'])) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"hero006a","tagName":"p","styles":{"fontSize":"1rem","color":"rgba(255,255,255,0.65)","marginBottom":"2rem","lineHeight":"1.6","maxWidth":"650px","marginLeft":"auto","marginRight":"auto"},"css":".gb-text-hero006a{font-size:1rem;color:rgba(255,255,255,0.65);margin-bottom:2rem;line-height:1.6;max-width:650px;margin-left:auto;margin-right:auto}"} -->
+<p class="gb-text gb-text-hero006a">' . $hero_subtitle_3 . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // CTA Button
+        if (!empty($csv_data['hero_cta_text'])) {
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"hero007","tagName":"div","styles":{"textAlign":"center","marginTop":"1.5rem"},"css":".gb-element-hero007{text-align:center;margin-top:1.5rem}"} -->
+<div class="gb-element gb-element-hero007">';
+
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"hero007a","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $hero_cta_url . '"}],"styles":{"display":"inline-block","padding":"1rem 2.5rem","backgroundColor":"#c0392b","color":"#ffffff","borderRadius":"2rem","fontSize":"1.125rem","fontWeight":"700","textDecoration":"none","letterSpacing":"0.01em"},"css":".gb-text-hero007a{display:inline-block;padding:1rem 2.5rem;background-color:#c0392b;color:#ffffff;border-radius:2rem;font-size:1.125rem;font-weight:700;text-decoration:none;letter-spacing:0.01em;transition:all 0.3s}.gb-text-hero007a:hover{background-color:#a33024;transform:translateY(-2px);box-shadow:0 4px 12px rgba(192,57,43,0.3)}"} -->
+<a class="gb-text gb-text-hero007a" href="' . $hero_cta_url . '">' . $hero_cta_text . '</a>
+<!-- /wp:generateblocks/text -->';
+
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close hero inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close hero section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 2: Stats (dark background #0a0a0a, grid of stat cards)
+    // =========================================================================
+    $has_stats = false;
+    for ($i = 1; $i <= 4; $i++) {
+        if (!empty($csv_data["stat_{$i}_number"])) {
+            $has_stats = true;
+            break;
+        }
+    }
+
+    if ($has_stats) {
+        // Count stats to determine grid layout
+        $stat_count = 0;
+        for ($i = 1; $i <= 4; $i++) {
+            if (!empty($csv_data["stat_{$i}_number"])) {
+                $stat_count++;
+            }
+        }
+        $stat_grid_cols = 'repeat(' . $stat_count . ', 1fr)';
+
+        // Stats outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"stat001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-stat001{padding-top:4rem;padding-bottom:4rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-stat001">';
+
+        // Stats inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"stat002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-stat002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-stat002">';
+
+        // Stats grid (adapts columns to number of stats, 2 columns mobile)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"stat003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"' . $stat_grid_cols . '","gap":"1.5rem"},"css":".gb-element-stat003{display:grid;grid-template-columns:' . $stat_grid_cols . ';gap:1.5rem}@media(max-width:768px){.gb-element-stat003{grid-template-columns:repeat(2, 1fr)}}"} -->
+<div class="gb-element gb-element-stat003">';
+
+        // Stat cards
+        for ($i = 1; $i <= 4; $i++) {
+            $stat_number = esc_html($csv_data["stat_{$i}_number"] ?? '');
+            $stat_label = esc_html($csv_data["stat_{$i}_label"] ?? '');
+
+            if (empty($stat_number)) {
+                continue;
+            }
+
+            $card_id = 'stat' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Stat card with glass effect
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . '","tagName":"div","styles":{"backgroundColor":"rgba(255,255,255,0.05)","border":"1px solid rgba(255,255,255,0.1)","borderRadius":"1rem","padding":"2rem 1.5rem","textAlign":"center"},"css":".gb-element-' . $card_id . '{background-color:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:1rem;padding:2rem 1.5rem;text-align:center;transition:all 0.3s}.gb-element-' . $card_id . ':hover{transform:translateY(-4px);background-color:rgba(255,255,255,0.08);box-shadow:0 8px 32px rgba(0,0,0,0.3)}"} -->
+<div class="gb-element gb-element-' . $card_id . '">';
+
+            // Stat number (large, accent color)
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'a","tagName":"span","styles":{"display":"block","fontSize":"clamp(2rem, 4vw, 2.75rem)","fontWeight":"900","color":"#c0392b","marginBottom":"0.5rem","letterSpacing":"-0.02em","lineHeight":"1.1"},"css":".gb-text-' . $card_id . 'a{display:block;font-size:clamp(2rem, 4vw, 2.75rem);font-weight:900;color:#c0392b;margin-bottom:0.5rem;letter-spacing:-0.02em;line-height:1.1}"} -->
+<span class="gb-text gb-text-' . $card_id . 'a">' . $stat_number . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Stat label (small, uppercase, muted white)
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'b","tagName":"span","styles":{"display":"block","fontSize":"0.8125rem","fontWeight":"600","color":"rgba(255,255,255,0.6)","textTransform":"uppercase","letterSpacing":"0.08em"},"css":".gb-text-' . $card_id . 'b{display:block;font-size:0.8125rem;font-weight:600;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em}"} -->
+<span class="gb-text gb-text-' . $card_id . 'b">' . $stat_label . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Close stat card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close stats grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close stats section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 3: Feature List (light bg #f5f5f3, 3-column grid with images)
+    // =========================================================================
+    $features_heading = esc_html($csv_data['features_heading'] ?? '');
+    $has_features = false;
+    for ($i = 1; $i <= 4; $i++) {
+        if (!empty($csv_data["feature_{$i}_title"])) {
+            $has_features = true;
+            break;
+        }
+    }
+
+    if ($has_features) {
+        // Count features to determine grid layout
+        $feat_count = 0;
+        for ($i = 1; $i <= 4; $i++) {
+            if (!empty($csv_data["feature_{$i}_title"])) {
+                $feat_count++;
+            }
+        }
+        $grid_cols = ($feat_count > 3) ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
+        $grid_cols_css = ($feat_count > 3) ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)';
+
+        // Features outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"feat001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-feat001{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-feat001">';
+
+        // Features inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"feat002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-feat002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-feat002">';
+
+        // Section heading
+        if (!empty($features_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"feat002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-feat002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-feat002a">' . $features_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Responsive grid (2x2 for 4 items, 3-col for 3 or fewer)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"feat003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"' . $grid_cols . '","gap":"2rem"},"css":".gb-element-feat003{display:grid;grid-template-columns:' . $grid_cols_css . ';gap:2rem}@media(max-width:768px){.gb-element-feat003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-feat003">';
+
+        // Feature cards
+        for ($i = 1; $i <= 4; $i++) {
+            $feat_title = esc_html($csv_data["feature_{$i}_title"] ?? '');
+            $feat_desc = esc_html($csv_data["feature_{$i}_description"] ?? '');
+            $feat_img = esc_url($csv_data["feature_{$i}_image_url"] ?? '');
+
+            if (empty($feat_title) && empty($feat_desc)) {
+                continue;
+            }
+
+            $card_id = 'feat' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Card container
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"1rem","overflow":"hidden","boxShadow":"0 1px 3px rgba(0,0,0,0.08)"},"css":".gb-element-' . $card_id . '{background-color:#ffffff;border-radius:1rem;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);transition:all 0.3s}.gb-element-' . $card_id . ':hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.12)}"} -->
+<div class="gb-element gb-element-' . $card_id . '">';
+
+            // Card image
+            if (!empty($feat_img)) {
+                $feat_img_alt = esc_attr($csv_data["feature_{$i}_title"] ?? '');
+                $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . 'img","tagName":"div","styles":{"overflow":"hidden","height":"220px"},"css":".gb-element-' . $card_id . 'img{overflow:hidden;height:220px}.gb-element-' . $card_id . 'img img{width:100%;height:100%;object-fit:cover}"} -->
+<div class="gb-element gb-element-' . $card_id . 'img"><img src="' . $feat_img . '" alt="' . $feat_img_alt . '" style="width:100%;height:100%;object-fit:cover" /></div>
+<!-- /wp:generateblocks/element -->';
+            }
+
+            // Card text container
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . 'txt","tagName":"div","styles":{"padding":"1.5rem"},"css":".gb-element-' . $card_id . 'txt{padding:1.5rem}"} -->
+<div class="gb-element gb-element-' . $card_id . 'txt">';
+
+            // Card title
+            if (!empty($feat_title)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'a","tagName":"h3","styles":{"fontSize":"1.25rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.75rem"},"css":".gb-text-' . $card_id . 'a{font-size:1.25rem;font-weight:700;color:#0a0a0a;margin-bottom:0.75rem}"} -->
+<h3 class="gb-text gb-text-' . $card_id . 'a">' . $feat_title . '</h3>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Card description
+            if (!empty($feat_desc)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-' . $card_id . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $card_id . 'b">' . $feat_desc . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close card text container
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+            // Close card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close features section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 4: Card Grid (white bg #ffffff, 3-column simple cards)
+    // =========================================================================
+    $cards_heading = esc_html($csv_data['cards_heading'] ?? '');
+    $has_cards = false;
+    for ($i = 1; $i <= 3; $i++) {
+        if (!empty($csv_data["card_{$i}_title"])) {
+            $has_cards = true;
+            break;
+        }
+    }
+
+    if ($has_cards || !empty($cards_heading)) {
+        // Cards outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"card001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-card001{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-card001">';
+
+        // Cards inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"card002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-card002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-card002">';
+
+        // Section heading
+        if (!empty($cards_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"card002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-card002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-card002a">' . $cards_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-column grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"card003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(3, 1fr)","gap":"2rem"},"css":".gb-element-card003{display:grid;grid-template-columns:repeat(3, 1fr);gap:2rem}@media(max-width:768px){.gb-element-card003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-card003">';
+
+        // Card items
+        for ($i = 1; $i <= 3; $i++) {
+            $card_title = esc_html($csv_data["card_{$i}_title"] ?? '');
+            $card_desc = esc_html($csv_data["card_{$i}_description"] ?? '');
+
+            if (empty($card_title)) {
+                continue;
+            }
+
+            $cid = 'card' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Card container
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $cid . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"1rem","padding":"2rem","boxShadow":"0 2px 8px rgba(0,0,0,0.06)","border":"1px solid #e8e8e8"},"css":".gb-element-' . $cid . '{background-color:#ffffff;border-radius:1rem;padding:2rem;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid #e8e8e8;transition:all 0.3s}.gb-element-' . $cid . ':hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.1)}"} -->
+<div class="gb-element gb-element-' . $cid . '">';
+
+            // Card title
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $cid . 'a","tagName":"h3","styles":{"fontSize":"1.25rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.75rem"},"css":".gb-text-' . $cid . 'a{font-size:1.25rem;font-weight:700;color:#0a0a0a;margin-bottom:0.75rem}"} -->
+<h3 class="gb-text gb-text-' . $cid . 'a">' . $card_title . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Card description
+            if (!empty($card_desc)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $cid . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-' . $cid . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $cid . 'b">' . $card_desc . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close cards section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 5: Services (light bg #f5f5f3, 3x2 grid)
+    // =========================================================================
+    $services_heading = esc_html($csv_data['services_heading'] ?? '');
+    $has_services = false;
+    for ($i = 1; $i <= 6; $i++) {
+        if (!empty($csv_data["service_{$i}_title"])) {
+            $has_services = true;
+            break;
+        }
+    }
+
+    if ($has_services || !empty($services_heading)) {
+        // Services outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"serv001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-serv001{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-serv001">';
+
+        // Services inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"serv002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-serv002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-serv002">';
+
+        // Section heading
+        if (!empty($services_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"serv002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-serv002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-serv002a">' . $services_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-column grid (2 rows = 6 cards)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"serv003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(3, 1fr)","gap":"1.5rem"},"css":".gb-element-serv003{display:grid;grid-template-columns:repeat(3, 1fr);gap:1.5rem}@media(max-width:768px){.gb-element-serv003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-serv003">';
+
+        // Service cards
+        for ($i = 1; $i <= 6; $i++) {
+            $serv_title = esc_html($csv_data["service_{$i}_title"] ?? '');
+            $serv_desc = esc_html($csv_data["service_{$i}_description"] ?? '');
+            $serv_detail = esc_html($csv_data["service_{$i}_detail"] ?? '');
+
+            if (empty($serv_title)) {
+                continue;
+            }
+
+            $sid = 'serv' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Card container with border
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $sid . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"0.75rem","padding":"1.75rem","border":"1px solid #e5e5e5"},"css":".gb-element-' . $sid . '{background-color:#ffffff;border-radius:0.75rem;padding:1.75rem;border:1px solid #e5e5e5;transition:all 0.3s}.gb-element-' . $sid . ':hover{border-color:#c0392b;box-shadow:0 4px 16px rgba(0,0,0,0.08)}"} -->
+<div class="gb-element gb-element-' . $sid . '">';
+
+            // Card title
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $sid . 'a","tagName":"h3","styles":{"fontSize":"1.125rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.75rem"},"css":".gb-text-' . $sid . 'a{font-size:1.125rem;font-weight:700;color:#0a0a0a;margin-bottom:0.75rem}"} -->
+<h3 class="gb-text gb-text-' . $sid . 'a">' . $serv_title . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Card description
+            if (!empty($serv_desc)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $sid . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0.5rem"},"css":".gb-text-' . $sid . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0.5rem}"} -->
+<p class="gb-text gb-text-' . $sid . 'b">' . $serv_desc . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Card detail
+            if (!empty($serv_detail)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $sid . 'c","tagName":"p","styles":{"fontSize":"0.875rem","color":"#7a7a7a","lineHeight":"1.5","marginBottom":"0","fontStyle":"italic"},"css":".gb-text-' . $sid . 'c{font-size:0.875rem;color:#7a7a7a;line-height:1.5;margin-bottom:0;font-style:italic}"} -->
+<p class="gb-text gb-text-' . $sid . 'c">' . $serv_detail . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close services section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 6: Testimonials (light bg #f5f5f3, 3-column grid)
+    // =========================================================================
+    $testimonials_heading = esc_html($csv_data['testimonials_heading'] ?? '');
+    $has_testimonials = false;
+    for ($i = 1; $i <= 3; $i++) {
+        if (!empty($csv_data["testimonial_{$i}_quote"])) {
+            $has_testimonials = true;
+            break;
+        }
+    }
+
+    if ($has_testimonials) {
+        // Testimonials outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"test001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-test001{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-test001">';
+
+        // Testimonials inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"test002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-test002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-test002">';
+
+        // Section heading
+        if (!empty($testimonials_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"test002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-test002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-test002a">' . $testimonials_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-column grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"test003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(3, 1fr)","gap":"2rem"},"css":".gb-element-test003{display:grid;grid-template-columns:repeat(3, 1fr);gap:2rem}@media(max-width:768px){.gb-element-test003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-test003">';
+
+        // Testimonial cards
+        for ($i = 1; $i <= 3; $i++) {
+            $test_quote = esc_html($csv_data["testimonial_{$i}_quote"] ?? '');
+            $test_author = esc_html($csv_data["testimonial_{$i}_author"] ?? '');
+            $test_role = esc_html($csv_data["testimonial_{$i}_role"] ?? '');
+
+            if (empty($test_quote)) {
+                continue;
+            }
+
+            $tid = 'test' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Testimonial card
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $tid . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"1rem","padding":"2rem","boxShadow":"0 2px 8px rgba(0,0,0,0.06)","position":"relative"},"css":".gb-element-' . $tid . '{background-color:#ffffff;border-radius:1rem;padding:2rem;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative}"} -->
+<div class="gb-element gb-element-' . $tid . '">';
+
+            // Quote mark decoration
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tid . 'q","tagName":"span","styles":{"display":"block","fontSize":"3rem","color":"#c0392b","lineHeight":"1","marginBottom":"0.5rem","fontFamily":"Georgia, serif"},"css":".gb-text-' . $tid . 'q{display:block;font-size:3rem;color:#c0392b;line-height:1;margin-bottom:0.5rem;font-family:Georgia, serif}"} -->
+<span class="gb-text gb-text-' . $tid . 'q">&ldquo;</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Quote text
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tid . 'a","tagName":"p","styles":{"fontSize":"1rem","color":"#333333","lineHeight":"1.7","marginBottom":"1.5rem","fontStyle":"italic"},"css":".gb-text-' . $tid . 'a{font-size:1rem;color:#333333;line-height:1.7;margin-bottom:1.5rem;font-style:italic}"} -->
+<p class="gb-text gb-text-' . $tid . 'a">' . $test_quote . '</p>
+<!-- /wp:generateblocks/text -->';
+
+            // Author name
+            if (!empty($test_author)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tid . 'b","tagName":"span","styles":{"display":"block","fontSize":"0.9375rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.25rem"},"css":".gb-text-' . $tid . 'b{display:block;font-size:0.9375rem;font-weight:700;color:#0a0a0a;margin-bottom:0.25rem}"} -->
+<span class="gb-text gb-text-' . $tid . 'b">' . $test_author . '</span>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Author role
+            if (!empty($test_role)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tid . 'c","tagName":"span","styles":{"display":"block","fontSize":"0.8125rem","color":"#7a7a7a"},"css":".gb-text-' . $tid . 'c{display:block;font-size:0.8125rem;color:#7a7a7a}"} -->
+<span class="gb-text gb-text-' . $tid . 'c">' . $test_role . '</span>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close testimonial card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close testimonials section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 8: FAQ (white bg #ffffff, 2-column grid)
+    // =========================================================================
+    $faq_heading = esc_html($csv_data['faq_heading'] ?? '');
+    $has_faq = false;
+    for ($i = 1; $i <= 6; $i++) {
+        if (!empty($csv_data["faq_{$i}_question"])) {
+            $has_faq = true;
+            break;
+        }
+    }
+
+    if ($has_faq) {
+        // FAQ outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"faq0001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-faq0001{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-faq0001">';
+
+        // FAQ inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"faq0002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-faq0002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-faq0002">';
+
+        // Section heading
+        if (!empty($faq_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"faq0002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-faq0002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-faq0002a">' . $faq_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 2-column grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"faq0003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(2, 1fr)","gap":"2rem"},"css":".gb-element-faq0003{display:grid;grid-template-columns:repeat(2, 1fr);gap:2rem}@media(max-width:768px){.gb-element-faq0003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-faq0003">';
+
+        // FAQ items
+        for ($i = 1; $i <= 6; $i++) {
+            $faq_question = esc_html($csv_data["faq_{$i}_question"] ?? '');
+            $faq_answer = esc_html($csv_data["faq_{$i}_answer"] ?? '');
+
+            if (empty($faq_question)) {
+                continue;
+            }
+
+            $fid = 'faq0' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // FAQ item container
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $fid . '","tagName":"div","styles":{"backgroundColor":"#f8f9fa","borderRadius":"0.75rem","padding":"1.75rem","border":"1px solid #e8e8e8"},"css":".gb-element-' . $fid . '{background-color:#f8f9fa;border-radius:0.75rem;padding:1.75rem;border:1px solid #e8e8e8}"} -->
+<div class="gb-element gb-element-' . $fid . '">';
+
+            // Question
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $fid . 'a","tagName":"h3","styles":{"fontSize":"1.0625rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.75rem"},"css":".gb-text-' . $fid . 'a{font-size:1.0625rem;font-weight:700;color:#0a0a0a;margin-bottom:0.75rem}"} -->
+<h3 class="gb-text gb-text-' . $fid . 'a">' . $faq_question . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Answer
+            if (!empty($faq_answer)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $fid . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-' . $fid . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $fid . 'b">' . $faq_answer . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close FAQ item
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close FAQ section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 9: Comparison Table (light bg #f5f5f3)
+    // =========================================================================
+    if (!empty($csv_data['comparison_col1_name'])) {
+        $comp_heading = esc_html($csv_data['comparison_heading'] ?? '');
+        $comp_col1 = esc_html($csv_data['comparison_col1_name']);
+        $comp_col2 = esc_html($csv_data['comparison_col2_name'] ?? '');
+
+        // Comparison outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"comp001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-comp001{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-comp001">';
+
+        // Comparison inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"comp002","tagName":"div","styles":{"maxWidth":"900px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-comp002{max-width:900px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-comp002">';
+
+        // Section heading
+        if (!empty($comp_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"comp002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-comp002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-comp002a">' . $comp_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Table container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"comp003","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"1rem","overflow":"hidden","boxShadow":"0 2px 8px rgba(0,0,0,0.06)"},"css":".gb-element-comp003{background-color:#ffffff;border-radius:1rem;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}"} -->
+<div class="gb-element gb-element-comp003">';
+
+        // Header row
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"comp004","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"1fr 1fr 1fr","backgroundColor":"#0a0a0a","padding":"1rem 1.5rem"},"css":".gb-element-comp004{display:grid;grid-template-columns:1fr 1fr 1fr;background-color:#0a0a0a;padding:1rem 1.5rem}"} -->
+<div class="gb-element gb-element-comp004">';
+
+        // Feature header
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"comp004a","tagName":"span","styles":{"fontSize":"0.875rem","fontWeight":"700","color":"#ffffff","textTransform":"uppercase","letterSpacing":"0.05em"},"css":".gb-text-comp004a{font-size:0.875rem;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.05em}"} -->
+<span class="gb-text gb-text-comp004a">Feature</span>
+<!-- /wp:generateblocks/text -->';
+
+        // Col1 header
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"comp004b","tagName":"span","styles":{"fontSize":"0.875rem","fontWeight":"700","color":"#ffffff","textTransform":"uppercase","letterSpacing":"0.05em","textAlign":"center"},"css":".gb-text-comp004b{font-size:0.875rem;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.05em;text-align:center}"} -->
+<span class="gb-text gb-text-comp004b">' . $comp_col1 . '</span>
+<!-- /wp:generateblocks/text -->';
+
+        // Col2 header
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"comp004c","tagName":"span","styles":{"fontSize":"0.875rem","fontWeight":"700","color":"#ffffff","textTransform":"uppercase","letterSpacing":"0.05em","textAlign":"center"},"css":".gb-text-comp004c{font-size:0.875rem;font-weight:700;color:#ffffff;text-transform:uppercase;letter-spacing:0.05em;text-align:center}"} -->
+<span class="gb-text gb-text-comp004c">' . $comp_col2 . '</span>
+<!-- /wp:generateblocks/text -->';
+
+        // Close header row
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Data rows
+        for ($i = 1; $i <= 6; $i++) {
+            $row_feature = esc_html($csv_data["comparison_row_{$i}_feature"] ?? '');
+            $row_col1 = esc_html($csv_data["comparison_row_{$i}_col1"] ?? '');
+            $row_col2 = esc_html($csv_data["comparison_row_{$i}_col2"] ?? '');
+
+            if (empty($row_feature)) {
+                continue;
+            }
+
+            $rid = 'comp' . str_pad($i + 4, 3, '0', STR_PAD_LEFT);
+            $bg_color = ($i % 2 === 0) ? '#f8f9fa' : '#ffffff';
+
+            // Row
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $rid . '","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"1fr 1fr 1fr","padding":"1rem 1.5rem","backgroundColor":"' . $bg_color . '","borderBottom":"1px solid #eee"},"css":".gb-element-' . $rid . '{display:grid;grid-template-columns:1fr 1fr 1fr;padding:1rem 1.5rem;background-color:' . $bg_color . ';border-bottom:1px solid #eee}"} -->
+<div class="gb-element gb-element-' . $rid . '">';
+
+            // Feature name
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $rid . 'a","tagName":"span","styles":{"fontSize":"0.9375rem","fontWeight":"600","color":"#0a0a0a"},"css":".gb-text-' . $rid . 'a{font-size:0.9375rem;font-weight:600;color:#0a0a0a}"} -->
+<span class="gb-text gb-text-' . $rid . 'a">' . $row_feature . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Col1 value
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $rid . 'b","tagName":"span","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","textAlign":"center"},"css":".gb-text-' . $rid . 'b{font-size:0.9375rem;color:#5c5c5c;text-align:center}"} -->
+<span class="gb-text gb-text-' . $rid . 'b">' . $row_col1 . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Col2 value
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $rid . 'c","tagName":"span","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","textAlign":"center"},"css":".gb-text-' . $rid . 'c{font-size:0.9375rem;color:#5c5c5c;text-align:center}"} -->
+<span class="gb-text gb-text-' . $rid . 'c">' . $row_col2 . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            // Close row
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close table container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close comparison section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 10: Timeline (white bg #ffffff, vertical timeline)
+    // =========================================================================
+    $timeline_heading = esc_html($csv_data['timeline_heading'] ?? '');
+    $has_timeline = false;
+    for ($i = 1; $i <= 6; $i++) {
+        if (!empty($csv_data["timeline_{$i}_title"])) {
+            $has_timeline = true;
+            break;
+        }
+    }
+
+    if ($has_timeline) {
+        // Timeline outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"time001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-time001{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-time001">';
+
+        // Timeline inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"time002","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-time002{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-time002">';
+
+        // Section heading
+        if (!empty($timeline_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"time002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-time002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-time002a">' . $timeline_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Timeline items container with vertical line
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"time003","tagName":"div","styles":{"position":"relative","paddingLeft":"2.5rem"},"css":".gb-element-time003{position:relative;padding-left:2.5rem}.gb-element-time003::before{content:\"\";position:absolute;left:0.75rem;top:0;bottom:0;width:2px;background-color:#e5e5e5}"} -->
+<div class="gb-element gb-element-time003">';
+
+        // Timeline items
+        for ($i = 1; $i <= 6; $i++) {
+            $time_title = esc_html($csv_data["timeline_{$i}_title"] ?? '');
+            $time_desc = esc_html($csv_data["timeline_{$i}_description"] ?? '');
+            $time_date = esc_html($csv_data["timeline_{$i}_date"] ?? '');
+
+            if (empty($time_title)) {
+                continue;
+            }
+
+            $tmid = 'time' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Timeline item with dot
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $tmid . '","tagName":"div","styles":{"position":"relative","paddingBottom":"2rem","paddingLeft":"1rem"},"css":".gb-element-' . $tmid . '{position:relative;padding-bottom:2rem;padding-left:1rem}.gb-element-' . $tmid . '::before{content:\"\";position:absolute;left:-2rem;top:0.4rem;width:12px;height:12px;border-radius:50%;background-color:#c0392b;border:2px solid #ffffff;box-shadow:0 0 0 2px #c0392b}"} -->
+<div class="gb-element gb-element-' . $tmid . '">';
+
+            // Date label
+            if (!empty($time_date)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tmid . 'c","tagName":"span","styles":{"display":"inline-block","fontSize":"0.75rem","fontWeight":"700","color":"#c0392b","textTransform":"uppercase","letterSpacing":"0.05em","marginBottom":"0.5rem","backgroundColor":"rgba(192,57,43,0.08)","padding":"0.25rem 0.75rem","borderRadius":"1rem"},"css":".gb-text-' . $tmid . 'c{display:inline-block;font-size:0.75rem;font-weight:700;color:#c0392b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;background-color:rgba(192,57,43,0.08);padding:0.25rem 0.75rem;border-radius:1rem}"} -->
+<span class="gb-text gb-text-' . $tmid . 'c">' . $time_date . '</span>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Title
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tmid . 'a","tagName":"h3","styles":{"fontSize":"1.125rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.5rem"},"css":".gb-text-' . $tmid . 'a{font-size:1.125rem;font-weight:700;color:#0a0a0a;margin-bottom:0.5rem}"} -->
+<h3 class="gb-text gb-text-' . $tmid . 'a">' . $time_title . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Description
+            if (!empty($time_desc)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $tmid . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-' . $tmid . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $tmid . 'b">' . $time_desc . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close timeline item
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close timeline items container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close timeline section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 11: Team Grid (light bg #f5f5f3, card grid)
+    // =========================================================================
+    $team_heading = esc_html($csv_data['team_heading'] ?? '');
+    $has_team = false;
+    for ($i = 1; $i <= 6; $i++) {
+        if (!empty($csv_data["team_{$i}_name"])) {
+            $has_team = true;
+            break;
+        }
+    }
+
+    if ($has_team) {
+        // Team outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"team001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-team001{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-team001">';
+
+        // Team inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"team002","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-team002{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-team002">';
+
+        // Section heading
+        if (!empty($team_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"team002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-team002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-team002a">' . $team_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-column grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"team003","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(3, 1fr)","gap":"2rem"},"css":".gb-element-team003{display:grid;grid-template-columns:repeat(3, 1fr);gap:2rem}@media(max-width:768px){.gb-element-team003{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-team003">';
+
+        // Team member cards
+        for ($i = 1; $i <= 6; $i++) {
+            $team_name = esc_html($csv_data["team_{$i}_name"] ?? '');
+            $team_role = esc_html($csv_data["team_{$i}_role"] ?? '');
+            $team_img = esc_url($csv_data["team_{$i}_image_url"] ?? '');
+
+            if (empty($team_name)) {
+                continue;
+            }
+
+            $mid = 'team' . str_pad($i + 3, 3, '0', STR_PAD_LEFT);
+
+            // Team member card
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $mid . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"1rem","overflow":"hidden","boxShadow":"0 2px 8px rgba(0,0,0,0.06)","textAlign":"center"},"css":".gb-element-' . $mid . '{background-color:#ffffff;border-radius:1rem;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);text-align:center;transition:all 0.3s}.gb-element-' . $mid . ':hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.1)}"} -->
+<div class="gb-element gb-element-' . $mid . '">';
+
+            // Team member image
+            if (!empty($team_img)) {
+                $team_img_alt = esc_attr($csv_data["team_{$i}_name"] ?? '');
+                $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $mid . 'img","tagName":"div","styles":{"overflow":"hidden","height":"250px"},"css":".gb-element-' . $mid . 'img{overflow:hidden;height:250px}.gb-element-' . $mid . 'img img{width:100%;height:100%;object-fit:cover}"} -->
+<div class="gb-element gb-element-' . $mid . 'img"><img src="' . $team_img . '" alt="' . $team_img_alt . '" style="width:100%;height:100%;object-fit:cover" /></div>
+<!-- /wp:generateblocks/element -->';
+            }
+
+            // Text container
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $mid . 'txt","tagName":"div","styles":{"padding":"1.5rem"},"css":".gb-element-' . $mid . 'txt{padding:1.5rem}"} -->
+<div class="gb-element gb-element-' . $mid . 'txt">';
+
+            // Name
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $mid . 'a","tagName":"h3","styles":{"fontSize":"1.125rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.25rem"},"css":".gb-text-' . $mid . 'a{font-size:1.125rem;font-weight:700;color:#0a0a0a;margin-bottom:0.25rem}"} -->
+<h3 class="gb-text gb-text-' . $mid . 'a">' . $team_name . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Role
+            if (!empty($team_role)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $mid . 'b","tagName":"p","styles":{"fontSize":"0.875rem","color":"#7a7a7a","marginBottom":"0"},"css":".gb-text-' . $mid . 'b{font-size:0.875rem;color:#7a7a7a;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $mid . 'b">' . $team_role . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close text container
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+            // Close team member card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close team section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 12: CTA Banner (dark bg #0a0a0a)
+    // =========================================================================
+    if (!empty($csv_data['cta_heading'])) {
+        $cta_heading = esc_html($csv_data['cta_heading']);
+        $cta_text = esc_html($csv_data['cta_text'] ?? '');
+        $cta_url = esc_url($csv_data['cta_url'] ?? '#');
+
+        // CTA outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"bcta001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-bcta001{padding-top:4rem;padding-bottom:4rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-bcta001">';
+
+        // CTA inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"bcta002","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","textAlign":"center"},"css":".gb-element-bcta002{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;text-align:center}"} -->
+<div class="gb-element gb-element-bcta002">';
+
+        // CTA heading
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"bcta002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#ffffff","marginBottom":"2rem","lineHeight":"1.2"},"css":".gb-text-bcta002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#ffffff;margin-bottom:2rem;line-height:1.2}"} -->
+<h2 class="gb-text gb-text-bcta002a">' . $cta_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+        // CTA button
+        $cta_button_text = !empty($cta_text) ? $cta_text : $cta_heading;
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"bcta003a","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $cta_url . '"}],"styles":{"display":"inline-block","padding":"1rem 2.5rem","backgroundColor":"#c0392b","color":"#ffffff","borderRadius":"2rem","fontSize":"1.125rem","fontWeight":"700","textDecoration":"none","letterSpacing":"0.01em"},"css":".gb-text-bcta003a{display:inline-block;padding:1rem 2.5rem;background-color:#c0392b;color:#ffffff;border-radius:2rem;font-size:1.125rem;font-weight:700;text-decoration:none;letter-spacing:0.01em;transition:all 0.3s}.gb-text-bcta003a:hover{background-color:#a33024;transform:translateY(-2px);box-shadow:0 4px 12px rgba(192,57,43,0.3)}"} -->
+<a class="gb-text gb-text-bcta003a" href="' . $cta_url . '">' . $cta_button_text . '</a>
+<!-- /wp:generateblocks/text -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close CTA section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 13: Text Section (white bg #ffffff)
+    // =========================================================================
+    if (!empty($csv_data['text_heading']) || !empty($csv_data['text_body'])) {
+        $text_heading = esc_html($csv_data['text_heading'] ?? '');
+        $text_body = wp_kses_post($csv_data['text_body'] ?? '');
+
+        // Text outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"txts001","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-txts001{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-txts001">';
+
+        // Text inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"txts002","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-txts002{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-txts002">';
+
+        // Heading
+        if (!empty($text_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"txts002a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"1.5rem"},"css":".gb-text-txts002a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:1.5rem}"} -->
+<h2 class="gb-text gb-text-txts002a">' . $text_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Body text
+        if (!empty($text_body)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"txts003a","tagName":"p","styles":{"fontSize":"1.0625rem","color":"#333333","lineHeight":"1.8","marginBottom":"0"},"css":".gb-text-txts003a{font-size:1.0625rem;color:#333333;line-height:1.8;margin-bottom:0}"} -->
+<p class="gb-text gb-text-txts003a">' . $text_body . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close text section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    return $content;
+}
+
+/**
+ * Import Lead Magnet page from CSV data
+ * Creates a WordPress page using GenerateBlocks V2 markup
+ * Layout: Split Hero (headline + form), Testimonial, 3 Benefit Cards
+ */
+function requestdesk_import_leadmagnet_csv($csv_data) {
+    global $wpdb;
+
+    // Get page title and slug from CSV
+    $page_title = sanitize_text_field($csv_data['page_title'] ?? 'Lead Magnet');
+    $page_slug = sanitize_title($csv_data['page_slug'] ?? 'lead-magnet');
+
+    // Check if page with this slug already exists
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+        $page_slug
+    ));
+
+    if ($existing) {
+        // Add timestamp to make unique
+        $page_slug = $page_slug . '-' . current_time('Y-m-d-H-i');
+    }
+
+    // Build the page content using GenerateBlocks V2 structure
+    $template_content = requestdesk_build_leadmagnet_page_content($csv_data);
+
+    // Prepare page data
+    $current_time = current_time('mysql');
+    $current_time_gmt = current_time('mysql', 1);
+
+    $page_data = array(
+        'post_author' => get_current_user_id(),
+        'post_date' => $current_time,
+        'post_date_gmt' => $current_time_gmt,
+        'post_content' => $template_content,
+        'post_title' => $page_title,
+        'post_excerpt' => sanitize_text_field($csv_data['meta_description'] ?? ''),
+        'post_status' => 'draft',
+        'comment_status' => 'closed',
+        'ping_status' => 'closed',
+        'post_password' => '',
+        'post_name' => $page_slug,
+        'to_ping' => '',
+        'pinged' => '',
+        'post_modified' => $current_time,
+        'post_modified_gmt' => $current_time_gmt,
+        'post_content_filtered' => '',
+        'post_parent' => 0,
+        'guid' => '',
+        'menu_order' => 0,
+        'post_type' => 'page',
+        'post_mime_type' => '',
+        'comment_count' => 0
+    );
+
+    // Insert the page
+    $result = $wpdb->insert($wpdb->posts, $page_data);
+
+    if ($result !== false) {
+        $page_id = $wpdb->insert_id;
+
+        // Update GUID
+        $wpdb->update(
+            $wpdb->posts,
+            array('guid' => get_permalink($page_id)),
+            array('ID' => $page_id)
+        );
+
+        // Set page to GP Canvas template for full-width layout
+        update_post_meta($page_id, '_wp_page_template', 'page-builder-canvas.php');
+
+        // Set GeneratePress layout options for full-width
+        update_post_meta($page_id, '_generate_sidebar_layout', 'no-sidebar');
+        update_post_meta($page_id, '_generate_content_width', 'full-width');
+
+        // Auto-enable landing page styling (removes header, enables full-width hero)
+        update_post_meta($page_id, '_requestdesk_landing_page', true);
+
+        // Set Yoast SEO meta if available
+        if (!empty($csv_data['meta_title'])) {
+            update_post_meta($page_id, '_yoast_wpseo_title', sanitize_text_field($csv_data['meta_title']));
+        }
+        if (!empty($csv_data['meta_description'])) {
+            update_post_meta($page_id, '_yoast_wpseo_metadesc', sanitize_text_field($csv_data['meta_description']));
+        }
+
+        return array(
+            'success' => true,
+            'page_id' => $page_id,
+            'page_title' => $page_title,
+            'template_name' => 'Lead Magnet Template'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'error' => 'Failed to insert page into database'
+        );
+    }
+}
+
+/**
+ * Build Lead Magnet Page Content from CSV data
+ * Uses GenerateBlocks V2 block markup for all sections
+ *
+ * Sections:
+ *   1. Split Hero - 2-column grid: headline/subheadline/CTA left, HubSpot form right
+ *   2. Testimonial - Full-width centered quote with author
+ *   3. Benefit Cards - 3-column grid with title + description per card
+ *
+ * Unique ID prefix: lm (lead magnet)
+ */
+function requestdesk_build_leadmagnet_page_content($csv_data) {
+    $content = '';
+
+    // =========================================================================
+    // Section 1: Split Hero (dark background #0a0a0a, 2-column grid)
+    // Left: headline, subheadline, description, CTA button
+    // Right: HubSpot form embed
+    // =========================================================================
+    $hero_headline = esc_html($csv_data['hero_headline'] ?? 'Download the Free Resource');
+    $hero_subheadline = esc_html($csv_data['hero_subheadline'] ?? '');
+    $hero_description = esc_html($csv_data['hero_description'] ?? '');
+    $hero_cta_text = esc_html($csv_data['hero_cta_text'] ?? 'Download Now');
+    $hero_cta_url = esc_url($csv_data['hero_cta_url'] ?? '#');
+    $hubspot_form_id = sanitize_text_field($csv_data['hubspot_form_id'] ?? '');
+
+    // Hero outer section (full-width breakout)
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm001","tagName":"section","styles":{"paddingTop":"5rem","paddingBottom":"5rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-lm001{padding-top:5rem;padding-bottom:5rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-lm001">';
+
+    // Hero inner container - 2-column CSS grid
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm002","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"2fr 3fr","maxWidth":"1400px","marginLeft":"auto","marginRight":"auto","paddingLeft":"2rem","paddingRight":"2rem","gap":"3rem","alignItems":"center"},"css":".gb-element-lm002{display:grid;grid-template-columns:2fr 3fr;max-width:1400px;margin-left:auto;margin-right:auto;padding-left:2rem;padding-right:2rem;gap:3rem;align-items:center}@media(max-width:968px){.gb-element-lm002{grid-template-columns:1fr;gap:2.5rem;padding-top:2rem;padding-bottom:2rem}}"} -->
+<div class="gb-element gb-element-lm002">';
+
+    // ---- Left Column: Text + CTA ----
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm003","tagName":"div","styles":{"display":"flex","flexDirection":"column","gap":"1.5rem"},"css":".gb-element-lm003{display:flex;flex-direction:column;gap:1.5rem}@media(max-width:968px){.gb-element-lm003{text-align:center;align-items:center}}"} -->
+<div class="gb-element gb-element-lm003">';
+
+    // H1 Headline
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm003a","tagName":"h1","styles":{"fontSize":"clamp(2rem, 5vw, 3.25rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#ffffff","marginBottom":"0","lineHeight":"1.1"},"css":".gb-text-lm003a{font-size:clamp(2rem, 5vw, 3.25rem);font-weight:900;letter-spacing:-0.03em;color:#ffffff;margin-bottom:0;line-height:1.1}"} -->
+<h1 class="gb-text gb-text-lm003a">' . $hero_headline . '</h1>
+<!-- /wp:generateblocks/text -->';
+
+    // Subheadline
+    if (!empty($csv_data['hero_subheadline'])) {
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm003b","tagName":"h2","styles":{"fontSize":"clamp(1.25rem, 3vw, 1.75rem)","fontWeight":"600","color":"rgba(255,255,255,0.9)","marginBottom":"0","lineHeight":"1.3"},"css":".gb-text-lm003b{font-size:clamp(1.25rem, 3vw, 1.75rem);font-weight:600;color:rgba(255,255,255,0.9);margin-bottom:0;line-height:1.3}"} -->
+<h2 class="gb-text gb-text-lm003b">' . $hero_subheadline . '</h2>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Description
+    if (!empty($csv_data['hero_description'])) {
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm003c","tagName":"p","styles":{"fontSize":"1.125rem","color":"rgba(255,255,255,0.75)","lineHeight":"1.6","marginBottom":"0","maxWidth":"500px"},"css":".gb-text-lm003c{font-size:1.125rem;color:rgba(255,255,255,0.75);line-height:1.6;margin-bottom:0;max-width:500px}@media(max-width:968px){.gb-text-lm003c{max-width:100%}}"} -->
+<p class="gb-text gb-text-lm003c">' . $hero_description . '</p>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Bouncing arrow pointing to the form
+    $content .= '<!-- wp:html -->
+<div class="lm-arrow-cta" style="display:flex;align-items:center;gap:0.75rem;margin-top:0.5rem">
+  <span style="color:rgba(255,255,255,0.7);font-size:1.125rem;font-weight:600">Fill out the form to get the deck</span>
+  <span class="lm-bounce-arrow" style="display:inline-block;font-size:2rem;color:#58c558;animation:lmBounceRight 1.5s ease-in-out infinite">&#10132;</span>
+</div>
+<style>
+@keyframes lmBounceRight{0%,100%{transform:translateX(0)}50%{transform:translateX(12px)}}
+@media(max-width:968px){.lm-arrow-cta span.lm-bounce-arrow{animation-name:lmBounceDown;font-size:1.5rem;transform:rotate(90deg)}.lm-arrow-cta{justify-content:center}}
+@keyframes lmBounceDown{0%,100%{transform:rotate(90deg) translateX(0)}50%{transform:rotate(90deg) translateX(12px)}}
+</style>
+<!-- /wp:html -->';
+
+    // Close left column
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // ---- Right Column: HubSpot Form Embed ----
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm004","tagName":"div","styles":{"borderRadius":"0.75rem","boxShadow":"0 10px 40px rgba(0,0,0,0.3)","aspectRatio":"808/661"},"css":".gb-element-lm004{border-radius:0.75rem;box-shadow:0 10px 40px rgba(0,0,0,0.3);aspect-ratio:808/661}"} -->
+<div class="gb-element gb-element-lm004">';
+
+    if (!empty($hubspot_form_id)) {
+        // HubSpot form embed via wp:html block (v2 embed format)
+        $content .= '<!-- wp:html -->
+<script src="https://js.hsforms.net/forms/embed/39487190.js" defer></script>
+<div class="hs-form-frame" data-region="na1" data-form-id="' . $hubspot_form_id . '" data-portal-id="39487190"></div>
+<!-- /wp:html -->';
+    } else {
+        // Placeholder when no HubSpot form ID is provided
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm004a","tagName":"p","styles":{"fontSize":"1rem","color":"#5c5c5c","textAlign":"center","padding":"2rem 1rem"},"css":".gb-text-lm004a{font-size:1rem;color:#5c5c5c;text-align:center;padding:2rem 1rem}"} -->
+<p class="gb-text gb-text-lm004a">Form coming soon. Enter your HubSpot form ID in the CSV to enable the embed.</p>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Close right column (form container)
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // Close hero grid
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // Close hero section
+    $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+
+    // =========================================================================
+    // Section 2: Testimonial / Social Proof (light bg #f5f5f3)
+    // Full-width centered quote with author name and title
+    // =========================================================================
+    $testimonial_text = esc_html($csv_data['testimonial_text'] ?? '');
+    $testimonial_author = esc_html($csv_data['testimonial_author'] ?? '');
+    $testimonial_title = esc_html($csv_data['testimonial_title'] ?? '');
+
+    if (!empty($testimonial_text)) {
+        // Testimonial outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm005","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#f5f5f3","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-lm005{padding-top:4rem;padding-bottom:4rem;background-color:#f5f5f3;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-lm005">';
+
+        // Testimonial inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm006","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"2rem","paddingRight":"2rem","textAlign":"center"},"css":".gb-element-lm006{max-width:800px;margin-left:auto;margin-right:auto;padding-left:2rem;padding-right:2rem;text-align:center}"} -->
+<div class="gb-element gb-element-lm006">';
+
+        // Decorative quote mark
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm006a","tagName":"span","styles":{"fontSize":"5rem","fontWeight":"900","color":"rgba(192,57,43,0.15)","lineHeight":"1","fontFamily":"Georgia, serif","display":"block","marginBottom":"0.5rem"},"css":".gb-text-lm006a{font-size:5rem;font-weight:900;color:rgba(192,57,43,0.15);line-height:1;font-family:Georgia, serif;display:block;margin-bottom:0.5rem}"} -->
+<span class="gb-text gb-text-lm006a">"</span>
+<!-- /wp:generateblocks/text -->';
+
+        // Quote text
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm006b","tagName":"p","styles":{"fontSize":"1.25rem","color":"#0a0a0a","lineHeight":"1.7","marginBottom":"1.5rem","fontStyle":"italic"},"css":".gb-text-lm006b{font-size:1.25rem;color:#0a0a0a;line-height:1.7;margin-bottom:1.5rem;font-style:italic}"} -->
+<p class="gb-text gb-text-lm006b">' . $testimonial_text . '</p>
+<!-- /wp:generateblocks/text -->';
+
+        // Author name
+        if (!empty($testimonial_author)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm006c","tagName":"p","styles":{"fontSize":"1rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.25rem"},"css":".gb-text-lm006c{font-size:1rem;font-weight:700;color:#0a0a0a;margin-bottom:0.25rem}"} -->
+<p class="gb-text gb-text-lm006c">' . $testimonial_author . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Author title
+        if (!empty($testimonial_title)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm006d","tagName":"p","styles":{"fontSize":"0.875rem","color":"#5c5c5c","marginBottom":"0"},"css":".gb-text-lm006d{font-size:0.875rem;color:#5c5c5c;margin-bottom:0}"} -->
+<p class="gb-text gb-text-lm006d">' . $testimonial_title . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close testimonial section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 3: Benefit Cards (3-column grid, white bg)
+    // Each card has a title and description
+    // =========================================================================
+    $has_benefits = false;
+    for ($i = 1; $i <= 3; $i++) {
+        if (!empty($csv_data["benefit_{$i}_title"])) {
+            $has_benefits = true;
+            break;
+        }
+    }
+
+    if ($has_benefits) {
+        // Benefits outer section (full-width breakout)
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm007","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-lm007{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-lm007">';
+
+        // Benefits inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm008","tagName":"div","styles":{"maxWidth":"1200px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-lm008{max-width:1200px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-lm008">';
+
+        // Section heading (optional - from cta_heading field)
+        $benefits_heading = esc_html($csv_data['cta_heading'] ?? '');
+        if (!empty($benefits_heading)) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm008a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#0a0a0a","textAlign":"center","marginBottom":"2.5rem"},"css":".gb-text-lm008a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#0a0a0a;text-align:center;margin-bottom:2.5rem}"} -->
+<h2 class="gb-text gb-text-lm008a">' . $benefits_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-column grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm009","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"repeat(3, 1fr)","gap":"2rem"},"css":".gb-element-lm009{display:grid;grid-template-columns:repeat(3, 1fr);gap:2rem}@media(max-width:768px){.gb-element-lm009{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-lm009">';
+
+        // Benefit cards
+        for ($i = 1; $i <= 3; $i++) {
+            $benefit_title = esc_html($csv_data["benefit_{$i}_title"] ?? '');
+            $benefit_desc = esc_html($csv_data["benefit_{$i}_description"] ?? '');
+
+            if (empty($benefit_title)) {
+                continue;
+            }
+
+            $card_id = 'lm' . str_pad($i + 9, 3, '0', STR_PAD_LEFT);
+
+            // Card container with border
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . '","tagName":"div","styles":{"backgroundColor":"#ffffff","borderRadius":"0.75rem","padding":"2rem","border":"1px solid #e5e5e5"},"css":".gb-element-' . $card_id . '{background-color:#ffffff;border-radius:0.75rem;padding:2rem;border:1px solid #e5e5e5;transition:all 0.3s}.gb-element-' . $card_id . ':hover{border-color:#c0392b;box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-4px)}"} -->
+<div class="gb-element gb-element-' . $card_id . '">';
+
+            // Number badge
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"' . $card_id . 'n","tagName":"div","styles":{"width":"48px","height":"48px","backgroundColor":"rgba(192,57,43,0.1)","borderRadius":"50%","display":"flex","alignItems":"center","justifyContent":"center","marginBottom":"1.25rem"},"css":".gb-element-' . $card_id . 'n{width:48px;height:48px;background-color:rgba(192,57,43,0.1);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:1.25rem}"} -->
+<div class="gb-element gb-element-' . $card_id . 'n">';
+
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'nn","tagName":"span","styles":{"fontSize":"1.25rem","fontWeight":"700","color":"#c0392b"},"css":".gb-text-' . $card_id . 'nn{font-size:1.25rem;font-weight:700;color:#c0392b}"} -->
+<span class="gb-text gb-text-' . $card_id . 'nn">' . $i . '</span>
+<!-- /wp:generateblocks/text -->';
+
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+            // Card title
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'a","tagName":"h3","styles":{"fontSize":"1.25rem","fontWeight":"700","color":"#0a0a0a","marginBottom":"0.75rem"},"css":".gb-text-' . $card_id . 'a{font-size:1.25rem;font-weight:700;color:#0a0a0a;margin-bottom:0.75rem}"} -->
+<h3 class="gb-text gb-text-' . $card_id . 'a">' . $benefit_title . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Card description
+            if (!empty($benefit_desc)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"' . $card_id . 'b","tagName":"p","styles":{"fontSize":"0.9375rem","color":"#5c5c5c","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-' . $card_id . 'b{font-size:0.9375rem;color:#5c5c5c;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-' . $card_id . 'b">' . $benefit_desc . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            // Close card
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner container
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close benefits section
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 4: Bottom CTA (dark bg #0a0a0a) - repeat CTA for conversion
+    // =========================================================================
+    $cta_text = esc_html($csv_data['cta_text'] ?? $csv_data['hero_cta_text'] ?? 'Download Now');
+    $cta_url = esc_url($csv_data['cta_url'] ?? $csv_data['hero_cta_url'] ?? '#');
+
+    // CTA outer section
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm013","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-lm013{padding-top:4rem;padding-bottom:4rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-lm013">';
+
+    // CTA inner container
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm014","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","textAlign":"center"},"css":".gb-element-lm014{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;text-align:center}"} -->
+<div class="gb-element gb-element-lm014">';
+
+    // CTA heading
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm014a","tagName":"h2","styles":{"fontSize":"clamp(1.75rem, 4vw, 2.5rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#ffffff","marginBottom":"1.5rem","lineHeight":"1.2"},"css":".gb-text-lm014a{font-size:clamp(1.75rem, 4vw, 2.5rem);font-weight:900;letter-spacing:-0.03em;color:#ffffff;margin-bottom:1.5rem;line-height:1.2}"} -->
+<h2 class="gb-text gb-text-lm014a">' . esc_html($csv_data['hero_headline'] ?? 'Get Your Free Download') . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+    // CTA button
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"lm014b","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $cta_url . '"}],"styles":{"display":"inline-block","padding":"1rem 2.5rem","backgroundColor":"#c0392b","color":"#ffffff","borderRadius":"2rem","fontSize":"1.125rem","fontWeight":"700","textDecoration":"none","letterSpacing":"0.01em"},"css":".gb-text-lm014b{display:inline-block;padding:1rem 2.5rem;background-color:#c0392b;color:#ffffff;border-radius:2rem;font-size:1.125rem;font-weight:700;text-decoration:none;letter-spacing:0.01em;transition:all 0.3s}.gb-text-lm014b:hover{background-color:#a33024;transform:translateY(-2px);box-shadow:0 4px 12px rgba(192,57,43,0.3)}"} -->
+<a class="gb-text gb-text-lm014b" href="' . $cta_url . '">' . $cta_text . '</a>
+<!-- /wp:generateblocks/text -->';
+
+    // Close inner container
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // Close CTA section
+    $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+
+    return $content;
 }
 ?>
