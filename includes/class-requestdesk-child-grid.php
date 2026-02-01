@@ -92,7 +92,9 @@ class RequestDesk_Child_Grid {
      * @return string HTML for the card
      */
     private function render_card($page, $card_type) {
-        $permalink = get_permalink($page->ID);
+        // Use redirect URL if set, otherwise use the child page permalink
+        $redirect_url = get_post_meta($page->ID, '_requestdesk_redirect_url', true);
+        $permalink = !empty($redirect_url) ? $redirect_url : get_permalink($page->ID);
         $title = get_the_title($page->ID);
         $excerpt = $page->post_excerpt;
 

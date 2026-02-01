@@ -139,6 +139,9 @@ function requestdesk_template_importer_page() {
                             <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-generateblocks.csv'; ?>" class="button button-secondary" download="example-csv-generateblocks.csv">
                                 <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> GenerateBlocks Landing Page
                             </a>
+                            <a href="<?php echo REQUESTDESK_PLUGIN_URL . 'admin/example-csv-contact.csv'; ?>" class="button button-secondary" download="example-csv-contact.csv">
+                                <span class="dashicons dashicons-download" style="vertical-align: middle;"></span> Contact Page
+                            </a>
                         </div>
                         <p style="font-size: 12px; color: #666; margin-top: 8px;">Each file has one row with the <code>template_type</code> pre-filled for auto-detection.</p>
                     </div>
@@ -334,10 +337,14 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 case 'gb':
                     $detected_type = 'generateblocks';
                     break;
+                case 'contact':
+                case 'contact_page':
+                    $detected_type = 'contact_page';
+                    break;
                 default:
                     return array(
                         'success' => false,
-                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service, leadmagnet, generateblocks'
+                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service, leadmagnet, generateblocks, contact'
                     );
             }
 
@@ -363,6 +370,8 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 return requestdesk_import_leadmagnet_csv($csv_data);
             case 'generateblocks':
                 return requestdesk_import_generateblocks_csv($csv_data);
+            case 'contact_page':
+                return requestdesk_import_contact_page_csv($csv_data);
             default:
                 return array(
                     'success' => false,
@@ -2884,6 +2893,426 @@ function requestdesk_build_leadmagnet_page_content($csv_data) {
     // Close CTA section
     $content .= '</section>
 <!-- /wp:generateblocks/element -->';
+
+    return $content;
+}
+
+/**
+ * Import Contact Page with CSV data
+ * Uses GenerateBlocks V2 block markup
+ */
+function requestdesk_import_contact_page_csv($csv_data) {
+    global $wpdb;
+
+    // Get page title and slug from CSV
+    $page_title = sanitize_text_field($csv_data['page_title'] ?? 'Contact Us');
+    $page_slug = sanitize_title($csv_data['page_slug'] ?? 'contact');
+
+    // Check if page with this slug already exists
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+        $page_slug
+    ));
+
+    if ($existing) {
+        $page_slug = $page_slug . '-' . current_time('Y-m-d-H-i');
+    }
+
+    // Build the page content using GenerateBlocks V2 structure
+    $template_content = requestdesk_build_contact_page_content($csv_data);
+
+    // Prepare page data
+    $current_time = current_time('mysql');
+    $current_time_gmt = current_time('mysql', 1);
+
+    $page_data = array(
+        'post_author' => get_current_user_id(),
+        'post_date' => $current_time,
+        'post_date_gmt' => $current_time_gmt,
+        'post_content' => $template_content,
+        'post_title' => $page_title,
+        'post_excerpt' => sanitize_text_field($csv_data['meta_description'] ?? ''),
+        'post_status' => 'draft',
+        'comment_status' => 'closed',
+        'ping_status' => 'closed',
+        'post_password' => '',
+        'post_name' => $page_slug,
+        'to_ping' => '',
+        'pinged' => '',
+        'post_modified' => $current_time,
+        'post_modified_gmt' => $current_time_gmt,
+        'post_content_filtered' => '',
+        'post_parent' => 0,
+        'guid' => '',
+        'menu_order' => 0,
+        'post_type' => 'page',
+        'post_mime_type' => '',
+        'comment_count' => 0
+    );
+
+    // Insert the page
+    $result = $wpdb->insert($wpdb->posts, $page_data);
+
+    if ($result !== false) {
+        $page_id = $wpdb->insert_id;
+
+        // Update GUID
+        $wpdb->update(
+            $wpdb->posts,
+            array('guid' => get_permalink($page_id)),
+            array('ID' => $page_id)
+        );
+
+        // Set page to GP Canvas template for full-width layout
+        update_post_meta($page_id, '_wp_page_template', 'page-builder-canvas.php');
+
+        // Set GeneratePress layout options for full-width
+        update_post_meta($page_id, '_generate_sidebar_layout', 'no-sidebar');
+        update_post_meta($page_id, '_generate_content_width', 'full-width');
+
+        // Auto-enable landing page styling
+        update_post_meta($page_id, '_requestdesk_landing_page', true);
+
+        // Set Yoast SEO meta if available
+        if (!empty($csv_data['meta_title'])) {
+            update_post_meta($page_id, '_yoast_wpseo_title', sanitize_text_field($csv_data['meta_title']));
+        }
+        if (!empty($csv_data['meta_description'])) {
+            update_post_meta($page_id, '_yoast_wpseo_metadesc', sanitize_text_field($csv_data['meta_description']));
+        }
+
+        return array(
+            'success' => true,
+            'page_id' => $page_id,
+            'page_title' => $page_title,
+            'template_name' => 'Contact Page Template'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => 'Database insertion failed: ' . $wpdb->last_error
+        );
+    }
+}
+
+/**
+ * Build Contact Page Content from CSV data
+ * Uses GenerateBlocks V2 block markup for all sections
+ *
+ * Sections (rendered if CSV data is present):
+ *   1. Hero (ct01) - Headline + subheadline
+ *   2. Contact Form + Info (ct02) - Two-column: HubSpot form left, info right
+ *   3. Local Meetup (ct03) - Optional in-person meetup locations
+ *   4. FAQ (ct04) - Optional FAQ section
+ */
+function requestdesk_build_contact_page_content($csv_data) {
+    $content = '';
+
+    // =========================================================================
+    // Section 1: Hero (dark background #0a0a0a)
+    // =========================================================================
+    $hero_headline = esc_html($csv_data['hero_headline'] ?? 'Get in Touch');
+    $hero_subheadline = esc_html($csv_data['hero_subheadline'] ?? '');
+
+    // Hero outer section (full-width breakout)
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct01a","tagName":"section","styles":{"paddingTop":"5rem","paddingBottom":"4rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-ct01a{padding-top:5rem;padding-bottom:4rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-ct01a">';
+
+    // Hero inner container
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct01b","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","textAlign":"center"},"css":".gb-element-ct01b{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;text-align:center}"} -->
+<div class="gb-element gb-element-ct01b">';
+
+    // H1 Headline
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct01c","tagName":"h1","styles":{"fontSize":"clamp(2rem, 5vw, 3.25rem)","fontWeight":"900","letterSpacing":"-0.03em","color":"#ffffff","marginBottom":"1rem","lineHeight":"1.1"},"css":".gb-text-ct01c{font-size:clamp(2rem, 5vw, 3.25rem);font-weight:900;letter-spacing:-0.03em;color:#ffffff;margin-bottom:1rem;line-height:1.1}"} -->
+<h1 class="gb-text gb-text-ct01c">' . $hero_headline . '</h1>
+<!-- /wp:generateblocks/text -->';
+
+    // Subheadline
+    if (!empty($csv_data['hero_subheadline'])) {
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct01d","tagName":"p","styles":{"fontSize":"clamp(1.05rem, 2vw, 1.25rem)","color":"rgba(255,255,255,0.7)","marginBottom":"0","lineHeight":"1.6","maxWidth":"600px","marginLeft":"auto","marginRight":"auto"},"css":".gb-text-ct01d{font-size:clamp(1.05rem, 2vw, 1.25rem);color:rgba(255,255,255,0.7);margin-bottom:0;line-height:1.6;max-width:600px;margin-left:auto;margin-right:auto}"} -->
+<p class="gb-text gb-text-ct01d">' . $hero_subheadline . '</p>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Close hero inner + outer
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+    $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+
+    // =========================================================================
+    // Section 2: Contact Form + Info (two-column layout)
+    // =========================================================================
+    // Outer section (white background)
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02a","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-ct02a{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-ct02a">';
+
+    // Inner container
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02b","tagName":"div","styles":{"maxWidth":"1100px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","display":"grid","gridTemplateColumns":"1.2fr 0.8fr","columnGap":"3rem","@media (max-width:768px)":{"gridTemplateColumns":"1fr","rowGap":"2.5rem"}},"css":".gb-element-ct02b{max-width:1100px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;display:grid;grid-template-columns:1.2fr 0.8fr;column-gap:3rem}@media (max-width:768px){.gb-element-ct02b{grid-template-columns:1fr;row-gap:2.5rem}}"} -->
+<div class="gb-element gb-element-ct02b">';
+
+    // LEFT COLUMN: Form
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02c","tagName":"div","styles":{},"css":""} -->
+<div class="gb-element gb-element-ct02c">';
+
+    // Form heading
+    $form_heading = esc_html($csv_data['form_heading'] ?? 'Send Us a Message');
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02d","tagName":"h2","styles":{"fontSize":"1.75rem","fontWeight":"800","color":"#1a1a2e","marginBottom":"0.5rem"},"css":".gb-text-ct02d{font-size:1.75rem;font-weight:800;color:#1a1a2e;margin-bottom:0.5rem}"} -->
+<h2 class="gb-text gb-text-ct02d">' . $form_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+    // Form description
+    if (!empty($csv_data['form_description'])) {
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02e","tagName":"p","styles":{"fontSize":"1rem","color":"#555","marginBottom":"1.5rem","lineHeight":"1.6"},"css":".gb-text-ct02e{font-size:1rem;color:#555;margin-bottom:1.5rem;line-height:1.6}"} -->
+<p class="gb-text gb-text-ct02e">' . esc_html($csv_data['form_description']) . '</p>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // HubSpot form embed
+    $hubspot_portal_id = esc_attr($csv_data['hubspot_portal_id'] ?? '');
+    $hubspot_form_id = esc_attr($csv_data['hubspot_form_id'] ?? '');
+    $hubspot_region = esc_attr($csv_data['hubspot_region'] ?? 'na1');
+
+    if (!empty($hubspot_portal_id) && !empty($hubspot_form_id)) {
+        $content .= '<!-- wp:html -->
+<script src="https://js.hsforms.net/forms/embed/' . $hubspot_portal_id . '.js" defer></script>
+<div class="hs-form-frame" data-region="' . $hubspot_region . '" data-form-id="' . $hubspot_form_id . '" data-portal-id="' . $hubspot_portal_id . '"></div>
+<!-- /wp:html -->';
+    } else {
+        // Placeholder if no HubSpot form configured
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02f","tagName":"div","styles":{"padding":"2rem","backgroundColor":"#f5f5f5","borderRadius":"8px","textAlign":"center","color":"#888","fontSize":"0.95rem"},"css":".gb-text-ct02f{padding:2rem;background-color:#f5f5f5;border-radius:8px;text-align:center;color:#888;font-size:0.95rem}"} -->
+<div class="gb-text gb-text-ct02f">Contact form will appear here. Configure hubspot_portal_id and hubspot_form_id in CSV.</div>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Close form column
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // RIGHT COLUMN: Contact info
+    $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02g","tagName":"div","styles":{"paddingTop":"0.5rem"},"css":".gb-element-ct02g{padding-top:0.5rem}"} -->
+<div class="gb-element gb-element-ct02g">';
+
+    // Info heading
+    $info_heading = esc_html($csv_data['info_heading'] ?? 'Other Ways to Reach Us');
+    $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02h","tagName":"h3","styles":{"fontSize":"1.35rem","fontWeight":"700","color":"#1a1a2e","marginBottom":"1.5rem"},"css":".gb-text-ct02h{font-size:1.35rem;font-weight:700;color:#1a1a2e;margin-bottom:1.5rem}"} -->
+<h3 class="gb-text gb-text-ct02h">' . $info_heading . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+    // Email
+    if (!empty($csv_data['email_address'])) {
+        $email = sanitize_email($csv_data['email_address']);
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02i","tagName":"div","styles":{"marginBottom":"1.5rem","paddingBottom":"1.5rem","borderBottom":"1px solid #eee"},"css":".gb-element-ct02i{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #eee}"} -->
+<div class="gb-element gb-element-ct02i">';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02i1","tagName":"p","styles":{"fontSize":"0.85rem","fontWeight":"600","textTransform":"uppercase","letterSpacing":"0.05em","color":"#888","marginBottom":"0.25rem"},"css":".gb-text-ct02i1{font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:0.25rem}"} -->
+<p class="gb-text gb-text-ct02i1">Email</p>
+<!-- /wp:generateblocks/text -->';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02i2","tagName":"a","htmlAttributes":[{"attribute":"href","value":"mailto:' . $email . '"}],"styles":{"fontSize":"1.1rem","color":"#1a1a2e","textDecoration":"none","fontWeight":"600"},"css":".gb-text-ct02i2{font-size:1.1rem;color:#1a1a2e;text-decoration:none;font-weight:600}.gb-text-ct02i2:hover{color:#4ecdc4}"} -->
+<a class="gb-text gb-text-ct02i2" href="mailto:' . $email . '">' . esc_html($email) . '</a>
+<!-- /wp:generateblocks/text -->';
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // Phone
+    if (!empty($csv_data['phone_number'])) {
+        $phone = esc_html($csv_data['phone_number']);
+        $phone_href = 'tel:' . preg_replace('/[^0-9+]/', '', $csv_data['phone_number']);
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02p","tagName":"div","styles":{"marginBottom":"1.5rem","paddingBottom":"1.5rem","borderBottom":"1px solid #eee"},"css":".gb-element-ct02p{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #eee}"} -->
+<div class="gb-element gb-element-ct02p">';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02p1","tagName":"p","styles":{"fontSize":"0.85rem","fontWeight":"600","textTransform":"uppercase","letterSpacing":"0.05em","color":"#888","marginBottom":"0.25rem"},"css":".gb-text-ct02p1{font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:0.25rem}"} -->
+<p class="gb-text gb-text-ct02p1">Phone</p>
+<!-- /wp:generateblocks/text -->';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02p2","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $phone_href . '"}],"styles":{"fontSize":"1.1rem","color":"#1a1a2e","textDecoration":"none","fontWeight":"600"},"css":".gb-text-ct02p2{font-size:1.1rem;color:#1a1a2e;text-decoration:none;font-weight:600}.gb-text-ct02p2:hover{color:#4ecdc4}"} -->
+<a class="gb-text gb-text-ct02p2" href="' . $phone_href . '">' . $phone . '</a>
+<!-- /wp:generateblocks/text -->';
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // Meeting booking link
+    if (!empty($csv_data['meeting_url'])) {
+        $meeting_url = esc_url($csv_data['meeting_url']);
+        $meeting_text = esc_html($csv_data['meeting_cta_text'] ?? 'Schedule a Meeting');
+        $meeting_description = esc_html($csv_data['meeting_description'] ?? 'Book a time that works for you.');
+
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct02j","tagName":"div","styles":{"marginBottom":"1.5rem","paddingBottom":"1.5rem","borderBottom":"1px solid #eee"},"css":".gb-element-ct02j{margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid #eee}"} -->
+<div class="gb-element gb-element-ct02j">';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02j1","tagName":"p","styles":{"fontSize":"0.85rem","fontWeight":"600","textTransform":"uppercase","letterSpacing":"0.05em","color":"#888","marginBottom":"0.25rem"},"css":".gb-text-ct02j1{font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:0.25rem}"} -->
+<p class="gb-text gb-text-ct02j1">Book a Call</p>
+<!-- /wp:generateblocks/text -->';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02j2","tagName":"p","styles":{"fontSize":"0.95rem","color":"#555","marginBottom":"0.75rem","lineHeight":"1.5"},"css":".gb-text-ct02j2{font-size:0.95rem;color:#555;margin-bottom:0.75rem;line-height:1.5}"} -->
+<p class="gb-text gb-text-ct02j2">' . $meeting_description . '</p>
+<!-- /wp:generateblocks/text -->';
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02j3","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $meeting_url . '"},{"attribute":"target","value":"_blank"},{"attribute":"rel","value":"noopener noreferrer"}],"styles":{"display":"inline-block","padding":"0.75rem 1.5rem","backgroundColor":"#4ecdc4","color":"#ffffff","borderRadius":"6px","fontSize":"1rem","fontWeight":"700","textDecoration":"none"},"css":".gb-text-ct02j3{display:inline-block;padding:0.75rem 1.5rem;background-color:#4ecdc4;color:#ffffff;border-radius:6px;font-size:1rem;font-weight:700;text-decoration:none;transition:all 0.3s}.gb-text-ct02j3:hover{background-color:#3dbdb5;transform:translateY(-1px);box-shadow:0 4px 12px rgba(78,205,196,0.3)}"} -->
+<a class="gb-text gb-text-ct02j3" href="' . $meeting_url . '" target="_blank" rel="noopener noreferrer">' . $meeting_text . '</a>
+<!-- /wp:generateblocks/text -->';
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // Response time note
+    if (!empty($csv_data['response_time'])) {
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct02k","tagName":"p","styles":{"fontSize":"0.9rem","color":"#888","lineHeight":"1.5","marginBottom":"0"},"css":".gb-text-ct02k{font-size:0.9rem;color:#888;line-height:1.5;margin-bottom:0}"} -->
+<p class="gb-text gb-text-ct02k">' . esc_html($csv_data['response_time']) . '</p>
+<!-- /wp:generateblocks/text -->';
+    }
+
+    // Close info column
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // Close grid container
+    $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+    // Close section
+    $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+
+    // =========================================================================
+    // Section 3: Local Meetup (optional, light gray background)
+    // =========================================================================
+    if (!empty($csv_data['meetup_heading'])) {
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct03a","tagName":"section","styles":{"paddingTop":"3rem","paddingBottom":"3rem","backgroundColor":"#f8f9fa","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-ct03a{padding-top:3rem;padding-bottom:3rem;background-color:#f8f9fa;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-ct03a">';
+
+        // Inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct03b","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem","textAlign":"center"},"css":".gb-element-ct03b{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem;text-align:center}"} -->
+<div class="gb-element gb-element-ct03b">';
+
+        // Meetup heading
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct03c","tagName":"h2","styles":{"fontSize":"1.5rem","fontWeight":"800","color":"#1a1a2e","marginBottom":"0.75rem"},"css":".gb-text-ct03c{font-size:1.5rem;font-weight:800;color:#1a1a2e;margin-bottom:0.75rem}"} -->
+<h2 class="gb-text gb-text-ct03c">' . esc_html($csv_data['meetup_heading']) . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+        // Meetup description
+        if (!empty($csv_data['meetup_description'])) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct03d","tagName":"p","styles":{"fontSize":"1.05rem","color":"#555","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-ct03d{font-size:1.05rem;color:#555;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-ct03d">' . esc_html($csv_data['meetup_description']) . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // Close meetup inner + outer
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 3.5: Company Group (optional, white background, 3-card grid)
+    // =========================================================================
+    if (!empty($csv_data['group_heading'])) {
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct05a","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-ct05a{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-ct05a">';
+
+        // Inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct05b","tagName":"div","styles":{"maxWidth":"1100px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-ct05b{max-width:1100px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-ct05b">';
+
+        // Group heading
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct05c","tagName":"h2","styles":{"fontSize":"1.75rem","fontWeight":"800","color":"#1a1a2e","marginBottom":"0.5rem","textAlign":"center"},"css":".gb-text-ct05c{font-size:1.75rem;font-weight:800;color:#1a1a2e;margin-bottom:0.5rem;text-align:center}"} -->
+<h2 class="gb-text gb-text-ct05c">' . esc_html($csv_data['group_heading']) . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+        // Group description
+        if (!empty($csv_data['group_description'])) {
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct05d","tagName":"p","styles":{"fontSize":"1.05rem","color":"#555","lineHeight":"1.6","marginBottom":"2.5rem","textAlign":"center","maxWidth":"700px","marginLeft":"auto","marginRight":"auto"},"css":".gb-text-ct05d{font-size:1.05rem;color:#555;line-height:1.6;margin-bottom:2.5rem;text-align:center;max-width:700px;margin-left:auto;margin-right:auto}"} -->
+<p class="gb-text gb-text-ct05d">' . esc_html($csv_data['group_description']) . '</p>
+<!-- /wp:generateblocks/text -->';
+        }
+
+        // 3-card grid
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct05e","tagName":"div","styles":{"display":"grid","gridTemplateColumns":"1fr 1fr 1fr","columnGap":"1.5rem","rowGap":"1.5rem","@media (max-width:768px)":{"gridTemplateColumns":"1fr"}},"css":".gb-element-ct05e{display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:1.5rem;row-gap:1.5rem}@media (max-width:768px){.gb-element-ct05e{grid-template-columns:1fr}}"} -->
+<div class="gb-element gb-element-ct05e">';
+
+        // Company cards (up to 3)
+        for ($i = 1; $i <= 3; $i++) {
+            $name = $csv_data["company_{$i}_name"] ?? '';
+            if (empty($name)) continue;
+
+            $url = esc_url($csv_data["company_{$i}_url"] ?? '#');
+            $description = esc_html($csv_data["company_{$i}_description"] ?? '');
+
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct05f' . $i . '","tagName":"a","htmlAttributes":[{"attribute":"href","value":"' . $url . '"},{"attribute":"target","value":"_blank"},{"attribute":"rel","value":"noopener noreferrer"}],"styles":{"display":"block","padding":"2rem","backgroundColor":"#f8f9fa","borderRadius":"12px","textDecoration":"none","border":"1px solid #eee"},"css":".gb-element-ct05f' . $i . '{display:block;padding:2rem;background-color:#f8f9fa;border-radius:12px;text-decoration:none;border:1px solid #eee;transition:all 0.3s}.gb-element-ct05f' . $i . ':hover{border-color:#4ecdc4;box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-2px)}"} -->
+<a class="gb-element gb-element-ct05f' . $i . '" href="' . $url . '" target="_blank" rel="noopener noreferrer">';
+
+            // Company name
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct05f' . $i . 'a","tagName":"h3","styles":{"fontSize":"1.2rem","fontWeight":"700","color":"#1a1a2e","marginBottom":"0.5rem"},"css":".gb-text-ct05f' . $i . 'a{font-size:1.2rem;font-weight:700;color:#1a1a2e;margin-bottom:0.5rem}"} -->
+<h3 class="gb-text gb-text-ct05f' . $i . 'a">' . esc_html($name) . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Company description
+            if (!empty($description)) {
+                $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct05f' . $i . 'b","tagName":"p","styles":{"fontSize":"0.95rem","color":"#555","lineHeight":"1.5","marginBottom":"0"},"css":".gb-text-ct05f' . $i . 'b{font-size:0.95rem;color:#555;line-height:1.5;margin-bottom:0}"} -->
+<p class="gb-text gb-text-ct05f' . $i . 'b">' . $description . '</p>
+<!-- /wp:generateblocks/text -->';
+            }
+
+            $content .= '</a>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close grid
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+
+        // Close inner + outer
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
+
+    // =========================================================================
+    // Section 4: FAQ (optional, white background)
+    // =========================================================================
+    if (!empty($csv_data['faq_1_question'])) {
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct04a","tagName":"section","styles":{"paddingTop":"4rem","paddingBottom":"4rem","backgroundColor":"#ffffff","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-ct04a{padding-top:4rem;padding-bottom:4rem;background-color:#ffffff;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
+<section class="gb-element gb-element-ct04a">';
+
+        // Inner container
+        $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct04b","tagName":"div","styles":{"maxWidth":"800px","marginLeft":"auto","marginRight":"auto","paddingLeft":"1.5rem","paddingRight":"1.5rem"},"css":".gb-element-ct04b{max-width:800px;margin-left:auto;margin-right:auto;padding-left:1.5rem;padding-right:1.5rem}"} -->
+<div class="gb-element gb-element-ct04b">';
+
+        // FAQ heading
+        $faq_heading = esc_html($csv_data['faq_heading'] ?? 'Frequently Asked Questions');
+        $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct04c","tagName":"h2","styles":{"fontSize":"1.75rem","fontWeight":"800","color":"#1a1a2e","marginBottom":"2rem","textAlign":"center"},"css":".gb-text-ct04c{font-size:1.75rem;font-weight:800;color:#1a1a2e;margin-bottom:2rem;text-align:center}"} -->
+<h2 class="gb-text gb-text-ct04c">' . $faq_heading . '</h2>
+<!-- /wp:generateblocks/text -->';
+
+        // FAQ items (up to 6)
+        for ($i = 1; $i <= 6; $i++) {
+            $q = $csv_data["faq_{$i}_question"] ?? '';
+            $a = $csv_data["faq_{$i}_answer"] ?? '';
+            if (empty($q)) continue;
+
+            $border_bottom = ($i < 6 && !empty($csv_data["faq_" . ($i + 1) . "_question"])) ? 'border-bottom:1px solid #eee;' : '';
+
+            $content .= '<!-- wp:generateblocks/element {"uniqueId":"ct04q' . $i . '","tagName":"div","styles":{"paddingBottom":"1.25rem","marginBottom":"1.25rem"' . (!empty($border_bottom) ? ',"borderBottom":"1px solid #eee"' : '') . '},"css":".gb-element-ct04q' . $i . '{padding-bottom:1.25rem;margin-bottom:1.25rem;' . $border_bottom . '}"} -->
+<div class="gb-element gb-element-ct04q' . $i . '">';
+
+            // Question
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct04q' . $i . 'a","tagName":"h3","styles":{"fontSize":"1.1rem","fontWeight":"700","color":"#1a1a2e","marginBottom":"0.5rem"},"css":".gb-text-ct04q' . $i . 'a{font-size:1.1rem;font-weight:700;color:#1a1a2e;margin-bottom:0.5rem}"} -->
+<h3 class="gb-text gb-text-ct04q' . $i . 'a">' . esc_html($q) . '</h3>
+<!-- /wp:generateblocks/text -->';
+
+            // Answer
+            $content .= '<!-- wp:generateblocks/text {"uniqueId":"ct04q' . $i . 'b","tagName":"p","styles":{"fontSize":"0.95rem","color":"#555","lineHeight":"1.6","marginBottom":"0"},"css":".gb-text-ct04q' . $i . 'b{font-size:0.95rem;color:#555;line-height:1.6;margin-bottom:0}"} -->
+<p class="gb-text gb-text-ct04q' . $i . 'b">' . esc_html($a) . '</p>
+<!-- /wp:generateblocks/text -->';
+
+            $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        }
+
+        // Close FAQ inner + outer
+        $content .= '</div>
+<!-- /wp:generateblocks/element -->';
+        $content .= '</section>
+<!-- /wp:generateblocks/element -->';
+    }
 
     return $content;
 }
