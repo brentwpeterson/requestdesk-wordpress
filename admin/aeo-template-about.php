@@ -35,7 +35,7 @@ function requestdesk_get_about_aeo_template() {
 <!-- /wp:details -->
 
 <!-- wp:paragraph {"style":{"color":{"background":"#e8f4fd","text":"#0c5460"},"spacing":{"padding":{"top":"15px","bottom":"15px","left":"15px","right":"15px"}},"border":{"radius":"6px"}}} -->
-<p class="has-text-color has-background" style="border-radius:6px;background-color:#e8f4fd;color:#0c5460;padding-top:15px;padding-bottom:15px;padding-left:15px;padding-right:15px"><strong>📝 OPTIMIZED META DESCRIPTION:</strong> "Learn about Content Cucumber's mission to drive business growth through expert content marketing and SEO. Meet our team of experienced writers, designers, and strategists. Trusted by 1,000+ companies worldwide."</p>
+<p class="has-text-color has-background" style="border-radius:6px;background-color:#e8f4fd;color:#0c5460;padding-top:15px;padding-bottom:15px;padding-left:15px;padding-right:15px"><strong>📝 OPTIMIZED META DESCRIPTION:</strong> "Learn about [Your Company Name]'s mission to drive business growth through expert content marketing and SEO. Meet our team of experienced writers, designers, and strategists. Trusted by 1,000+ companies worldwide."</p>
 <!-- /wp:paragraph -->
 
 EOD;
@@ -49,14 +49,14 @@ EOD;
   "@type": "AboutPage",
   "mainEntity": {
     "@type": "Organization",
-    "name": "Content Cucumber",
+    "name": "[Your Company Name]",
     "alternateName": "[CUSTOMIZE: Add your business name]",
     "url": "<?php echo esc_url(home_url()); ?>",
     "logo": {
       "@type": "ImageObject",
       "url": "<?php echo esc_url(wp_upload_dir()['baseurl']); ?>/logo.png"
     },
-    "description": "Content Cucumber is a leading content marketing and SEO agency combining human expertise with AI-powered insights to deliver measurable business growth for companies worldwide.",
+    "description": "[Your Company Name] is a leading content marketing and SEO agency combining human expertise with AI-powered insights to deliver measurable business growth for companies worldwide.",
     "foundingDate": "2018",
     "founder": {
       "@type": "Person",
@@ -114,7 +114,7 @@ EOD;
 <!-- /wp:spacer -->
 
 <!-- wp:heading {"level":2,"style":{"typography":{"fontSize":"48px","fontWeight":"700"},"color":{"text":"#2c3e50"}}} -->
-<h2 class="wp-block-heading has-text-color" style="color:#2c3e50;font-size:48px;font-weight:700">About Content Cucumber</h2>
+<h2 class="wp-block-heading has-text-color" style="color:#2c3e50;font-size:48px;font-weight:700">About [Your Company Name]</h2>
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"style":{"color":{"background":"#f8f9fa","text":"#495057"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}},"border":{"radius":"8px","width":"0px","style":"none"},"typography":{"fontSize":"18px","lineHeight":"1.7"}}} -->
@@ -122,7 +122,7 @@ EOD;
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"18px","lineHeight":"1.6"},"spacing":{"margin":{"top":"30px"}}}} -->
-<p style="margin-top:30px;font-size:18px;line-height:1.6">Since 2018, Content Cucumber has been the trusted partner for businesses seeking to amplify their digital presence and drive meaningful growth. Our proven methodology combines human creativity with cutting-edge AI insights to deliver content that not only engages audiences but converts them into loyal customers.</p>
+<p style="margin-top:30px;font-size:18px;line-height:1.6">Since 2018, [Your Company Name] has been the trusted partner for businesses seeking to amplify their digital presence and drive meaningful growth. Our proven methodology combines human creativity with cutting-edge AI insights to deliver content that not only engages audiences but converts them into loyal customers.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"18px","lineHeight":"1.6"}}} -->
@@ -146,7 +146,7 @@ EOD;
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"18px","lineHeight":"1.6"},"spacing":{"margin":{"top":"20px"}}}} -->
-<p style="margin-top:20px;font-size:18px;line-height:1.6">Content Cucumber was born from a simple observation: businesses were struggling to cut through the digital noise. Traditional marketing approaches weren't delivering the results companies needed to thrive in an increasingly competitive landscape.</p>
+<p style="margin-top:20px;font-size:18px;line-height:1.6">[Your Company Name] was born from a simple observation: businesses were struggling to cut through the digital noise. Traditional marketing approaches weren't delivering the results companies needed to thrive in an increasingly competitive landscape.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"18px","lineHeight":"1.6"}}} -->
@@ -325,7 +325,7 @@ EOD;
   "mainEntity": [
     {
       "@type": "Question",
-      "name": "What makes Content Cucumber different from other agencies?",
+      "name": "What makes [Your Company Name] different from other agencies?",
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "We combine human expertise with AI-powered insights to deliver exceptional results. Our proprietary methodology and data-driven approach ensure measurable ROI for every client engagement."
@@ -333,7 +333,7 @@ EOD;
     },
     {
       "@type": "Question",
-      "name": "How long has Content Cucumber been in business?",
+      "name": "How long has [Your Company Name] been in business?",
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Since 2018, we've been helping businesses achieve sustainable growth through strategic content marketing and SEO optimization. Our experience spans over 60,000 successful projects."
@@ -352,14 +352,14 @@ EOD;
 </script>
 <!-- /wp:html -->
 
-<!-- wp:details {"summary":"What makes Content Cucumber different from other agencies?","style":{"border":{"radius":"8px","color":"#e9ecef","width":"1px"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}}}} -->
-<details class="wp-block-details has-border-color" style="border-color:#e9ecef;border-width:1px;border-radius:8px;padding-top:20px;padding-right:20px;padding-bottom:20px;padding-left:20px"><summary><strong>What makes Content Cucumber different from other agencies?</strong></summary><!-- wp:paragraph {"style":{"spacing":{"margin":{"top":"15px"}}}} -->
+<!-- wp:details {"summary":"What makes [Your Company Name] different from other agencies?","style":{"border":{"radius":"8px","color":"#e9ecef","width":"1px"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}}}} -->
+<details class="wp-block-details has-border-color" style="border-color:#e9ecef;border-width:1px;border-radius:8px;padding-top:20px;padding-right:20px;padding-bottom:20px;padding-left:20px"><summary><strong>What makes [Your Company Name] different from other agencies?</strong></summary><!-- wp:paragraph {"style":{"spacing":{"margin":{"top":"15px"}}}} -->
 <p style="margin-top:15px">We combine human expertise with AI-powered insights to deliver exceptional results. Our proprietary methodology and data-driven approach ensure measurable ROI for every client engagement. With over 60,000 projects completed, we've proven that our unique blend of creativity and technology drives sustainable business growth.</p>
 <!-- /wp:paragraph --></details>
 <!-- /wp:details -->
 
-<!-- wp:details {"summary":"How long has Content Cucumber been in business?","style":{"border":{"radius":"8px","color":"#e9ecef","width":"1px"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}}}} -->
-<details class="wp-block-details has-border-color" style="border-color:#e9ecef;border-width:1px;border-radius:8px;padding-top:20px;padding-right:20px;padding-bottom:20px;padding-left:20px"><summary><strong>How long has Content Cucumber been in business?</strong></summary><!-- wp:paragraph {"style":{"spacing":{"margin":{"top":"15px"}}}} -->
+<!-- wp:details {"summary":"How long has [Your Company Name] been in business?","style":{"border":{"radius":"8px","color":"#e9ecef","width":"1px"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}}}} -->
+<details class="wp-block-details has-border-color" style="border-color:#e9ecef;border-width:1px;border-radius:8px;padding-top:20px;padding-right:20px;padding-bottom:20px;padding-left:20px"><summary><strong>How long has [Your Company Name] been in business?</strong></summary><!-- wp:paragraph {"style":{"spacing":{"margin":{"top":"15px"}}}} -->
 <p style="margin-top:15px">Since 2018, we've been helping businesses achieve sustainable growth through strategic content marketing and SEO optimization. Our experience spans over 60,000 successful projects across diverse industries and markets worldwide.</p>
 <!-- /wp:paragraph --></details>
 <!-- /wp:details -->

@@ -10,6 +10,8 @@ debug.log
 logs/
 todo/
 plugin-releases/
+*.sh
 
-# Claude AI directory (workspace root only)
+# Claude AI directory
 .claude/
+CLAUDE.md

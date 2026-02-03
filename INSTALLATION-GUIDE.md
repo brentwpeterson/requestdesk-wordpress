@@ -71,18 +71,18 @@ Based on test results, the plugin is currently in one of these states:
 
 Test connection:
 ```bash
-curl -X GET https://contentcucumber.local/wp-json/requestdesk/v1/test \
+curl -X GET https://your-site.com/wp-json/requestdesk/v1/test \
   -H "X-RequestDesk-API-Key: 8D1SDV8672szpjp9oZkXYTH5HLv2-ggJTkM0PQKKngM"
 ```
 
 Test without key (should fail):
 ```bash
-curl -X GET https://contentcucumber.local/wp-json/requestdesk/v1/test
+curl -X GET https://your-site.com/wp-json/requestdesk/v1/test
 ```
 
 Test with wrong key (should fail):
 ```bash
-curl -X GET https://contentcucumber.local/wp-json/requestdesk/v1/test \
+curl -X GET https://your-site.com/wp-json/requestdesk/v1/test \
   -H "X-RequestDesk-API-Key: WRONG_KEY_123"
 ```
 

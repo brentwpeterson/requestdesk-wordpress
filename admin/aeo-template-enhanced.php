@@ -11,7 +11,7 @@ function requestdesk_get_enhanced_aeo_template() {
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"style":{"color":{"background":"#fff3cd","text":"#856404"},"spacing":{"padding":{"top":"20px","bottom":"20px","left":"20px","right":"20px"}},"border":{"radius":"8px","color":"#ffeaa7","width":"1px"}}} -->
-<p class="has-text-color has-background has-border-color" style="border-color:#ffeaa7;border-width:1px;border-radius:8px;background-color:#fff3cd;color:#856404;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><strong>📋 COMPREHENSIVE AEO/GEO TEMPLATE:</strong> This template integrates Content Cucumber's proven homepage elements with complete AEO (Answer Engine Optimization) and GEO (Generative Engine Optimization) features. Look for <mark>[CUSTOMIZE]</mark> tags throughout to personalize for other businesses.</p>
+<p class="has-text-color has-background has-border-color" style="border-color:#ffeaa7;border-width:1px;border-radius:8px;background-color:#fff3cd;color:#856404;padding-top:20px;padding-bottom:20px;padding-left:20px;padding-right:20px"><strong>📋 COMPREHENSIVE AEO/GEO TEMPLATE:</strong> This template integrates [Your Company Name]'s proven homepage elements with complete AEO (Answer Engine Optimization) and GEO (Generative Engine Optimization) features. Look for <mark>[CUSTOMIZE]</mark> tags throughout to personalize for other businesses.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:details {"summary":"📖 Complete AEO/GEO Setup Checklist - Click to Expand"} -->
@@ -35,7 +35,7 @@ function requestdesk_get_enhanced_aeo_template() {
 <!-- /wp:details -->
 
 <!-- wp:paragraph {"style":{"color":{"background":"#e8f4fd","text":"#0c5460"},"spacing":{"padding":{"top":"15px","bottom":"15px","left":"15px","right":"15px"}},"border":{"radius":"6px"}}} -->
-<p class="has-text-color has-background" style="border-radius:6px;background-color:#e8f4fd;color:#0c5460;padding-top:15px;padding-bottom:15px;padding-left:15px;padding-right:15px"><strong>📝 OPTIMIZED META DESCRIPTION:</strong> "Content Cucumber delivers expert SEO, content marketing, and AI-powered digital strategies. Drive organic growth with our proven team of writers, designers, and developers. 60,000+ projects delivered. Get your free consultation today."</p>
+<p class="has-text-color has-background" style="border-radius:6px;background-color:#e8f4fd;color:#0c5460;padding-top:15px;padding-bottom:15px;padding-left:15px;padding-right:15px"><strong>📝 OPTIMIZED META DESCRIPTION:</strong> "[Your Company Name] delivers expert SEO, content marketing, and AI-powered digital strategies. Drive organic growth with our proven team of writers, designers, and developers. 60,000+ projects delivered. Get your free consultation today."</p>
 <!-- /wp:paragraph -->
 
 EOD;
@@ -47,7 +47,7 @@ EOD;
 {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "Content Cucumber",
+  "name": "[Your Company Name]",
   "alternateName": "[CUSTOMIZE: Add your business name]",
   "url": "<?php echo esc_url(home_url()); ?>",
   "version": "<?php echo esc_attr(REQUESTDESK_VERSION); ?>",
@@ -116,7 +116,7 @@ EOD;
     $template_content .= requestdesk_get_action_instruction_block('hero_section');
     $template_content .= <<<'EOD'
 
-<!-- Hero Section - Proven Content Cucumber Design -->
+<!-- Hero Section - Proven [Your Company Name] Design -->
 <!-- wp:cover {"url":"","customOverlayColor":"#000000","minHeight":600,"isDark":true} -->
 <div class="wp-block-cover is-dark" style="min-height:600px"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim" style="background-color:#000000"></span><div class="wp-block-cover__inner-container">
 
@@ -176,19 +176,19 @@ EOD;
   <!-- wp:gallery {"linkTo":"none","align":"center"} -->
   <figure class="wp-block-gallery aligncenter has-nested-images columns-default is-cropped">
     <!-- wp:image -->
-    <figure class="wp-block-image"><img src="https://contentcucumber.local/wp-content/uploads/2025/06/Adobe-1024x576.png" alt="Adobe - Content Cucumber Partner"/></figure>
+    <figure class="wp-block-image"><img src="https://[your-domain.com]/wp-content/uploads/2025/06/Adobe-1024x576.png" alt="Adobe - [Your Company Name] Partner"/></figure>
     <!-- /wp:image -->
     <!-- wp:image -->
-    <figure class="wp-block-image"><img src="https://contentcucumber.local/wp-content/uploads/2025/06/hubspot.png" alt="HubSpot - Content Cucumber Partner"/></figure>
+    <figure class="wp-block-image"><img src="https://[your-domain.com]/wp-content/uploads/2025/06/hubspot.png" alt="HubSpot - [Your Company Name] Partner"/></figure>
     <!-- /wp:image -->
     <!-- wp:image -->
-    <figure class="wp-block-image"><img src="https://contentcucumber.local/wp-content/uploads/2025/07/Etail.jpeg" alt="Etail - Content Cucumber Partner"/></figure>
+    <figure class="wp-block-image"><img src="https://[your-domain.com]/wp-content/uploads/2025/07/Etail.jpeg" alt="Etail - [Your Company Name] Partner"/></figure>
     <!-- /wp:image -->
     <!-- wp:image -->
-    <figure class="wp-block-image"><img src="https://contentcucumber.local/wp-content/uploads/2025/07/Shopware.png" alt="Shopware - Content Cucumber Partner"/></figure>
+    <figure class="wp-block-image"><img src="https://[your-domain.com]/wp-content/uploads/2025/07/Shopware.png" alt="Shopware - [Your Company Name] Partner"/></figure>
     <!-- /wp:image -->
     <!-- wp:image -->
-    <figure class="wp-block-image"><img src="https://contentcucumber.local/wp-content/uploads/2025/07/Shoptalk-Icon-Logo-1.jpg" alt="Shoptalk - Content Cucumber Partner"/></figure>
+    <figure class="wp-block-image"><img src="https://[your-domain.com]/wp-content/uploads/2025/07/Shoptalk-Icon-Logo-1.jpg" alt="Shoptalk - [Your Company Name] Partner"/></figure>
     <!-- /wp:image -->
   </figure>
   <!-- /wp:gallery -->
@@ -358,7 +358,7 @@ EOD;
       <!-- /wp:heading -->
 
       <!-- wp:paragraph -->
-      <p>SEO results typically begin showing within 3-6 months, with significant improvements visible after 6-12 months. Our proven strategies focus on sustainable, long-term growth rather than quick fixes. Content Cucumber's data-driven approach ensures consistent progress toward your organic traffic goals.</p>
+      <p>SEO results typically begin showing within 3-6 months, with significant improvements visible after 6-12 months. Our proven strategies focus on sustainable, long-term growth rather than quick fixes. [Your Company Name]'s data-driven approach ensures consistent progress toward your organic traffic goals.</p>
       <!-- /wp:paragraph -->
     </div>
     <!-- /wp:group -->
@@ -366,7 +366,7 @@ EOD;
     <!-- wp:group {"style":{"spacing":{"padding":{"top":"25px","bottom":"25px","left":"25px","right":"25px"},"margin":{"top":"20px"}},"border":{"radius":"8px","width":"1px","color":"#e9ecef"}},"backgroundColor":"white","className":"faq-item"} -->
     <div class="wp-block-group faq-item has-white-background-color has-background has-border-color" style="border-color:#e9ecef;border-width:1px;border-radius:8px;margin-top:20px;padding-top:25px;padding-right:25px;padding-bottom:25px;padding-left:25px">
       <!-- wp:heading {"level":3,"style":{"color":{"text":"#296b8c"},"typography":{"fontSize":"20px"}}} -->
-      <h3 class="wp-block-heading has-text-color" style="color:#296b8c;font-size:20px">What makes Content Cucumber different from other agencies?</h3>
+      <h3 class="wp-block-heading has-text-color" style="color:#296b8c;font-size:20px">What makes [Your Company Name] different from other agencies?</h3>
       <!-- /wp:heading -->
 
       <!-- wp:paragraph -->
@@ -457,7 +457,7 @@ EOD;
           <!-- /wp:paragraph -->
 
           <!-- wp:paragraph {"style":{"typography":{"fontStyle":"italic"}}} -->
-          <p style="font-style:italic">"Content Cucumber transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business."</p>
+          <p style="font-style:italic">"[Your Company Name] transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business."</p>
           <!-- /wp:paragraph -->
 
           <!-- wp:paragraph {"style":{"typography":{"fontWeight":"600"},"color":{"text":"#296b8c"}}} -->
@@ -477,7 +477,7 @@ EOD;
           <!-- /wp:paragraph -->
 
           <!-- wp:paragraph {"style":{"typography":{"fontStyle":"italic"}}} -->
-          <p style="font-style:italic">"The team at Content Cucumber delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher."</p>
+          <p style="font-style:italic">"The team at [Your Company Name] delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher."</p>
           <!-- /wp:paragraph -->
 
           <!-- wp:paragraph {"style":{"typography":{"fontWeight":"600"},"color":{"text":"#296b8c"}}} -->
@@ -504,11 +504,11 @@ EOD;
   <div class="wp-block-generateblocks-container container">
 
     <!-- wp:heading {"textAlign":"center","level":2,"style":{"color":{"text":"#296b8c"},"typography":{"fontSize":"36px"}}} -->
-    <h2 class="wp-block-heading has-text-align-center has-text-color" style="color:#296b8c;font-size:36px">About Content Cucumber</h2>
+    <h2 class="wp-block-heading has-text-align-center has-text-color" style="color:#296b8c;font-size:36px">About [Your Company Name]</h2>
     <!-- /wp:heading -->
 
     <!-- wp:paragraph {"align":"center","style":{"spacing":{"margin":{"bottom":"40px"}},"typography":{"fontSize":"18px"}}} -->
-    <p class="has-text-align-center" style="margin-bottom:40px;font-size:18px">Founded with a mission to democratize world-class content marketing, Content Cucumber combines human creativity with AI-powered insights. Our team of expert writers, strategists, and developers work together to deliver measurable results for businesses of all sizes.</p>
+    <p class="has-text-align-center" style="margin-bottom:40px;font-size:18px">Founded with a mission to democratize world-class content marketing, [Your Company Name] combines human creativity with AI-powered insights. Our team of expert writers, strategists, and developers work together to deliver measurable results for businesses of all sizes.</p>
     <!-- /wp:paragraph -->
 
     <!-- wp:paragraph {"align":"center","style":{"color":{"text":"#666666"}},"fontSize":"small"} -->
@@ -701,7 +701,7 @@ EOD;
     }
   },{
     "@type": "Question",
-    "name": "What makes Content Cucumber different from other agencies?",
+    "name": "What makes [Your Company Name] different from other agencies?",
     "acceptedAnswer": {
       "@type": "Answer",
       "text": "We combine human expertise with AI-powered insights to deliver exceptional results. Our dedicated team approach ensures consistency, while our proprietary tools provide data-driven optimization that most agencies cannot match."
@@ -735,7 +735,7 @@ EOD;
   "description": "Comprehensive digital marketing services including SEO optimization, content marketing, and AI-powered analytics",
   "provider": {
     "@type": "Organization",
-    "name": "Content Cucumber"
+    "name": "[Your Company Name]"
   },
   "serviceType": "Digital Marketing",
   "areaServed": "Worldwide",
@@ -779,7 +779,7 @@ EOD;
 {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "Content Cucumber",
+  "name": "[Your Company Name]",
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "4.9",
@@ -799,7 +799,7 @@ EOD;
         "ratingValue": "5",
         "bestRating": "5"
       },
-      "reviewBody": "Content Cucumber transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business."
+      "reviewBody": "[Your Company Name] transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business."
     },
     {
       "@type": "Review",
@@ -812,7 +812,7 @@ EOD;
         "ratingValue": "5",
         "bestRating": "5"
       },
-      "reviewBody": "The team at Content Cucumber delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher."
+      "reviewBody": "The team at [Your Company Name] delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher."
     }
   ]
 }
@@ -830,25 +830,25 @@ EOD;
       "@type": "ListItem",
       "position": 1,
       "name": "Home",
-      "item": "https://contentcucumber.com"
+      "item": "https://[your-domain.com]"
     },
     {
       "@type": "ListItem",
       "position": 2,
       "name": "Services",
-      "item": "https://contentcucumber.com#services"
+      "item": "https://[your-domain.com]#services"
     },
     {
       "@type": "ListItem",
       "position": 3,
       "name": "About",
-      "item": "https://contentcucumber.com#about"
+      "item": "https://[your-domain.com]#about"
     },
     {
       "@type": "ListItem",
       "position": 4,
       "name": "Contact",
-      "item": "https://contentcucumber.com#contact"
+      "item": "https://[your-domain.com]#contact"
     }
   ]
 }

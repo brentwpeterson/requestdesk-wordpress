@@ -1,9 +1,10 @@
 === RequestDesk Connector ===
 Contributors: requestdesk
-Tags: content, api, publishing, automation
+Tags: content, api, publishing, automation, seo, schema
 Requires at least: 5.0
-Tested up to: 6.3
-Stable tag: 2.4.0
+Tested up to: 6.7
+Stable tag: 2.5.0
+Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,7 +14,7 @@ Connect RequestDesk.ai to WordPress for seamless content publishing with AI-Firs
 
 The RequestDesk Connector plugin allows you to publish content from RequestDesk.ai directly to your WordPress site. Content is sent via REST API and created as draft posts for your review.
 
-**NEW in v2.4.0:** AI-First Schema Markup system with automatic detection for Product, LocalBusiness, Video, Course, and Breadcrumb schema types. Optimized for AI/LLM visibility (ChatGPT, Claude, Perplexity, Google AI Overviews).
+**NEW in v2.5.0:** Prepared for WordPress.org with improved security and documentation.
 
 = Features =
 
@@ -54,7 +55,44 @@ Currently, the plugin supports standard WordPress posts. Pages and custom post t
 
 Yes, you can set the default post status in the plugin settings. You can also specify the status when sending content from RequestDesk.
 
+== External Services ==
+
+This plugin connects to the following external services:
+
+= RequestDesk.ai =
+* URL: https://app.requestdesk.ai
+* Purpose: Content syncing and publishing automation
+* Data sent: Post content, API key for authentication
+* When: Only when you initiate a sync operation
+* Terms: https://requestdesk.ai/terms
+* Privacy: https://requestdesk.ai/privacy
+
+= Anthropic Claude API (Optional) =
+* URL: https://api.anthropic.com
+* Purpose: AI-powered content analysis and schema suggestions
+* Data sent: Post content for analysis (only when user clicks Analyze)
+* When: Only when you explicitly click the "Analyze with Claude" button
+* Requires: User's own Claude API key (configured in settings)
+* Terms: https://anthropic.com/terms
+* Privacy: https://anthropic.com/privacy
+
+== Privacy ==
+
+This plugin:
+* Stores API keys locally in your WordPress database (encrypted)
+* Sends content to RequestDesk.ai only when you initiate a sync
+* Optionally sends content to Claude API only when you click "Analyze"
+* Does not collect or transmit data without explicit user action
+* Does not track users or collect analytics
+
 == Changelog ==
+
+= 2.5.0 =
+* Prepared for WordPress.org submission
+* Removed external auto-updater (now uses WordPress.org updates)
+* Improved security with enhanced nonce verification
+* Added privacy policy and external service disclosures
+* Made templates generic for wider use
 
 = 2.4.0 =
 * **NEW: AI-First Schema Markup System**

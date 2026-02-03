@@ -214,7 +214,7 @@ function requestdesk_template_importer_page() {
         <details style="margin-top: 20px;">
             <summary style="cursor: pointer; font-weight: 600; padding: 10px; background: #f0f0f1; border-radius: 4px;">🔧 Legacy Template Import (No CSV)</summary>
             <div style="padding: 20px; background: #f8f9fa; border-radius: 4px; margin-top: 10px;">
-                <p style="color: #666; font-style: italic;">Import the default Content Cucumber template without CSV customization:</p>
+                <p style="color: #666; font-style: italic;">Import the default [Your Company Name] template without CSV customization:</p>
                 <form method="post" action="">
                     <?php wp_nonce_field('requestdesk_template_import', 'requestdesk_template_nonce'); ?>
                     <input type="hidden" name="template_type" value="aeo_homepage">
@@ -488,7 +488,7 @@ function requestdesk_import_aeo_homepage() {
                     'optimization_status' => 'optimized',
                     'ai_questions' => json_encode([
                         'How long does it take to see SEO results?',
-                        'What makes Content Cucumber different from other agencies?',
+                        'What makes [Your Company Name] different from other agencies?',
                         'Do you work with businesses in my industry?'
                     ]),
                     'created_at' => $current_time,
@@ -687,8 +687,8 @@ function requestdesk_get_aeo_template_with_csv($csv_data) {
     $replacements = array(
         // Company Information
         '[CUSTOMIZE: Add your business name]' => $csv_data['company_name'] ?? 'Your Company',
-        'Content Cucumber' => $csv_data['company_name'] ?? 'Your Company',
-        'https://contentcucumber.com' => $csv_data['company_url'] ?? 'https://yourwebsite.com',
+        '[Your Company Name]' => $csv_data['company_name'] ?? 'Your Company',
+        'https://example.com' => $csv_data['company_url'] ?? 'https://yourwebsite.com',
 
         // Hero Section
         'We drive organic growth with SEO, AI, GEO and content marketing' => $csv_data['hero_headline'] ?? 'Your compelling headline here',
@@ -706,8 +706,8 @@ function requestdesk_get_aeo_template_with_csv($csv_data) {
 
         // FAQ Section
         'How long does it take to see SEO results?' => $csv_data['faq_1_question'] ?? 'Common question 1?',
-        'SEO results typically begin showing within 3-6 months, with significant improvements visible after 6-12 months. Our proven strategies focus on sustainable, long-term growth rather than quick fixes. Content Cucumber\'s data-driven approach ensures consistent progress toward your organic traffic goals.' => $csv_data['faq_1_answer'] ?? 'Answer to your first common question.',
-        'What makes Content Cucumber different from other agencies?' => $csv_data['faq_2_question'] ?? 'Common question 2?',
+        'SEO results typically begin showing within 3-6 months, with significant improvements visible after 6-12 months. Our proven strategies focus on sustainable, long-term growth rather than quick fixes. [Your Company Name]\'s data-driven approach ensures consistent progress toward your organic traffic goals.' => $csv_data['faq_1_answer'] ?? 'Answer to your first common question.',
+        'What makes [Your Company Name] different from other agencies?' => $csv_data['faq_2_question'] ?? 'Common question 2?',
         'We combine human expertise with AI-powered insights to deliver exceptional results. Our dedicated team approach ensures consistency, while our proprietary tools provide data-driven optimization that most agencies cannot match. With 60,000+ projects delivered and a 4.9/5 rating, we focus on measurable ROI.' => $csv_data['faq_2_answer'] ?? 'Answer to your second common question.',
         'Do you work with businesses in my industry?' => $csv_data['faq_3_question'] ?? 'Common question 3?',
         'We work with businesses across all industries, from e-commerce and SaaS to professional services and manufacturing. Our team has experience creating effective content strategies for diverse markets and audiences, with proven success in both B2B and B2C environments.' => $csv_data['faq_3_answer'] ?? 'Answer to your third common question.',
@@ -715,9 +715,9 @@ function requestdesk_get_aeo_template_with_csv($csv_data) {
         'We offer comprehensive digital marketing services including SEO optimization, content marketing, AI-powered analytics, technical SEO audits, copywriting, and strategic consulting. Our full-service approach ensures all aspects of your digital presence work together for maximum impact.' => $csv_data['faq_4_answer'] ?? 'Answer to your fourth common question.',
 
         // Testimonials
-        'Content Cucumber transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business.' => $csv_data['testimonial_1_text'] ?? 'Great testimonial from a satisfied customer about the results they achieved.',
+        '[Your Company Name] transformed our organic traffic from 500 to over 10,000 monthly visitors. Their strategic approach and consistent quality have been game-changing for our business.' => $csv_data['testimonial_1_text'] ?? 'Great testimonial from a satisfied customer about the results they achieved.',
         'Sarah Johnson, CEO of TechStart Inc.' => $csv_data['testimonial_1_author'] ?? 'Client Name, Title',
-        'The team at Content Cucumber delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher.' => $csv_data['testimonial_2_text'] ?? 'Another positive testimonial highlighting specific benefits.',
+        'The team at [Your Company Name] delivers consistently high-quality content that resonates with our audience. Our engagement rates have never been higher.' => $csv_data['testimonial_2_text'] ?? 'Another positive testimonial highlighting specific benefits.',
         'Michael Chen, Marketing Director' => $csv_data['testimonial_2_author'] ?? 'Another Client, Title',
 
         // Company Stats
@@ -736,10 +736,10 @@ function requestdesk_get_aeo_template_with_csv($csv_data) {
         'Schedule Your Free Consultation' => $csv_data['hero_cta_text'] ?? 'Get Started Today',
 
         // About section
-        'Founded with a mission to democratize world-class content marketing, Content Cucumber combines human creativity with AI-powered insights. Our team of expert writers, strategists, and developers work together to deliver measurable results for businesses of all sizes.' => $csv_data['about_description'] ?? 'Your company description and mission statement goes here.',
+        'Founded with a mission to democratize world-class content marketing, [Your Company Name] combines human creativity with AI-powered insights. Our team of expert writers, strategists, and developers work together to deliver measurable results for businesses of all sizes.' => $csv_data['about_description'] ?? 'Your company description and mission statement goes here.',
 
         // Meta description
-        'Content Cucumber delivers expert SEO, content marketing, and AI-powered digital strategies. Drive organic growth with our proven team of writers, designers, and developers. 60,000+ projects delivered. Get your free consultation today.' => $csv_data['meta_description'] ?? 'Your optimized meta description for search engines.',
+        '[Your Company Name] delivers expert SEO, content marketing, and AI-powered digital strategies. Drive organic growth with our proven team of writers, designers, and developers. 60,000+ projects delivered. Get your free consultation today.' => $csv_data['meta_description'] ?? 'Your optimized meta description for search engines.',
     );
 
     // Apply replacements
@@ -991,12 +991,12 @@ function requestdesk_get_about_template_with_csv($csv_data) {
     $replacements = array(
         // Company Information
         '[CUSTOMIZE: Add your business name]' => $csv_data['company_name'] ?? 'Your Company',
-        'Content Cucumber' => $csv_data['company_name'] ?? 'Your Company',
-        'https://contentcucumber.com' => $csv_data['company_url'] ?? 'https://yourwebsite.com',
+        '[Your Company Name]' => $csv_data['company_name'] ?? 'Your Company',
+        'https://example.com' => $csv_data['company_url'] ?? 'https://yourwebsite.com',
 
         // Mission and Story
         'We drive sustainable business growth through expert content marketing, SEO optimization, and AI-powered digital strategies. [CUSTOMIZE: Add your company mission statement here]' => $csv_data['company_mission'] ?? 'Your company mission statement here.',
-        'Content Cucumber was born from a simple observation: businesses were struggling to cut through the digital noise.' => $csv_data['company_story_intro'] ?? 'Your company story begins here.',
+        '[Your Company Name] was born from a simple observation: businesses were struggling to cut through the digital noise.' => $csv_data['company_story_intro'] ?? 'Your company story begins here.',
         'Our founder, [CUSTOMIZE: Founder Name], recognized that the future of marketing lay in the perfect fusion of human creativity and artificial intelligence.' => str_replace('[CUSTOMIZE: Founder Name]', $csv_data['founder_name'] ?? 'Our founder', $csv_data['company_story_body'] ?? 'Your company story continues here.'),
         '[CUSTOMIZE: Add 2-3 paragraphs about your company\'s specific journey, key milestones, challenges overcome, and what drives your mission. Include specific dates, achievements, and growth metrics to build credibility.]' => $csv_data['company_story_conclusion'] ?? 'Share your company\'s journey, milestones, and what drives your mission here.',
 
@@ -1010,7 +1010,7 @@ function requestdesk_get_about_template_with_csv($csv_data) {
         '[CUSTOMIZE: 2-3 sentences about CTO background, technical expertise, and innovations. Include relevant technical certifications or achievements.]' => $csv_data['cto_bio'] ?? 'Background and technical expertise of the CTO.',
 
         // Photo URLs
-        'https://contentcucumber.com/wp-content/uploads/team-placeholder.jpg' => $csv_data['ceo_photo_url'] ?? 'https://contentcucumber.com/wp-content/uploads/team-placeholder.jpg',
+        'https://example.com/wp-content/uploads/team-placeholder.jpg' => $csv_data['ceo_photo_url'] ?? 'https://example.com/wp-content/uploads/team-placeholder.jpg',
 
         // Values
         'Results-Driven' => $csv_data['value_1_title'] ?? 'Results-Driven',
@@ -1031,9 +1031,9 @@ function requestdesk_get_about_template_with_csv($csv_data) {
         'Industry Experience' => $csv_data['stat_4_label'] ?? 'Experience',
 
         // FAQ Section
-        'What makes Content Cucumber different from other agencies?' => $csv_data['faq_1_question'] ?? 'What makes your company different?',
+        'What makes [Your Company Name] different from other agencies?' => $csv_data['faq_1_question'] ?? 'What makes your company different?',
         'We combine human expertise with AI-powered insights to deliver exceptional results. Our proprietary methodology and data-driven approach ensure measurable ROI for every client engagement.' => $csv_data['faq_1_answer'] ?? 'Answer about what makes your company different.',
-        'How long has Content Cucumber been in business?' => $csv_data['faq_2_question'] ?? 'How long has your company been in business?',
+        'How long has [Your Company Name] been in business?' => $csv_data['faq_2_question'] ?? 'How long has your company been in business?',
         'Since 2018, we\'ve been helping businesses achieve sustainable growth through strategic content marketing and SEO optimization. Our experience spans over 60,000 successful projects.' => $csv_data['faq_2_answer'] ?? 'Information about your company history and experience.',
         'What industries do you work with?' => $csv_data['faq_3_question'] ?? 'What industries do you serve?',
         'We serve clients across all industries, from e-commerce and SaaS to professional services and manufacturing. Our diverse experience allows us to adapt our strategies to any market.' => $csv_data['faq_3_answer'] ?? 'Description of the industries you serve.',
@@ -1049,7 +1049,7 @@ function requestdesk_get_about_template_with_csv($csv_data) {
         '[CUSTOMIZE: Services Page URL]' => $csv_data['services_page_url'] ?? '/services',
 
         // Meta Information
-        'Learn about Content Cucumber\'s mission to drive business growth through expert content marketing and SEO. Meet our team of experienced writers, designers, and strategists. Trusted by 1,000+ companies worldwide.' => $csv_data['meta_description'] ?? 'Learn about our mission and meet our team.',
+        'Learn about [Your Company Name]\'s mission to drive business growth through expert content marketing and SEO. Meet our team of experienced writers, designers, and strategists. Trusted by 1,000+ companies worldwide.' => $csv_data['meta_description'] ?? 'Learn about our mission and meet our team.',
         '2018' => $csv_data['founding_date'] ?? '2020',
         '25' => $csv_data['team_size'] ?? '10',
         'Worldwide' => $csv_data['area_served'] ?? 'United States'

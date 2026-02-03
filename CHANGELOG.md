@@ -5,6 +5,23 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-02-03
+
+### Added
+- External Services section in readme.txt for WordPress.org compliance
+- Privacy section documenting data handling practices
+- PHP 7.4 minimum requirement specification
+
+### Changed
+- Prepared for WordPress.org plugin directory submission
+- Removed external auto-updater (now uses WordPress.org updates)
+- Made templates generic for wider use (removed company-specific references)
+- Updated version compatibility (Tested up to WordPress 6.7)
+
+### Removed
+- External auto-updater system (class-requestdesk-plugin-updater.php)
+- Company-specific content from templates
+
 ## [2.4.0] - 2025-12-09
 
 ### Added
