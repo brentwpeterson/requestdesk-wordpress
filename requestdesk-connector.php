@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.5.0
+ * Version: 2.6.1
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,16 +15,18 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.5.0');
+define('REQUESTDESK_VERSION', '2.6.1');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Load plugin files with error handling
 $plugin_files = array(
     'includes/class-requestdesk-api.php',
+    'includes/class-requestdesk-headless-api.php',
     'includes/class-requestdesk-post-handler.php',
     'includes/class-requestdesk-push.php',
     'admin/settings-page.php',
+    'admin/headless-settings-page.php',
     'includes/class-requestdesk-aeo-core.php',
     'includes/class-requestdesk-content-analyzer.php',
     'includes/class-requestdesk-content-detector.php', // NEW: AI-First Schema Detection
@@ -76,6 +78,11 @@ function requestdesk_init() {
         // Initialize AEO admin functionality
         add_action('admin_menu', 'requestdesk_aeo_add_admin_menu');
         add_action('add_meta_boxes', 'requestdesk_aeo_add_meta_boxes');
+
+        // Initialize Headless API admin menu
+        if (function_exists('requestdesk_headless_add_admin_menu')) {
+            add_action('admin_menu', 'requestdesk_headless_add_admin_menu', 20);
+        }
     }
 
     // Initialize push functionality with error handling
@@ -118,6 +125,12 @@ function requestdesk_init() {
 function requestdesk_register_api_endpoints() {
     $api = new RequestDesk_API();
     $api->register_routes();
+
+    // Register headless CMS endpoints for Astro/frontend use
+    if (class_exists('RequestDesk_Headless_API')) {
+        $headless_api = new RequestDesk_Headless_API();
+        $headless_api->register_routes();
+    }
 }
 
 /**
