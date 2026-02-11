@@ -1,0 +1,158 @@
+/**
+ * Comparison Table Styles
+ *
+ * Responsive comparison table that converts to card layout on mobile.
+ * Loaded globally by the plugin for homepage comparison sections.
+ *
+ * @package RequestDesk
+ * @version 1.0.0
+ */
+
+/* ==========================================================================
+   Comparison Table - Desktop
+   ========================================================================== */
+
+.cc-comparison-table {
+    max-width: 1200px;
+    margin: 30px auto;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 0 20px;
+}
+
+.cc-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.cc-comparison-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.cc-comparison-table thead {
+    background: #1a1a1a;
+    color: white;
+}
+
+.cc-comparison-table th {
+    padding: 20px 15px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.cc-comparison-table th:first-child {
+    min-width: 200px;
+}
+
+.cc-comparison-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    transition: background-color 0.3s ease;
+}
+
+.cc-comparison-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.cc-comparison-table tbody tr:nth-child(odd) {
+    background-color: #fafafa;
+}
+
+.cc-comparison-table td {
+    padding: 20px 15px;
+    vertical-align: middle;
+}
+
+.cc-platform-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: #2c3e50;
+}
+
+/* Content Cucumber row - highlighted */
+.cc-highlight-row {
+    background-color: #d4f5d4 !important; /* a11y: solid bg for axe contrast detection */
+}
+
+.cc-highlight-row .cc-platform-name {
+    color: #116329; /* a11y: 6.27:1 on #d4f5d4 - WCAG AA */
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+/* Icon styles - use CSS content to avoid axe nonBmp detection issues */
+.cc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.cc-icon-check {
+    background-color: #d4f5d4;
+    color: #116329; /* a11y: 6.27:1 on #d4f5d4 - WCAG AA */
+}
+
+.cc-icon-check::before {
+    content: "\2713"; /* checkmark */
+}
+
+.cc-icon-x {
+    background-color: #fee2e2;
+    color: #991b1b; /* a11y: 6.80:1 on #fee2e2 - WCAG AA */
+}
+
+.cc-icon-x::before {
+    content: "\2715"; /* x mark */
+}
+
+/* Screen reader text - visually hidden but accessible */
+.cc-comparison-table .screen-reader-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Note section */
+.cc-comparison-note {
+    padding: 20px;
+    background: #f0f9ff;
+    border-left: 4px solid #0ea5e9;
+    margin: 20px;
+    border-radius: 4px;
+}
+
+.cc-comparison-note h3 {
+    margin-bottom: 10px;
+    color: #0c4a6e;
+    font-size: 1.2rem;
+}
+
+.cc-comparison-note p {
+    color: #475569;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ==========================================================================
+   Responsive - Card Layout on Mobile
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .cc-comparison-table {
+        display: none !important;
+    }
+}

@@ -231,23 +231,25 @@ class RequestDesk_Frontend_QA {
             </div>
         </div>
 
-        <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
-                <?php foreach ($qa_pairs as $i => $qa): ?>
-                {
-                    "@type": "Question",
-                    "name": "<?php echo esc_js($qa['question']); ?>",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "<?php echo esc_js(strip_tags($qa['answer'])); ?>"
-                    }
-                }<?php echo ($i < count($qa_pairs) - 1) ? ',' : ''; ?>
-                <?php endforeach; ?>
-            ]
+        <?php
+        $faq_schema = array(
+            '@context' => 'https://schema.org',
+            '@type'    => 'FAQPage',
+            'mainEntity' => array(),
+        );
+        foreach ($qa_pairs as $qa) {
+            $faq_schema['mainEntity'][] = array(
+                '@type' => 'Question',
+                'name'  => $qa['question'],
+                'acceptedAnswer' => array(
+                    '@type' => 'Answer',
+                    'text'  => strip_tags($qa['answer']),
+                ),
+            );
         }
+        ?>
+        <script type="application/ld+json">
+        <?php echo wp_json_encode($faq_schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
         </script>
         <?php
         return ob_get_clean();

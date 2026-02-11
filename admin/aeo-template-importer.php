@@ -308,7 +308,7 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
             if (!isset($csv_data['template_type']) || empty($csv_data['template_type'])) {
                 return array(
                     'success' => false,
-                    'message' => 'Auto-detect selected but CSV file is missing "template_type" column or it is empty. Please add template_type column with value: homepage, about'
+                    'message' => 'Auto-detect selected but CSV file is missing "template_type" column or it is empty. Please add template_type column with value: homepage, about, pillar'
                 );
             }
             $csv_template_type = sanitize_text_field($csv_data['template_type']);
@@ -341,10 +341,14 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 case 'contact_page':
                     $detected_type = 'contact_page';
                     break;
+                case 'pillar':
+                case 'pillar_page':
+                    $detected_type = 'pillar_page';
+                    break;
                 default:
                     return array(
                         'success' => false,
-                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service, leadmagnet, generateblocks, contact'
+                        'message' => 'Invalid template_type in CSV: ' . $csv_template_type . '. Valid types: homepage, about, open_base, service, leadmagnet, generateblocks, contact, pillar'
                     );
             }
 
@@ -372,6 +376,8 @@ function requestdesk_import_csv_template($template_type, $csv_file) {
                 return requestdesk_import_generateblocks_csv($csv_data);
             case 'contact_page':
                 return requestdesk_import_contact_page_csv($csv_data);
+            case 'pillar_page':
+                return requestdesk_import_pillar_page_csv($csv_data);
             default:
                 return array(
                     'success' => false,
@@ -3315,5 +3321,171 @@ function requestdesk_build_contact_page_content($csv_data) {
     }
 
     return $content;
+}
+
+/**
+ * Import Pillar Page from CSV data
+ * Handles pre-built HTML content with parent/child page hierarchy.
+ * Unlike other handlers, this does NOT build HTML from CSV fields.
+ * The HTML arrives pre-built in the 'content' column.
+ */
+function requestdesk_import_pillar_page_csv($csv_data) {
+    global $wpdb;
+
+    // Validate required fields
+    $required_fields = array('page_title', 'page_slug', 'content');
+    $missing = array();
+    foreach ($required_fields as $field) {
+        if (empty($csv_data[$field])) {
+            $missing[] = $field;
+        }
+    }
+    if (!empty($missing)) {
+        return array(
+            'success' => false,
+            'message' => 'Missing required fields: ' . implode(', ', $missing)
+        );
+    }
+
+    $page_title = sanitize_text_field($csv_data['page_title']);
+    $page_slug = sanitize_title($csv_data['page_slug']);
+
+    // Check if page with this slug already exists
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+        $page_slug
+    ));
+
+    if ($existing) {
+        $page_slug = $page_slug . '-' . current_time('Y-m-d-H-i');
+    }
+
+    // Use pre-built HTML content, wrap in wp:html block if not already wrapped
+    $content = $csv_data['content'];
+    if (strpos($content, '<!-- wp:html -->') === false) {
+        $content = '<!-- wp:html -->' . "\n" . $content . "\n" . '<!-- /wp:html -->';
+    }
+
+    // Resolve parent page if parent_slug is provided
+    $post_parent = 0;
+    if (!empty($csv_data['parent_slug'])) {
+        $parent_slug = sanitize_title($csv_data['parent_slug']);
+        $parent_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'page' AND post_status != 'trash'",
+            $parent_slug
+        ));
+
+        if (!$parent_id) {
+            return array(
+                'success' => false,
+                'message' => 'Parent page not found with slug: ' . $parent_slug . '. Import the parent page first.'
+            );
+        }
+        $post_parent = (int) $parent_id;
+    }
+
+    // Build excerpt from excerpt field, fallback to meta_description
+    $excerpt = '';
+    if (!empty($csv_data['excerpt'])) {
+        $excerpt = sanitize_text_field($csv_data['excerpt']);
+    } elseif (!empty($csv_data['meta_description'])) {
+        $excerpt = sanitize_text_field($csv_data['meta_description']);
+    }
+
+    // Prepare page data
+    $current_time = current_time('mysql');
+    $current_time_gmt = current_time('mysql', 1);
+
+    $page_data = array(
+        'post_author' => get_current_user_id(),
+        'post_date' => $current_time,
+        'post_date_gmt' => $current_time_gmt,
+        'post_content' => $content,
+        'post_title' => $page_title,
+        'post_excerpt' => $excerpt,
+        'post_status' => 'draft',
+        'comment_status' => 'closed',
+        'ping_status' => 'closed',
+        'post_password' => '',
+        'post_name' => $page_slug,
+        'to_ping' => '',
+        'pinged' => '',
+        'post_modified' => $current_time,
+        'post_modified_gmt' => $current_time_gmt,
+        'post_content_filtered' => '',
+        'post_parent' => $post_parent,
+        'guid' => '',
+        'menu_order' => 0,
+        'post_type' => 'page',
+        'post_mime_type' => '',
+        'comment_count' => 0
+    );
+
+    // Insert the page
+    $result = $wpdb->insert($wpdb->posts, $page_data);
+
+    if ($result !== false) {
+        $page_id = $wpdb->insert_id;
+
+        // Update GUID
+        $wpdb->update(
+            $wpdb->posts,
+            array('guid' => get_permalink($page_id)),
+            array('ID' => $page_id)
+        );
+
+        // Set page to GP Canvas template for full-width layout
+        update_post_meta($page_id, '_wp_page_template', 'page-builder-canvas.php');
+
+        // Set GeneratePress layout options for full-width
+        update_post_meta($page_id, '_generate_sidebar_layout', 'no-sidebar');
+        update_post_meta($page_id, '_generate_content_width', 'full-width');
+
+        // Auto-enable landing page styling (removes header, enables full-width hero)
+        update_post_meta($page_id, '_requestdesk_landing_page', true);
+
+        // Set icon meta for child pages (used by child grid shortcode)
+        if (!empty($csv_data['icon'])) {
+            update_post_meta($page_id, '_requestdesk_icon', sanitize_text_field($csv_data['icon']));
+        }
+
+        // Set Yoast SEO meta if available
+        if (!empty($csv_data['meta_title'])) {
+            update_post_meta($page_id, '_yoast_wpseo_title', sanitize_text_field($csv_data['meta_title']));
+        }
+        if (!empty($csv_data['meta_description'])) {
+            update_post_meta($page_id, '_yoast_wpseo_metadesc', sanitize_text_field($csv_data['meta_description']));
+        }
+
+        // Add to AEO tracking (optional)
+        $aeo_table = $wpdb->prefix . 'requestdesk_aeo_data';
+        if ($wpdb->get_var("SHOW TABLES LIKE '$aeo_table'") == $aeo_table) {
+            $wpdb->insert(
+                $aeo_table,
+                array(
+                    'post_id' => $page_id,
+                    'content_type' => 'page',
+                    'aeo_score' => 85,
+                    'optimization_status' => 'optimized',
+                    'ai_questions' => json_encode(array()),
+                    'created_at' => $current_time,
+                    'updated_at' => $current_time
+                ),
+                array('%d', '%s', '%d', '%s', '%s', '%s', '%s')
+            );
+        }
+
+        return array(
+            'success' => true,
+            'page_id' => $page_id,
+            'page_title' => $page_title,
+            'template_name' => 'Pillar Page Template'
+        );
+    } else {
+        return array(
+            'success' => false,
+            'message' => 'Database insertion failed: ' . $wpdb->last_error
+        );
+    }
 }
 ?>

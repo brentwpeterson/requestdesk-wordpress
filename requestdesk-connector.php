@@ -42,7 +42,12 @@ $plugin_files = array(
     'admin/aeo-template-enhanced.php',
     'admin/aeo-template-about.php',
     'includes/class-requestdesk-frontend-qa.php',
-    'includes/class-requestdesk-child-grid.php'
+    'includes/class-requestdesk-child-grid.php',
+    'includes/class-requestdesk-homepage-hero.php',
+    'admin/homepage-hero-settings-page.php',
+    'includes/class-requestdesk-stats-bar.php',
+    'admin/stats-bar-settings-page.php',
+    'includes/class-requestdesk-comparison-table.php'
 );
 
 foreach ($plugin_files as $file) {
@@ -55,6 +60,18 @@ foreach ($plugin_files as $file) {
             error_log('RequestDesk: Missing plugin file: ' . $file_path);
         }
     }
+}
+
+// Enqueue comparison table styles on frontend
+if (function_exists('add_action')) {
+    add_action('wp_enqueue_scripts', function () {
+        wp_enqueue_style(
+            'requestdesk-comparison-table',
+            REQUESTDESK_PLUGIN_URL . 'assets/css/comparison-table.css',
+            array(),
+            REQUESTDESK_VERSION
+        );
+    });
 }
 
 // Initialize the plugin with safety checks
@@ -170,6 +187,8 @@ function requestdesk_combined_settings_page() {
         <nav class="nav-tab-wrapper">
             <a href="#general" class="nav-tab nav-tab-active" onclick="openTab(event, 'general')">General Settings</a>
             <a href="#aeo" class="nav-tab" onclick="openTab(event, 'aeo')">AEO Settings</a>
+            <a href="#homepage-hero" class="nav-tab" onclick="openTab(event, 'homepage-hero')">Homepage Hero</a>
+            <a href="#stats-bar" class="nav-tab" onclick="openTab(event, 'stats-bar')">Stats Bar</a>
         </nav>
 
         <!-- General RequestDesk Settings Tab -->
@@ -201,6 +220,24 @@ function requestdesk_combined_settings_page() {
             $aeo_content = preg_replace('/<\/div>\s*$/', '', $aeo_content);
 
             echo $aeo_content;
+            ?>
+        </div>
+
+        <!-- Homepage Hero Settings Tab -->
+        <div id="homepage-hero" class="tab-content" style="display: none;">
+            <?php
+            if (function_exists('requestdesk_homepage_hero_settings_page')) {
+                requestdesk_homepage_hero_settings_page();
+            }
+            ?>
+        </div>
+
+        <!-- Stats Bar Settings Tab -->
+        <div id="stats-bar" class="tab-content" style="display: none;">
+            <?php
+            if (function_exists('requestdesk_stats_bar_settings_page')) {
+                requestdesk_stats_bar_settings_page();
+            }
             ?>
         </div>
     </div>
@@ -312,6 +349,54 @@ function requestdesk_activate() {
         'min_content_length' => 300,
         'qa_extraction_confidence' => 0.7,
         'freshness_alert_days' => 90
+    ));
+
+    // Set default Homepage Hero options
+    add_option('requestdesk_homepage_hero_settings', array(
+        'headline'              => 'Humans<br>Writing<br>Content',
+        'form_heading'          => "Let's write your success story!",
+        'seo_text'              => 'Humans in the loop. We believe AI should enhance human creativity, not replace it. Our approach: AI-powered content creation with human editors reviewing every piece. Executing with precision. Complete brand consistency across all platforms.',
+        'hubspot_portal_id'     => '39487190',
+        'hubspot_form_id'       => '3c945309-67c6-4812-ab65-c7280682e005',
+        'hubspot_region'        => 'na1',
+        'terminal_enabled'      => true,
+        'terminal_sequences'    => array(
+            array(
+                array('text' => 'Write more, prompt less.', 'delay' => 500),
+                array('text' => "\nNo AI slop.", 'delay' => 500),
+                array('text' => "\nHumans in the loop. Always.", 'delay' => 1200),
+            ),
+            array(
+                array('text' => '> content_engine.start()', 'delay' => 500),
+                array('text' => "\nLoading brand voice...", 'delay' => 700),
+                array('text' => "\nHuman writers standing by.", 'delay' => 900),
+                array('text' => "\nReady.", 'delay' => 1200),
+            ),
+            array(
+                array('text' => 'Blog posts. Landing pages.', 'delay' => 500),
+                array('text' => "\nSocial. Email. SEO.", 'delay' => 500),
+                array('text' => "\nAll written by real humans.", 'delay' => 1200),
+            ),
+        ),
+        'terminal_type_speed_min' => 45,
+        'terminal_type_speed_max' => 95,
+        'hero_bg_color'           => '#000000',
+        'headline_color'          => '#58c558',
+        'max_width'               => 1200,
+    ));
+
+    // Set default Stats Bar options
+    add_option('requestdesk_stats_bar_settings', array(
+        'stats' => array(
+            array('value' => '60,000 +', 'label' => 'Projects Delivered', 'icon' => ''),
+            array('value' => '55 Million +', 'label' => 'Words Written', 'icon' => ''),
+            array('value' => '4.9/5', 'label' => 'Average Project Rating', 'icon' => ''),
+        ),
+        'bg_color'    => '#000000',
+        'value_color' => '#FF8C00',
+        'label_color' => '#ffffff',
+        'max_width'   => 1200,
+        'columns'     => 3,
     ));
 
     // Flush rewrite rules for REST API
