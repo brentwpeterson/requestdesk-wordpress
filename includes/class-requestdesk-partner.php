@@ -19,6 +19,8 @@ class RequestDesk_Partner {
         add_action('init', array($this, 'register_cpt'));
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_cc_partner', array($this, 'save_meta'), 10, 2);
+        add_action('admin_menu', array($this, 'add_import_page'));
+        add_action('admin_post_requestdesk_import_partners', array($this, 'handle_import'));
     }
 
     /**
@@ -246,6 +248,235 @@ class RequestDesk_Partner {
         } else {
             delete_post_meta($post_id, '_requestdesk_partner_featured');
         }
+    }
+
+    /**
+     * Add Import Partners submenu page
+     */
+    public function add_import_page() {
+        add_submenu_page(
+            'edit.php?post_type=cc_partner',
+            'Import Partners',
+            'Import Partners',
+            'manage_options',
+            'requestdesk-partner-import',
+            array($this, 'render_import_page')
+        );
+    }
+
+    /**
+     * Render the Import Partners admin page
+     */
+    public function render_import_page() {
+        $json_path = plugin_dir_path(__FILE__) . 'data/partners-import.json';
+
+        if (!file_exists($json_path)) {
+            echo '<div class="wrap"><h1>Import Partners</h1>';
+            echo '<div class="notice notice-error"><p>Import file not found: ' . esc_html($json_path) . '</p></div></div>';
+            return;
+        }
+
+        $partners = json_decode(file_get_contents($json_path), true);
+        if (!$partners) {
+            echo '<div class="wrap"><h1>Import Partners</h1>';
+            echo '<div class="notice notice-error"><p>Could not parse import JSON.</p></div></div>';
+            return;
+        }
+
+        // Check which partners already exist
+        $existing = get_posts(array(
+            'post_type'      => 'cc_partner',
+            'posts_per_page' => -1,
+            'post_status'    => 'any',
+            'fields'         => 'ids',
+        ));
+        $existing_titles = array();
+        foreach ($existing as $pid) {
+            $existing_titles[] = strtolower(get_the_title($pid));
+        }
+
+        // Show results message if redirected after import
+        if (isset($_GET['imported'])) {
+            $count = intval($_GET['imported']);
+            echo '<div class="notice notice-success"><p>' . $count . ' partner(s) imported as drafts.</p></div>';
+        }
+        if (isset($_GET['skipped'])) {
+            $count = intval($_GET['skipped']);
+            echo '<div class="notice notice-warning"><p>' . $count . ' partner(s) skipped (already exist).</p></div>';
+        }
+
+        ?>
+        <div class="wrap">
+            <h1>Import Partners</h1>
+            <p>Preview partners from <code>includes/data/partners-import.json</code>. Partners already in the system will be skipped.</p>
+
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <input type="hidden" name="action" value="requestdesk_import_partners" />
+                <?php wp_nonce_field('requestdesk_import_partners', 'requestdesk_import_nonce'); ?>
+
+                <table class="widefat striped" style="max-width: 900px;">
+                    <thead>
+                        <tr>
+                            <th style="width:30px;"><input type="checkbox" id="check-all" checked /></th>
+                            <th>Name</th>
+                            <th>Website</th>
+                            <th>Logo</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($partners as $i => $partner) :
+                            $already_exists = in_array(strtolower($partner['name']), $existing_titles);
+                        ?>
+                        <tr<?php echo $already_exists ? ' style="opacity:0.5;"' : ''; ?>>
+                            <td>
+                                <?php if (!$already_exists) : ?>
+                                    <input type="checkbox" name="import_partners[]" value="<?php echo $i; ?>" checked />
+                                <?php else : ?>
+                                    <span title="Already exists">&#10003;</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><strong><?php echo esc_html($partner['name']); ?></strong></td>
+                            <td><a href="<?php echo esc_url($partner['website']); ?>" target="_blank"><?php echo esc_html(parse_url($partner['website'], PHP_URL_HOST)); ?></a></td>
+                            <td><?php echo $partner['logo_file'] ? esc_html($partner['logo_file']) : '<em>none</em>'; ?></td>
+                            <td><?php echo $already_exists ? '<span style="color:green;">Exists</span>' : '<span style="color:orange;">New</span>'; ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <p style="margin-top: 16px;">
+                    <button type="submit" class="button button-primary">Import Selected as Drafts</button>
+                </p>
+            </form>
+
+            <script>
+            jQuery(document).ready(function($) {
+                $('#check-all').on('change', function() {
+                    $('input[name="import_partners[]"]').prop('checked', this.checked);
+                });
+            });
+            </script>
+        </div>
+        <?php
+    }
+
+    /**
+     * Handle partner import form submission
+     */
+    public function handle_import() {
+        if (!current_user_can('manage_options') ||
+            !isset($_POST['requestdesk_import_nonce']) ||
+            !wp_verify_nonce($_POST['requestdesk_import_nonce'], 'requestdesk_import_partners')) {
+            wp_die('Unauthorized');
+        }
+
+        $selected = isset($_POST['import_partners']) ? array_map('intval', $_POST['import_partners']) : array();
+
+        if (empty($selected)) {
+            wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=0'));
+            exit;
+        }
+
+        $json_path = plugin_dir_path(__FILE__) . 'data/partners-import.json';
+        $partners = json_decode(file_get_contents($json_path), true);
+
+        $imported = 0;
+        $skipped = 0;
+        $logo_dir = plugin_dir_path(__FILE__) . 'data/logos/';
+
+        foreach ($selected as $index) {
+            if (!isset($partners[$index])) {
+                continue;
+            }
+
+            $partner = $partners[$index];
+
+            // Check if already exists
+            $existing = get_posts(array(
+                'post_type'      => 'cc_partner',
+                'title'          => $partner['name'],
+                'posts_per_page' => 1,
+                'post_status'    => 'any',
+            ));
+
+            if (!empty($existing)) {
+                $skipped++;
+                continue;
+            }
+
+            // Create the partner post
+            $post_id = wp_insert_post(array(
+                'post_title'   => sanitize_text_field($partner['name']),
+                'post_excerpt' => sanitize_textarea_field($partner['excerpt']),
+                'post_status'  => 'draft',
+                'post_type'    => 'cc_partner',
+            ));
+
+            if (is_wp_error($post_id)) {
+                continue;
+            }
+
+            // Set website meta
+            if (!empty($partner['website'])) {
+                update_post_meta($post_id, '_requestdesk_partner_website', esc_url_raw($partner['website']));
+            }
+
+            // Upload and attach logo if file exists
+            if (!empty($partner['logo_file'])) {
+                $logo_path = $logo_dir . $partner['logo_file'];
+                if (file_exists($logo_path)) {
+                    $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
+                    if ($attachment_id) {
+                        update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
+                        set_post_thumbnail($post_id, $attachment_id);
+                    }
+                }
+            }
+
+            $imported++;
+        }
+
+        wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=' . $imported . '&skipped=' . $skipped));
+        exit;
+    }
+
+    /**
+     * Upload a logo file to the media library and attach to a partner post
+     */
+    private function upload_logo($file_path, $post_id, $partner_name) {
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+        $file_name = basename($file_path);
+        $file_type = wp_check_filetype($file_name);
+
+        // Copy file to uploads directory
+        $upload_dir = wp_upload_dir();
+        $dest_path = $upload_dir['path'] . '/' . $file_name;
+
+        if (!copy($file_path, $dest_path)) {
+            return false;
+        }
+
+        $attachment = array(
+            'post_mime_type' => $file_type['type'],
+            'post_title'     => sanitize_text_field($partner_name . ' Logo'),
+            'post_content'   => '',
+            'post_status'    => 'inherit',
+        );
+
+        $attachment_id = wp_insert_attachment($attachment, $dest_path, $post_id);
+
+        if (is_wp_error($attachment_id)) {
+            return false;
+        }
+
+        $metadata = wp_generate_attachment_metadata($attachment_id, $dest_path);
+        wp_update_attachment_metadata($attachment_id, $metadata);
+
+        return $attachment_id;
     }
 
     /**

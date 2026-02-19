@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Astro",
+    "website": "https://astro.build/",
+    "linkedin": "https://www.linkedin.com/company/withastro/",
+    "excerpt": "Astro is the web framework for content-driven websites. Server-first rendering with minimal JavaScript, supporting React, Vue, Svelte, and more.",
+    "logo_file": "astro.svg"
+  },
+  {
+    "name": "Adobe",
+    "website": "https://business.adobe.com/products/experience-platform/adobe-experience-platform.html",
+    "linkedin": "https://www.linkedin.com/company/adobe/",
+    "excerpt": "Adobe is the global leader in digital media and marketing solutions. Partnership focuses on Adobe Experience Manager (AEM) for content management and Adobe Commerce for eCommerce.",
+    "logo_file": "adobe.png"
+  },
+  {
+    "name": "BigCommerce",
+    "website": "https://www.bigcommerce.com/",
+    "linkedin": "https://www.linkedin.com/company/bigcommerce/",
+    "excerpt": "BigCommerce is a flexible enterprise ecommerce platform built for growth without compromise. Open SaaS architecture enabling brands and B2B sellers to scale freely.",
+    "logo_file": "bigcommerce.png"
+  },
+  {
+    "name": "ButterCMS",
+    "website": "https://buttercms.com/",
+    "linkedin": "https://www.linkedin.com/company/buttercms",
+    "excerpt": "ButterCMS is an API-first headless CMS that integrates into any web project in minutes. Marketers get a content dashboard they love, developers get clean REST and GraphQL APIs.",
+    "logo_file": "buttercms.png"
+  },
+  {
+    "name": "Contentful",
+    "website": "https://www.contentful.com/",
+    "linkedin": "https://www.linkedin.com/company/contentful",
+    "excerpt": "Contentful is a composable content platform for creating, managing, and delivering digital content across channels. AI-powered personalization and modular content architecture.",
+    "logo_file": "contentful.png"
+  },
+  {
+    "name": "HubSpot",
+    "website": "https://www.hubspot.com/",
+    "linkedin": "https://www.linkedin.com/company/hubspot/",
+    "excerpt": "HubSpot offers an all-in-one customer platform with marketing, sales, service, and CMS tools that start free and scale. AI-powered automation with business-specific context.",
+    "logo_file": "hubspot.png"
+  },
+  {
+    "name": "Hyva",
+    "website": "https://www.hyva.io/",
+    "linkedin": "https://www.linkedin.com/company/hyva-io/",
+    "excerpt": "Hyva creates modern, high-performance frontend solutions for Magento and Adobe Commerce. Lightweight open-source theme framework trusted by 6,400+ live stores.",
+    "logo_file": "hyva.png"
+  },
+  {
+    "name": "Run Free Project",
+    "website": "https://www.runfreeproject.com/",
+    "linkedin": "https://www.linkedin.com/company/run-free-project",
+    "excerpt": "Run Free Project provides an all-in-one digital commerce platform built exclusively for independent running specialty retailers. POS-integrated eCommerce with branded mobile loyalty apps.",
+    "logo_file": "runfreeproject.png"
+  },
+  {
+    "name": "Evrig Solutions",
+    "website": "https://www.evrig.com/",
+    "linkedin": "https://www.linkedin.com/company/evrig",
+    "excerpt": "Evrig is a Magento-focused eCommerce development agency with 11+ years of experience. Led by a two-time Magento Master. Adobe Silver Partner and Hyva Silver Partner.",
+    "logo_file": "evrig.png"
+  },
+  {
+    "name": "AraGrow",
+    "website": "https://aragrow.me/",
+    "linkedin": "",
+    "excerpt": "AraGrow is a Minneapolis-based technology consultancy offering custom web development, cloud infrastructure, AI integration, and fractional CTO services.",
+    "logo_file": "aragrow.jpg"
+  },
+  {
+    "name": "Shopify",
+    "website": "https://www.shopify.com/",
+    "linkedin": "https://www.linkedin.com/company/shopify",
+    "excerpt": "Shopify is a leading global commerce platform powering millions of merchants across 175+ countries. All-in-one tools for online, in-person, and omnichannel selling.",
+    "logo_file": "shopify.png"
+  },
+  {
+    "name": "WooCommerce",
+    "website": "https://woocommerce.com/",
+    "linkedin": "https://www.linkedin.com/company/woocommerce/",
+    "excerpt": "WooCommerce is the open-source ecommerce platform built on WordPress, powering 4M+ online stores and 31% of top ecommerce sites. Fully customizable with an extensive extension marketplace.",
+    "logo_file": "woocommerce.png"
+  },
+  {
+    "name": "eStreamly",
+    "website": "https://get.estreamly.com/",
+    "linkedin": "https://www.linkedin.com/company/estreamly",
+    "excerpt": "eStreamly is a multichannel video commerce platform that transforms videos and livestreams into shoppable experiences with in-video checkout. AI-powered video creation.",
+    "logo_file": "estreamly.png"
+  },
+  {
+    "name": "Psyberware",
+    "website": "https://www.psyberware.com/",
+    "linkedin": "https://www.linkedin.com/company/psyberware/",
+    "excerpt": "Psyberware is a digital advertising agency specializing in data-driven online advertising and maximizing profit for ecommerce merchants across Google, Facebook, Microsoft, and Amazon.",
+    "logo_file": "psyberware.png"
+  },
+  {
+    "name": "Shopware",
+    "website": "https://www.shopware.com/en/",
+    "linkedin": "https://www.linkedin.com/company/shopware-ag",
+    "excerpt": "Shopware delivers high-performance B2C and B2B ecommerce solutions with headless, API-first architecture. Built-in AI automation, open-source, trusted by 55,000+ businesses globally.",
+    "logo_file": "shopware.png"
+  }
+]
