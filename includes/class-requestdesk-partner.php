@@ -104,6 +104,9 @@ class RequestDesk_Partner {
         $cta_url    = get_post_meta($post->ID, '_requestdesk_partner_cta_url', true);
         $hs_company = get_post_meta($post->ID, '_requestdesk_partner_hubspot_company_id', true);
         $hs_form    = get_post_meta($post->ID, '_requestdesk_partner_hubspot_form_id', true);
+        $tagline    = get_post_meta($post->ID, '_requestdesk_partner_tagline', true);
+        $overlay    = get_post_meta($post->ID, '_requestdesk_partner_hero_overlay', true);
+        $hero_img   = get_post_meta($post->ID, '_requestdesk_partner_hero_image', true);
         ?>
         <table class="form-table">
             <tr>
@@ -204,6 +207,63 @@ class RequestDesk_Partner {
                     <p class="description">Optional. Leave blank to use the site default partner form.</p>
                 </td>
             </tr>
+            <tr>
+                <td colspan="2"><hr /><strong>Hero &amp; Display</strong></td>
+            </tr>
+            <tr>
+                <th><label for="requestdesk_partner_hero_image">Hero Image</label></th>
+                <td>
+                    <input type="hidden" name="_requestdesk_partner_hero_image" id="requestdesk_partner_hero_image" value="<?php echo esc_attr($hero_img); ?>" />
+                    <div id="requestdesk_partner_hero_preview" style="margin-bottom: 8px;">
+                        <?php if ($hero_img) : ?>
+                            <img src="<?php echo esc_url(wp_get_attachment_url($hero_img)); ?>" style="max-width: 400px; height: auto; border-radius: 4px;" />
+                        <?php endif; ?>
+                    </div>
+                    <button type="button" class="button" id="requestdesk_partner_hero_btn">Select Hero Image</button>
+                    <?php if ($hero_img) : ?>
+                        <button type="button" class="button" id="requestdesk_partner_hero_remove">Remove</button>
+                    <?php endif; ?>
+                    <p class="description">Wide landscape image for the full-bleed hero banner. Falls back to grey if not set.</p>
+                    <script>
+                    jQuery(document).ready(function($) {
+                        var heroFrame;
+                        $('#requestdesk_partner_hero_btn').on('click', function(e) {
+                            e.preventDefault();
+                            if (heroFrame) { heroFrame.open(); return; }
+                            heroFrame = wp.media({ title: 'Select Hero Image', multiple: false });
+                            heroFrame.on('select', function() {
+                                var attachment = heroFrame.state().get('selection').first().toJSON();
+                                $('#requestdesk_partner_hero_image').val(attachment.id);
+                                var imgUrl = attachment.sizes && attachment.sizes.large ? attachment.sizes.large.url : attachment.url;
+                                $('#requestdesk_partner_hero_preview').html('<img src="' + imgUrl + '" style="max-width: 400px; height: auto; border-radius: 4px;" />');
+                            });
+                            heroFrame.open();
+                        });
+                        $('#requestdesk_partner_hero_remove').on('click', function(e) {
+                            e.preventDefault();
+                            $('#requestdesk_partner_hero_image').val('');
+                            $('#requestdesk_partner_hero_preview').html('');
+                        });
+                    });
+                    </script>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="requestdesk_partner_tagline">Hero Tagline</label></th>
+                <td>
+                    <input type="text" name="_requestdesk_partner_tagline" id="requestdesk_partner_tagline"
+                           value="<?php echo esc_attr($tagline); ?>" class="large-text" placeholder="e.g. Powering enterprise ecommerce together" />
+                    <p class="description">Displayed below the partner name in the hero banner.</p>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="requestdesk_partner_hero_overlay">Hero Overlay Color</label></th>
+                <td>
+                    <input type="text" name="_requestdesk_partner_hero_overlay" id="requestdesk_partner_hero_overlay"
+                           value="<?php echo esc_attr($overlay); ?>" class="regular-text" placeholder="#1e3a5f" />
+                    <p class="description">Hex color for the hero image tint. Leave blank for default dark grey.</p>
+                </td>
+            </tr>
         </table>
         <?php
     }
@@ -233,6 +293,9 @@ class RequestDesk_Partner {
             '_requestdesk_partner_cta_url'              => 'esc_url_raw',
             '_requestdesk_partner_hubspot_company_id'   => 'sanitize_text_field',
             '_requestdesk_partner_hubspot_form_id'      => 'sanitize_text_field',
+            '_requestdesk_partner_tagline'              => 'sanitize_text_field',
+            '_requestdesk_partner_hero_overlay'         => 'sanitize_hex_color',
+            '_requestdesk_partner_hero_image'           => 'intval',
         );
 
         foreach ($fields as $key => $sanitize) {
@@ -428,6 +491,16 @@ class RequestDesk_Partner {
                 update_post_meta($post_id, '_requestdesk_partner_website', esc_url_raw($partner['website']));
             }
 
+            // Set tagline if provided
+            if (!empty($partner['tagline'])) {
+                update_post_meta($post_id, '_requestdesk_partner_tagline', sanitize_text_field($partner['tagline']));
+            }
+
+            // Set hero overlay color if provided
+            if (!empty($partner['hero_overlay'])) {
+                update_post_meta($post_id, '_requestdesk_partner_hero_overlay', sanitize_hex_color($partner['hero_overlay']));
+            }
+
             // Upload and attach logo if file exists
             if (!empty($partner['logo_file'])) {
                 $logo_path = $logo_dir . $partner['logo_file'];
@@ -435,7 +508,6 @@ class RequestDesk_Partner {
                     $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
                     if ($attachment_id) {
                         update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
-                        set_post_thumbnail($post_id, $attachment_id);
                     }
                 }
             }
