@@ -406,8 +406,14 @@ class RequestDesk_Partner {
             }
 
             // Create the partner post
+            $post_content = '';
+            if (!empty($partner['content'])) {
+                $post_content = wp_kses_post($partner['content']);
+            }
+
             $post_id = wp_insert_post(array(
                 'post_title'   => sanitize_text_field($partner['name']),
+                'post_content' => $post_content,
                 'post_excerpt' => sanitize_textarea_field($partner['excerpt']),
                 'post_status'  => 'draft',
                 'post_type'    => 'cc_partner',
