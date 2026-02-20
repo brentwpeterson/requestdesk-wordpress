@@ -2,7 +2,7 @@
 /**
  * RequestDesk Partner Directory
  *
- * Registers the cc_partner custom post type, cc_partner_category taxonomy,
+ * Registers the cc_partner custom post type with built-in category taxonomy,
  * meta boxes for partner details, and a reusable card render method.
  *
  * @package RequestDesk
@@ -17,6 +17,10 @@ class RequestDesk_Partner {
 
     public function __construct() {
         add_action('init', array($this, 'register_cpt'));
+        add_action('init', array($this, 'add_partner_rewrite_rules'));
+        add_filter('query_vars', array($this, 'register_partner_query_vars'));
+        add_filter('request', array($this, 'resolve_partner_request'));
+        add_filter('template_include', array($this, 'partner_category_template'));
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_cc_partner', array($this, 'save_meta'), 10, 2);
         add_action('admin_menu', array($this, 'add_import_page'));
@@ -24,7 +28,7 @@ class RequestDesk_Partner {
     }
 
     /**
-     * Register cc_partner post type and cc_partner_category taxonomy
+     * Register cc_partner post type with built-in category taxonomy
      */
     public function register_cpt() {
         $labels = array(
@@ -48,32 +52,89 @@ class RequestDesk_Partner {
             'has_archive'  => true,
             'rewrite'      => array('slug' => 'partners', 'with_front' => false),
             'supports'     => array('title', 'editor', 'thumbnail', 'excerpt'),
+            'taxonomies'   => array('category'),
             'menu_icon'    => 'dashicons-groups',
             'menu_position' => 25,
             'show_in_rest' => true,
         ));
+    }
 
-        $cat_labels = array(
-            'name'              => 'Partner Categories',
-            'singular_name'     => 'Partner Category',
-            'search_items'      => 'Search Categories',
-            'all_items'         => 'All Categories',
-            'parent_item'       => 'Parent Category',
-            'parent_item_colon' => 'Parent Category:',
-            'edit_item'         => 'Edit Category',
-            'update_item'       => 'Update Category',
-            'add_new_item'      => 'Add New Category',
-            'new_item_name'     => 'New Category Name',
-            'menu_name'         => 'Categories',
+    /**
+     * Add rewrite rules for /partners/{category-slug}/ URLs
+     */
+    public function add_partner_rewrite_rules() {
+        add_rewrite_rule(
+            'partners/([^/]+)/page/([0-9]+)/?$',
+            'index.php?partner_cat_filter=$matches[1]&paged=$matches[2]',
+            'top'
         );
+        add_rewrite_rule(
+            'partners/([^/]+)/?$',
+            'index.php?partner_cat_filter=$matches[1]',
+            'top'
+        );
+    }
 
-        register_taxonomy('cc_partner_category', 'cc_partner', array(
-            'labels'       => $cat_labels,
-            'hierarchical' => true,
-            'public'       => true,
-            'rewrite'      => array('slug' => 'partner-category'),
-            'show_in_rest' => true,
-        ));
+    /**
+     * Register custom query var for partner category filtering
+     */
+    public function register_partner_query_vars($vars) {
+        $vars[] = 'partner_cat_filter';
+        return $vars;
+    }
+
+    /**
+     * Resolve /partners/{slug}/ at the request level before WP_Query runs.
+     * If slug matches a partner category, set up a category archive query.
+     * Otherwise, hand it back to WordPress as a normal single partner post.
+     */
+    public function resolve_partner_request($query_vars) {
+        if (empty($query_vars['partner_cat_filter'])) {
+            return $query_vars;
+        }
+
+        $slug = $query_vars['partner_cat_filter'];
+        unset($query_vars['partner_cat_filter']);
+
+        // Get the "Partners" parent category
+        $partners_parent = get_term_by('slug', 'partners', 'category');
+        $parent_id = $partners_parent ? $partners_parent->term_id : 0;
+
+        // Check if slug matches a child category under "Partners"
+        $term = get_term_by('slug', $slug, 'category');
+        if ($term && (int) $term->parent === (int) $parent_id) {
+            // It's a partner category - set up archive query
+            $query_vars['post_type'] = 'cc_partner';
+            $query_vars['cat'] = $term->term_id;
+            return $query_vars;
+        }
+
+        // Not a category - treat as single partner post
+        $query_vars['cc_partner'] = $slug;
+        $query_vars['post_type'] = 'cc_partner';
+        $query_vars['name'] = $slug;
+        return $query_vars;
+    }
+
+    /**
+     * Use the archive template for partner category pages
+     */
+    public function partner_category_template($template) {
+        global $wp_query;
+
+        if (is_post_type_archive('cc_partner') && !empty($wp_query->query_vars['cat'])) {
+            // Look for a partner category template, fall back to archive
+            $cat_template = locate_template('archive-cc_partner-category.php');
+            if ($cat_template) {
+                return $cat_template;
+            }
+            $archive_template = locate_template('archive-cc_partner.php');
+            if ($archive_template) {
+                return $archive_template;
+            }
+        }
+
+        return $template;
     }
 
     /**
@@ -158,9 +219,9 @@ class RequestDesk_Partner {
                 <td>
                     <select name="_requestdesk_partner_tier" id="requestdesk_partner_tier">
                         <option value="">-- Select Tier --</option>
-                        <option value="gold" <?php selected($tier, 'gold'); ?>>Gold</option>
-                        <option value="silver" <?php selected($tier, 'silver'); ?>>Silver</option>
-                        <option value="bronze" <?php selected($tier, 'bronze'); ?>>Bronze</option>
+                        <option value="strategic" <?php selected($tier, 'strategic'); ?>>Strategic</option>
+                        <option value="growth" <?php selected($tier, 'growth'); ?>>Growth</option>
+                        <option value="emerging" <?php selected($tier, 'emerging'); ?>>Emerging</option>
                     </select>
                 </td>
             </tr>
@@ -577,7 +638,7 @@ class RequestDesk_Partner {
             $cta_url = $website;
         }
 
-        $categories = get_the_terms($post->ID, 'cc_partner_category');
+        $categories = get_the_terms($post->ID, 'category');
         $card_class = 'cc-partner-card';
         if ($featured) {
             $card_class .= ' cc-partner-card--featured';
