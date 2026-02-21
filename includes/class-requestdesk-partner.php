@@ -20,7 +20,7 @@ class RequestDesk_Partner {
         add_action('init', array($this, 'add_partner_rewrite_rules'));
         add_filter('query_vars', array($this, 'register_partner_query_vars'));
         add_filter('request', array($this, 'resolve_partner_request'));
-        add_filter('template_include', array($this, 'partner_category_template'));
+        add_filter('template_include', array($this, 'partner_category_template'), 99);
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_cc_partner', array($this, 'save_meta'), 10, 2);
         add_action('admin_menu', array($this, 'add_import_page'));
@@ -80,6 +80,7 @@ class RequestDesk_Partner {
      */
     public function register_partner_query_vars($vars) {
         $vars[] = 'partner_cat_filter';
+        $vars[] = 'partner_category_id';
         return $vars;
     }
 
@@ -103,9 +104,11 @@ class RequestDesk_Partner {
         // Check if slug matches a child category under "Partners"
         $term = get_term_by('slug', $slug, 'category');
         if ($term && (int) $term->parent === (int) $parent_id) {
-            // It's a partner category - set up archive query
+            // It's a partner category - set up as a post type archive with a custom var.
+            // Do NOT set 'cat' here - that triggers WP's category template hierarchy
+            // and GP Elements for category archives, causing duplicate content.
             $query_vars['post_type'] = 'cc_partner';
-            $query_vars['cat'] = $term->term_id;
+            $query_vars['partner_category_id'] = $term->term_id;
             return $query_vars;
         }
 
@@ -122,8 +125,12 @@ class RequestDesk_Partner {
     public function partner_category_template($template) {
         global $wp_query;
 
-        if (is_post_type_archive('cc_partner') && !empty($wp_query->query_vars['cat'])) {
-            // Look for a partner category template, fall back to archive
+        // Check for partner category pages using our custom query var.
+        // We avoid using WP's 'cat' var to prevent the category template hierarchy
+        // and GP Elements from injecting default category content.
+        $partner_cat = $wp_query->get('partner_category_id');
+
+        if (!empty($partner_cat)) {
             $cat_template = locate_template('archive-cc_partner-category.php');
             if ($cat_template) {
                 return $cat_template;
