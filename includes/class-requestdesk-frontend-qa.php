@@ -126,8 +126,11 @@ class RequestDesk_Frontend_QA {
      * Auto-append Q&A pairs to post content (if enabled in settings)
      */
     public function auto_append_qa_to_content($content) {
-        // Only on single posts/pages
+        // Only on single posts/pages, skip front page
         if (!is_single() && !is_page()) {
+            return $content;
+        }
+        if (is_front_page()) {
             return $content;
         }
 
@@ -223,7 +226,7 @@ class RequestDesk_Frontend_QA {
 
                         <div class="requestdesk-qa-answer" itemscope itemtype="https://schema.org/Answer" itemprop="acceptedAnswer">
                             <div itemprop="text">
-                                <?php echo wp_kses_post(wpautop($qa['answer'])); ?>
+                                <?php echo do_shortcode(wp_kses_post(wpautop($qa['answer']))); ?>
                             </div>
                         </div>
                     </div>
