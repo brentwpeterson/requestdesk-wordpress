@@ -149,6 +149,20 @@ class RequestDesk_API {
             )
         ));
 
+        // Pull categories endpoint
+        register_rest_route($this->namespace, '/pull-categories', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'pull_categories'),
+            'permission_callback' => array($this, 'verify_api_key')
+        ));
+
+        // Pull tags endpoint
+        register_rest_route($this->namespace, '/pull-tags', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'pull_tags'),
+            'permission_callback' => array($this, 'verify_api_key')
+        ));
+
         // NEW: Dedicated endpoint for updating featured images only
         register_rest_route($this->namespace, '/update-featured-image', array(
             'methods' => WP_REST_Server::CREATABLE,
@@ -184,8 +198,10 @@ class RequestDesk_API {
             'site_url' => home_url(),
             'capabilities' => array(
                 'posts' => true,
-                'pages' => true,  // NEW in v1.3.0
-                'publish' => true
+                'pages' => true,
+                'publish' => true,
+                'categories' => true,
+                'tags' => true
             ),
             'site_info' => array(
                 'name' => get_bloginfo('name'),
@@ -194,8 +210,10 @@ class RequestDesk_API {
                 'plugin_version' => REQUESTDESK_VERSION,
                 'capabilities' => array(
                     'posts' => true,
-                    'pages' => true,  // NEW in v1.3.0
-                    'publish' => true
+                    'pages' => true,
+                    'publish' => true,
+                    'categories' => true,
+                    'tags' => true
                 )
             ),
             'settings' => array(
@@ -412,6 +430,107 @@ class RequestDesk_API {
             return new WP_Error(
                 'pull_pages_error',
                 'Failed to pull pages: ' . $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Pull all categories for RequestDesk taxonomy sync
+     */
+    public function pull_categories($request) {
+        try {
+            $terms = get_terms(array(
+                'taxonomy' => 'category',
+                'hide_empty' => false,
+                'orderby' => 'name',
+                'order' => 'ASC',
+            ));
+
+            if (is_wp_error($terms)) {
+                return new WP_Error(
+                    'pull_categories_error',
+                    'Failed to get categories: ' . $terms->get_error_message(),
+                    array('status' => 500)
+                );
+            }
+
+            $categories = array();
+            foreach ($terms as $term) {
+                $categories[] = array(
+                    'id' => $term->term_id,
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                    'description' => $term->description,
+                    'parent' => $term->parent,
+                    'count' => $term->count,
+                );
+            }
+
+            $this->log_sync('categories', count($categories), 'success');
+
+            return new WP_REST_Response(array(
+                'success' => true,
+                'categories' => $categories,
+                'total' => count($categories),
+            ), 200);
+
+        } catch (Exception $e) {
+            $this->log_sync('categories', 0, 'error', $e->getMessage());
+
+            return new WP_Error(
+                'pull_categories_error',
+                'Failed to pull categories: ' . $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Pull all tags for RequestDesk taxonomy sync
+     */
+    public function pull_tags($request) {
+        try {
+            $terms = get_terms(array(
+                'taxonomy' => 'post_tag',
+                'hide_empty' => false,
+                'orderby' => 'name',
+                'order' => 'ASC',
+            ));
+
+            if (is_wp_error($terms)) {
+                return new WP_Error(
+                    'pull_tags_error',
+                    'Failed to get tags: ' . $terms->get_error_message(),
+                    array('status' => 500)
+                );
+            }
+
+            $tags = array();
+            foreach ($terms as $term) {
+                $tags[] = array(
+                    'id' => $term->term_id,
+                    'name' => $term->name,
+                    'slug' => $term->slug,
+                    'description' => $term->description,
+                    'count' => $term->count,
+                );
+            }
+
+            $this->log_sync('tags', count($tags), 'success');
+
+            return new WP_REST_Response(array(
+                'success' => true,
+                'tags' => $tags,
+                'total' => count($tags),
+            ), 200);
+
+        } catch (Exception $e) {
+            $this->log_sync('tags', 0, 'error', $e->getMessage());
+
+            return new WP_Error(
+                'pull_tags_error',
+                'Failed to pull tags: ' . $e->getMessage(),
                 array('status' => 500)
             );
         }
