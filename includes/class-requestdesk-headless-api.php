@@ -16,6 +16,19 @@ class RequestDesk_Headless_API {
     private $namespace = 'requestdesk/v1';
 
     /**
+     * Atomically increment the headless API request counter.
+     *
+     * Uses a raw SQL UPDATE so the increment is safe under concurrent
+     * requests (no get_option/update_option race condition).
+     */
+    public static function increment_request_count() {
+        global $wpdb;
+        $wpdb->query(
+            "UPDATE {$wpdb->options} SET option_value = option_value + 1 WHERE option_name = 'requestdesk_headless_api_count'"
+        );
+    }
+
+    /**
      * Register REST API routes for headless CMS
      */
     public function register_routes() {
@@ -135,6 +148,7 @@ class RequestDesk_Headless_API {
      * Get list of posts
      */
     public function get_posts($request) {
+        self::increment_request_count();
         try {
             $page = $request->get_param('page') ?: 1;
             $per_page = $request->get_param('per_page') ?: 10;
@@ -205,6 +219,7 @@ class RequestDesk_Headless_API {
      * Get single post by slug
      */
     public function get_post($request) {
+        self::increment_request_count();
         try {
             $slug = sanitize_text_field($request->get_param('slug'));
 
@@ -245,6 +260,7 @@ class RequestDesk_Headless_API {
      * Get list of pages
      */
     public function get_pages($request) {
+        self::increment_request_count();
         try {
             $page = $request->get_param('page') ?: 1;
             $per_page = $request->get_param('per_page') ?: 50;
@@ -301,6 +317,7 @@ class RequestDesk_Headless_API {
      * Get single page by slug
      */
     public function get_page($request) {
+        self::increment_request_count();
         try {
             $slug = sanitize_text_field($request->get_param('slug'));
 
@@ -341,6 +358,7 @@ class RequestDesk_Headless_API {
      * Get site metadata
      */
     public function get_site($request) {
+        self::increment_request_count();
         try {
             // Get all categories with post counts
             $categories = get_categories(array(

@@ -75,6 +75,19 @@ if (function_exists('add_action')) {
     });
 }
 
+// Register custom 5-minute cron schedule
+if (function_exists('add_filter')) {
+    add_filter('cron_schedules', 'requestdesk_add_cron_schedules');
+}
+
+function requestdesk_add_cron_schedules($schedules) {
+    $schedules['every_five_minutes'] = array(
+        'interval' => 300,
+        'display'  => __('Every 5 Minutes'),
+    );
+    return $schedules;
+}
+
 // Initialize the plugin with safety checks
 if (function_exists('add_action')) {
     add_action('init', 'requestdesk_init');
@@ -100,6 +113,12 @@ function requestdesk_init() {
         // Initialize Headless API admin menu
         if (function_exists('requestdesk_headless_add_admin_menu')) {
             add_action('admin_menu', 'requestdesk_headless_add_admin_menu', 20);
+        }
+
+        // Schedule headless API usage sync (every 5 minutes)
+        add_action('requestdesk_sync_headless_counts', 'requestdesk_sync_headless_counts_callback');
+        if (!wp_next_scheduled('requestdesk_sync_headless_counts')) {
+            wp_schedule_event(time(), 'every_five_minutes', 'requestdesk_sync_headless_counts');
         }
     }
 
@@ -274,6 +293,68 @@ function requestdesk_combined_settings_page() {
 }
 
 /**
+ * Sync headless API request counts to RequestDesk.
+ *
+ * Reads the buffered count, POSTs it to the RequestDesk sync endpoint,
+ * and on success subtracts the synced amount (not reset to 0) so requests
+ * arriving during the sync are not lost.
+ */
+function requestdesk_sync_headless_counts_callback() {
+    global $wpdb;
+
+    // Read current buffered count
+    $count = (int) get_option('requestdesk_headless_api_count', 0);
+    if ($count <= 0) {
+        return; // Nothing to sync
+    }
+
+    // Get the agent API key from headless settings (or main settings fallback)
+    $headless_settings = get_option('requestdesk_headless_settings', array());
+    $settings = get_option('requestdesk_settings', array());
+    $api_key = !empty($headless_settings['api_key']) ? $headless_settings['api_key'] : ($settings['api_key'] ?? '');
+
+    if (empty($api_key)) {
+        error_log('RequestDesk: Cannot sync headless counts - no API key configured');
+        return;
+    }
+
+    // Get RequestDesk API URL from settings (default to production)
+    $api_url = !empty($headless_settings['requestdesk_url'])
+        ? rtrim($headless_settings['requestdesk_url'], '/')
+        : 'https://app.requestdesk.ai';
+
+    $response = wp_remote_post($api_url . '/api/usage/headless-sync', array(
+        'headers' => array(
+            'Content-Type'  => 'application/json',
+            'Authorization' => 'Bearer ' . $api_key,
+        ),
+        'body'    => json_encode(array(
+            'count'    => $count,
+            'source'   => 'wordpress',
+            'site_url' => home_url(),
+        )),
+        'timeout' => 15,
+    ));
+
+    if (is_wp_error($response)) {
+        error_log('RequestDesk: Headless sync failed - ' . $response->get_error_message());
+        return; // Keep buffer, retry next cron run
+    }
+
+    $status_code = wp_remote_retrieve_response_code($response);
+    if ($status_code !== 200) {
+        error_log('RequestDesk: Headless sync returned HTTP ' . $status_code);
+        return; // Keep buffer, retry next cron run
+    }
+
+    // Success: subtract the synced amount (not reset to 0) for concurrent safety
+    $wpdb->query($wpdb->prepare(
+        "UPDATE {$wpdb->options} SET option_value = GREATEST(option_value - %d, 0) WHERE option_name = 'requestdesk_headless_api_count'",
+        $count
+    ));
+}
+
+/**
  * Activation hook with safety checks
  */
 if (function_exists('register_activation_hook')) {
@@ -400,6 +481,9 @@ function requestdesk_activate() {
         'columns'     => 3,
     ));
 
+    // Initialize headless API request counter
+    add_option('requestdesk_headless_api_count', 0);
+
     // Flush rewrite rules for REST API
     flush_rewrite_rules();
 
@@ -415,6 +499,7 @@ if (function_exists('register_deactivation_hook')) {
 }
 
 function requestdesk_deactivate() {
+    wp_clear_scheduled_hook('requestdesk_sync_headless_counts');
     flush_rewrite_rules();
 }
 
