@@ -407,6 +407,8 @@ curl -X POST \
             padding: 20px;
             margin: 20px 0;
             box-shadow: 0 1px 1px rgba(0,0,0,.04);
+            position: relative;
+            z-index: 1;
         }
         .text-success { color: #46b450; }
         .text-error { color: #dc3232; }
