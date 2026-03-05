@@ -1,24 +1,60 @@
 # RequestDesk Connector
 
-A WordPress plugin that turns your WordPress site into a headless CMS with a secure REST API. Built for Astro, Next.js, and any SSR frontend framework.
+A WordPress plugin that adds AI-powered SEO optimization, headless CMS capabilities, and content publishing tools to your WordPress site.
 
 ## Features
 
-- **Headless API** - Fetch posts, pages, categories, and site metadata via REST endpoints
-- **One-Click API Key** - Generate a secure key from the WordPress admin. No external accounts needed.
-- **AI-First Schema Markup** - Automatic schema generation optimized for AI search engines (Article, FAQ, HowTo, Product, LocalBusiness, Video, Course, Breadcrumb)
+### AEO/SEO Optimization
+- **AI-First Schema Markup** - Automatic schema generation optimized for AI search engines
+- **8 Schema Types** - Article, FAQ, HowTo, Product, LocalBusiness, Video, Course, Breadcrumb
 - **Smart Content Detection** - Auto-detects content type with confidence scoring
-- **WooCommerce + LMS Integration** - Product schema for WooCommerce, Course schema for LearnDash/LifterLMS/Tutor LMS
-- **RequestDesk Integration** (Optional) - Publish content from RequestDesk.ai and track API request counts
+- **Content Freshness Tracking** - Monitors content age and flags stale pages
+- **Citation Tracking** - Tracks external references and source attribution
+- **Bulk Optimizer** - Analyze and optimize schema across all posts at once
+- **Yoast Import** - Migrate existing Yoast SEO data into the RequestDesk schema system
 
-## Prerequisites
+### Content Publishing
+- **RequestDesk.ai Integration** - Receive and publish content from RequestDesk.ai via REST API
+- **Draft Workflow** - Content arrives as drafts for your review before publishing
+- **Category and Tag Support** - Auto-assign categories and tags from the API
+- **Sync History** - Track all content syncs with status and timestamps
 
-This plugin provides a headless API, meaning your frontend fetches content from WordPress at build time or request time via HTTP. Your Astro (or Next.js, Nuxt, etc.) project needs:
+### Headless CMS
+- **REST API for SSR Frontends** - Fetch posts, pages, categories, and site metadata
+- **One-Click API Key** - Generate a secure key from WordPress admin. No external accounts needed.
+- **Works with Any Framework** - Astro, Next.js, Nuxt, SvelteKit, or any platform that can make HTTP requests
+
+### Page Building Tools
+- **Homepage Hero** - Configurable hero section with admin settings
+- **Stats Bar** - Animated statistics display with customizable metrics
+- **Comparison Table** - Shortcode-driven feature comparison grid
+- **Child Page Grid** - Auto-generates grid layouts from child pages
+- **Frontend Q&A** - Display question and answer sections on posts
+- **Partner Directory** - Custom post type for partner/integration showcases with tier levels and import tools
+
+### AI Integration
+- **Claude API Support** - Optional Anthropic Claude integration for content analysis and schema suggestions
+- **WooCommerce Integration** - Automatic Product schema for WooCommerce products
+- **LMS Integration** - Course schema for LearnDash, LifterLMS, Tutor LMS
+
+## Installation
+
+1. Upload the `requestdesk-connector` folder to `/wp-content/plugins/`
+2. Activate the plugin through the Plugins menu in WordPress
+3. Go to **RequestDesk** in your WordPress admin to configure settings
+
+## Headless API Setup (for SSR Frontends)
+
+If you're using WordPress as a headless CMS with a framework like Astro, follow these steps.
+
+### Prerequisites
+
+Your frontend project needs:
 
 - **Node.js 18+** installed on your development machine and hosting environment
-- **Astro configured for SSR** (server-side rendering), not static output. SSR is required so pages fetch fresh content on each request instead of only at build time.
+- **SSR mode enabled** (server-side rendering). SSR is required so pages fetch fresh content on each request instead of only at build time.
 
-To enable SSR in Astro, set the output mode in `astro.config.mjs`:
+For Astro, set the output mode in `astro.config.mjs`:
 
 ```js
 // astro.config.mjs
@@ -39,19 +75,13 @@ npm install @astrojs/node
 
 Your hosting must support Node.js server processes (Vercel, Netlify, AWS, any VPS). Static-only hosts like GitHub Pages will not work with SSR.
 
-## Quick Start: Headless WordPress with Astro
-
-### 1. Install the Plugin
-
-Upload the `requestdesk-connector` folder to `/wp-content/plugins/` and activate it in WordPress.
-
-### 2. Generate an API Key
+### 1. Generate an API Key
 
 Go to **RequestDesk > Headless API** in your WordPress admin and click **Generate New Key**. Copy the key.
 
 No RequestDesk account is required. The headless API works standalone.
 
-### 3. Add the Key to Your Astro Project
+### 2. Add the Key to Your Frontend
 
 Create or update your `.env` file:
 
@@ -60,7 +90,9 @@ WORDPRESS_URL=https://your-wordpress-site.com
 WORDPRESS_API_KEY=your-generated-key
 ```
 
-### 4. Fetch Content in Astro
+### 3. Fetch Content
+
+**Astro example (single post):**
 
 ```astro
 ---
@@ -78,7 +110,7 @@ const { post } = await response.json();
 <div set:html={post.content} />
 ```
 
-### 5. Fetch a Post List
+**Astro example (post list):**
 
 ```astro
 ---
@@ -98,7 +130,7 @@ const { posts, total, pages } = await response.json();
 ))}
 ```
 
-## API Endpoints
+## Headless API Reference
 
 All endpoints require authentication via one of these methods:
 
@@ -146,14 +178,14 @@ All endpoints require authentication via one of these methods:
 |--------|----------|-------------|
 | GET | `/wp-json/requestdesk/v1/headless/site` | Site name, description, categories, menus |
 
-## RequestDesk Integration (Optional)
+## RequestDesk.ai Integration (Optional)
 
 If you have a RequestDesk.ai account, the plugin can also:
 
 - Receive and publish content from RequestDesk.ai via API
 - Track headless API request counts and sync them back to RequestDesk
 
-To enable this, go to **RequestDesk > Settings** and enter your RequestDesk Agent API key. This is completely optional. The headless CMS functionality works without it.
+To enable this, go to **RequestDesk > Settings** and enter your RequestDesk Agent API key. This is completely optional. All other features work without it.
 
 ## Requirements
 
@@ -161,10 +193,10 @@ To enable this, go to **RequestDesk > Settings** and enter your RequestDesk Agen
 - WordPress 5.0+
 - PHP 7.4+
 
-**Frontend side:**
+**Frontend side (headless API only):**
 - Node.js 18+
-- Astro 4+ with SSR enabled (or any SSR framework like Next.js, Nuxt, SvelteKit)
-- A hosting environment that runs Node.js
+- SSR-capable framework (Astro, Next.js, Nuxt, SvelteKit, etc.)
+- Hosting that runs Node.js
 
 ## License
 
