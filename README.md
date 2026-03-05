@@ -11,6 +11,34 @@ A WordPress plugin that turns your WordPress site into a headless CMS with a sec
 - **WooCommerce + LMS Integration** - Product schema for WooCommerce, Course schema for LearnDash/LifterLMS/Tutor LMS
 - **RequestDesk Integration** (Optional) - Publish content from RequestDesk.ai and track API request counts
 
+## Prerequisites
+
+This plugin provides a headless API, meaning your frontend fetches content from WordPress at build time or request time via HTTP. Your Astro (or Next.js, Nuxt, etc.) project needs:
+
+- **Node.js 18+** installed on your development machine and hosting environment
+- **Astro configured for SSR** (server-side rendering), not static output. SSR is required so pages fetch fresh content on each request instead of only at build time.
+
+To enable SSR in Astro, set the output mode in `astro.config.mjs`:
+
+```js
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+import node from '@astrojs/node';
+
+export default defineConfig({
+  output: 'server',
+  adapter: node({ mode: 'standalone' }),
+});
+```
+
+Then install the Node adapter:
+
+```bash
+npm install @astrojs/node
+```
+
+Your hosting must support Node.js server processes (Vercel, Netlify, AWS, any VPS). Static-only hosts like GitHub Pages will not work with SSR.
+
 ## Quick Start: Headless WordPress with Astro
 
 ### 1. Install the Plugin
@@ -129,8 +157,14 @@ To enable this, go to **RequestDesk > Settings** and enter your RequestDesk Agen
 
 ## Requirements
 
+**WordPress side:**
 - WordPress 5.0+
 - PHP 7.4+
+
+**Frontend side:**
+- Node.js 18+
+- Astro 4+ with SSR enabled (or any SSR framework like Next.js, Nuxt, SvelteKit)
+- A hosting environment that runs Node.js
 
 ## License
 
