@@ -72,7 +72,7 @@
     color: #2c3e50;
 }
 
-/* Content Cucumber row - highlighted */
+/* Highlighted row */
 .cc-highlight-row {
     background-color: #d4f5d4 !important; /* a11y: solid bg for axe contrast detection */
 }

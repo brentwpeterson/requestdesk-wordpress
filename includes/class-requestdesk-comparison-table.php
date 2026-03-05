@@ -29,36 +29,10 @@ class RequestDesk_Comparison_Table {
      */
     private function get_settings() {
         $defaults = array(
-            'columns' => array('Speed', 'Quality', 'Support', 'Cost'),
-            'rows' => array(
-                array(
-                    'name'      => 'CONTENT CUCUMBER',
-                    'highlight' => true,
-                    'values'    => array(true, true, true, true),
-                ),
-                array(
-                    'name'      => 'In-House Team',
-                    'highlight' => false,
-                    'values'    => array(false, false, true, true),
-                ),
-                array(
-                    'name'      => 'Freelance Contractors',
-                    'highlight' => false,
-                    'values'    => array(false, false, false, false),
-                ),
-                array(
-                    'name'      => 'Agency Partners',
-                    'highlight' => false,
-                    'values'    => array(false, false, true, true),
-                ),
-                array(
-                    'name'      => 'DIY Solutions',
-                    'highlight' => false,
-                    'values'    => array(true, true, false, false),
-                ),
-            ),
-            'note_title' => 'Why Choose Content Cucumber?',
-            'note_text'  => 'Content Cucumber stands out as the only platform that excels across all key metrics: speed, quality, support, and cost-effectiveness. While other solutions may perform well in specific areas, Content Cucumber delivers comprehensive value for businesses seeking reliable content creation at scale.',
+            'columns' => array('Feature 1', 'Feature 2', 'Feature 3', 'Feature 4'),
+            'rows' => array(),
+            'note_title' => '',
+            'note_text'  => '',
         );
 
         $saved = get_option('requestdesk_comparison_table_settings', array());
