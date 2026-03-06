@@ -145,6 +145,11 @@ class RequestDesk_API {
                     'required' => false,
                     'type' => 'string',
                     'description' => 'Post ID to update (if provided, updates existing post instead of creating new one)'
+                ),
+                'author' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'description' => 'WordPress user ID to set as the post author'
                 )
             )
         ));
@@ -554,6 +559,8 @@ class RequestDesk_API {
 
             $is_update = !empty($post_id);
 
+            $author = absint($request->get_param('author'));
+
             // Prepare post data
             $post_data = array(
                 'post_title' => $title,
@@ -561,6 +568,11 @@ class RequestDesk_API {
                 'post_status' => $status,
                 'post_type' => 'post'
             );
+
+            // Set author if provided and valid
+            if ($author > 0 && get_user_by('id', $author)) {
+                $post_data['post_author'] = $author;
+            }
 
             // Add excerpt if provided
             if (!empty($excerpt)) {
