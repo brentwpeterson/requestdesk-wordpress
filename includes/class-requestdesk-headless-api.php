@@ -56,6 +56,11 @@ class RequestDesk_Headless_API {
                     'type' => 'string',
                     'description' => 'Filter by category slug'
                 ),
+                'exclude_category' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Exclude posts in this category slug'
+                ),
                 'tag' => array(
                     'required' => false,
                     'type' => 'string',
@@ -153,6 +158,7 @@ class RequestDesk_Headless_API {
             $page = $request->get_param('page') ?: 1;
             $per_page = $request->get_param('per_page') ?: 10;
             $category = $request->get_param('category');
+            $exclude_category = $request->get_param('exclude_category');
             $tag = $request->get_param('tag');
             $search = $request->get_param('search');
             $orderby = $request->get_param('orderby') ?: 'date';
@@ -171,6 +177,14 @@ class RequestDesk_Headless_API {
             // Category filter
             if (!empty($category)) {
                 $args['category_name'] = sanitize_text_field($category);
+            }
+
+            // Exclude category filter
+            if (!empty($exclude_category)) {
+                $exclude_term = get_category_by_slug(sanitize_text_field($exclude_category));
+                if ($exclude_term) {
+                    $args['category__not_in'] = array($exclude_term->term_id);
+                }
             }
 
             // Tag filter
