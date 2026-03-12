@@ -560,6 +560,8 @@ class RequestDesk_API {
             $is_update = !empty($post_id);
 
             $author = absint($request->get_param('author'));
+            $slug = sanitize_title($request->get_param('slug'));
+            $post_date = sanitize_text_field($request->get_param('post_date'));
 
             // Prepare post data
             $post_data = array(
@@ -568,6 +570,17 @@ class RequestDesk_API {
                 'post_status' => $status,
                 'post_type' => 'post'
             );
+
+            // Set slug if provided (preserves URL structure during migrations)
+            if (!empty($slug)) {
+                $post_data['post_name'] = $slug;
+            }
+
+            // Set original publication date if provided
+            if (!empty($post_date)) {
+                $post_data['post_date'] = $post_date;
+                $post_data['post_date_gmt'] = get_gmt_from_date($post_date);
+            }
 
             // Set author if provided and valid
             if ($author > 0 && get_user_by('id', $author)) {
