@@ -114,7 +114,7 @@ class RequestDesk_API {
                     'required' => false,
                     'type' => 'string',
                     'default' => 'draft',
-                    'enum' => array('draft', 'publish', 'private')
+                    'enum' => array('draft', 'publish', 'private', 'pending', 'future')
                 ),
                 'ticket_id' => array(
                     'required' => false,
@@ -238,11 +238,20 @@ class RequestDesk_API {
             $offset = $request->get_param('offset') ?: 0;
             $modified_since = $request->get_param('modified_since');
             $include_content = $request->get_param('include_content') === true || $request->get_param('include_content') === 'true';
+            $post_status = $request->get_param('status') ?: 'publish';
+
+            // Allow comma-separated statuses (e.g., "publish,pending,draft,future")
+            $status_array = array_map('trim', explode(',', $post_status));
+            $valid_statuses = array('publish', 'draft', 'pending', 'future', 'private');
+            $status_array = array_intersect($status_array, $valid_statuses);
+            if (empty($status_array)) {
+                $status_array = array('publish');
+            }
 
             // Build WP_Query arguments
             $args = array(
                 'post_type' => 'post',
-                'post_status' => 'publish',
+                'post_status' => count($status_array) === 1 ? $status_array[0] : $status_array,
                 'posts_per_page' => $per_page,
                 'offset' => $offset,
                 'orderby' => 'modified',
@@ -601,11 +610,31 @@ class RequestDesk_API {
                     throw new Exception('Failed to update post: ' . ($is_wp_error($result) ? $result->get_error_message() : 'Post not found'));
                 }
             } else {
-                // Create new post
-                $post_id = wp_insert_post($post_data);
+                // Check for duplicate before creating
+                // Look for existing post with same slug or title (any status)
+                $check_slug = !empty($slug) ? $slug : sanitize_title($title);
+                $existing = get_posts(array(
+                    'name' => $check_slug,
+                    'post_type' => 'post',
+                    'post_status' => array('publish', 'draft', 'pending', 'future', 'private'),
+                    'numberposts' => 1,
+                ));
+                if (!empty($existing)) {
+                    // Post with this slug already exists - update it instead of creating duplicate
+                    $post_id = $existing[0]->ID;
+                    $post_data['ID'] = $post_id;
+                    $result = wp_update_post($post_data);
+                    if (is_wp_error($result) || $result === 0) {
+                        throw new Exception('Failed to update existing post: ' . (is_wp_error($result) ? $result->get_error_message() : 'Update failed'));
+                    }
+                    // Skip to featured image/category handling below
+                } else {
+                    // Create new post
+                    $post_id = wp_insert_post($post_data);
 
-                if (is_wp_error($post_id)) {
-                    throw new Exception('Failed to create post: ' . $post_id->get_error_message());
+                    if (is_wp_error($post_id)) {
+                        throw new Exception('Failed to create post: ' . $post_id->get_error_message());
+                    }
                 }
             }
 
