@@ -107,7 +107,7 @@ class RequestDesk_API {
                     'type' => 'string'
                 ),
                 'content' => array(
-                    'required' => true,
+                    'required' => false,
                     'type' => 'string'
                 ),
                 'status' => array(
@@ -575,10 +575,14 @@ class RequestDesk_API {
             // Prepare post data
             $post_data = array(
                 'post_title' => $title,
-                'post_content' => $content,
                 'post_status' => $status,
                 'post_type' => 'post'
             );
+
+            // Only set content if provided (allows metadata-only updates)
+            if (!empty($content)) {
+                $post_data['post_content'] = $content;
+            }
 
             // Set slug if provided (preserves URL structure during migrations)
             if (!empty($slug)) {
@@ -672,6 +676,26 @@ class RequestDesk_API {
                 wp_set_post_tags($post_id, $tag_names);
             }
 
+            // Handle Polylang language assignment
+            $language = sanitize_text_field($request->get_param('language'));
+            $translation_of = absint($request->get_param('translation_of'));
+            if (!empty($language) && function_exists('pll_set_post_language')) {
+                pll_set_post_language($post_id, $language);
+
+                // Link as translation of an existing post
+                if ($translation_of > 0 && function_exists('pll_save_post_translations')) {
+                    $existing_lang = pll_get_post_language($translation_of);
+                    if ($existing_lang) {
+                        // Build complete translations array with both languages
+                        $translations = array(
+                            $existing_lang => $translation_of,
+                            $language => $post_id
+                        );
+                        pll_save_post_translations($translations);
+                    }
+                }
+            }
+
             // Add metadata for tracking
             if ($ticket_id) {
                 update_post_meta($post_id, '_requestdesk_ticket_id', $ticket_id);
@@ -690,7 +714,9 @@ class RequestDesk_API {
                 'edit_url' => get_edit_post_link($post_id, 'raw'),
                 'featured_image_set' => !empty($featured_image),
                 'categories_set' => count($category_ids ?? []),
-                'tags_set' => count($tag_names ?? [])
+                'tags_set' => count($tag_names ?? []),
+                'language' => !empty($language) ? $language : null,
+                'translation_of' => $translation_of > 0 ? $translation_of : null
             ), 201);
 
         } catch (Exception $e) {
