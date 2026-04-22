@@ -80,8 +80,10 @@ class RequestDesk_IndexNow {
         // Match /{key}.txt exactly
         $key = $this->get_key();
         if ($path === '/' . $key . '.txt') {
+            status_header(200);
+            nocache_headers();
             header('Content-Type: text/plain; charset=utf-8');
-            header('Cache-Control: public, max-age=3600');
+            header('X-Robots-Tag: noindex');
             echo esc_html($key);
             exit;
         }
