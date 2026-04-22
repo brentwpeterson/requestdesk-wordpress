@@ -5,6 +5,22 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.14.0] - 2026-04-22
+
+### Added
+- **IndexNow submission** — new module `class-requestdesk-indexnow.php`:
+  - Auto-generates a site-wide IndexNow key on first activation (UUID v4, stored in `wp_options`)
+  - Serves the key verification file at `/{key}.txt` via `template_redirect`
+  - Auto-submits URLs to `api.indexnow.org` on post publish and update (hooked on `transition_post_status`)
+  - Admin settings page under RequestDesk → IndexNow (enable toggle, post-type selector, key file test, regenerate key)
+  - Bulk-submit button for one-shot submission of all published URLs (batches of 1,000 with 2-second pacing)
+  - Submission log (last 50 entries) with timestamp, URL count, HTTP response code, and trigger type
+- Reaches Bing, Yandex, Seznam, and Naver immediately via the IndexNow aggregator; Google has stated they are evaluating the protocol
+
+### Notes
+- IndexNow spec allows 10,000 URLs/day per key; plugin batches + paces to stay safely within limits
+- Key file must be publicly reachable on the origin for engines to validate submissions (works behind Cloudflare which passes through by default)
+
 ## [2.5.0] - 2026-02-03
 
 ### Added
