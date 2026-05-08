@@ -150,6 +150,26 @@ class RequestDesk_API {
                     'required' => false,
                     'type' => 'integer',
                     'description' => 'WordPress user ID to set as the post author'
+                ),
+                'post_date' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Original publication date (Y-m-d H:i:s or ISO 8601). Accepted aliases: date, date_gmt.'
+                ),
+                'date' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Alias for post_date'
+                ),
+                'date_gmt' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Alias for post_date (interpreted as the publish date in any timezone)'
+                ),
+                'slug' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'URL slug to assign to the post'
                 )
             )
         ));
@@ -570,7 +590,18 @@ class RequestDesk_API {
 
             $author = absint($request->get_param('author'));
             $slug = sanitize_title($request->get_param('slug'));
+            // Accept post_date, date, or date_gmt as the publish-date input (first non-empty wins).
             $post_date = sanitize_text_field($request->get_param('post_date'));
+            if (empty($post_date)) {
+                $post_date = sanitize_text_field($request->get_param('date'));
+            }
+            if (empty($post_date)) {
+                $post_date = sanitize_text_field($request->get_param('date_gmt'));
+            }
+
+            // Track author resolution so we can echo the result in the response and log silent failures.
+            $author_set = false;
+            $author_failure_reason = null;
 
             // Prepare post data
             $post_data = array(
@@ -595,9 +626,16 @@ class RequestDesk_API {
                 $post_data['post_date_gmt'] = get_gmt_from_date($post_date);
             }
 
-            // Set author if provided and valid
-            if ($author > 0 && get_user_by('id', $author)) {
-                $post_data['post_author'] = $author;
+            // Set author if provided and valid. Log silent failures so they stop being silent.
+            if ($author > 0) {
+                $user = get_user_by('id', $author);
+                if ($user) {
+                    $post_data['post_author'] = $author;
+                    $author_set = true;
+                } else {
+                    $author_failure_reason = "User ID {$author} not found on this site";
+                    error_log("[RequestDesk] publish_content: {$author_failure_reason}");
+                }
             }
 
             // Add excerpt if provided
@@ -704,6 +742,35 @@ class RequestDesk_API {
                 update_post_meta($post_id, '_requestdesk_agent_id', $agent_id);
             }
 
+            // Verify post_author actually persisted. Some Magento-style replication, plugin
+            // hooks, or default-author filters can override it after wp_insert_post.
+            // If it did not stick, force-update once and re-check.
+            $author_id_actual = null;
+            if ($author_set) {
+                $check_post = get_post($post_id);
+                $author_id_actual = $check_post ? (int) $check_post->post_author : null;
+                if ($author_id_actual !== $author) {
+                    error_log("[RequestDesk] publish_content: post_author mismatch after save. expected={$author} actual={$author_id_actual}. Forcing update.");
+                    wp_update_post(array('ID' => $post_id, 'post_author' => $author));
+                    $check_post = get_post($post_id);
+                    $author_id_actual = $check_post ? (int) $check_post->post_author : null;
+                    if ($author_id_actual !== $author) {
+                        $author_set = false;
+                        $author_failure_reason = "post_author did not persist after force-update (still {$author_id_actual})";
+                        error_log("[RequestDesk] publish_content: {$author_failure_reason}");
+                    }
+                }
+            }
+
+            // Verify post_date persisted similarly, since the stored value can be reformatted.
+            $post_date_set = false;
+            $post_date_actual = null;
+            if (!empty($post_date)) {
+                $check_post = isset($check_post) ? $check_post : get_post($post_id);
+                $post_date_actual = $check_post ? $check_post->post_date : null;
+                $post_date_set = !empty($post_date_actual);
+            }
+
             // Log successful publish
             $this->log_sync('publish', 1, 'success', '', $ticket_id, $post_id, $agent_id);
 
@@ -715,6 +782,11 @@ class RequestDesk_API {
                 'featured_image_set' => !empty($featured_image),
                 'categories_set' => count($category_ids ?? []),
                 'tags_set' => count($tag_names ?? []),
+                'author_set' => $author_set,
+                'author_id' => $author_id_actual,
+                'author_failure_reason' => $author_failure_reason,
+                'post_date_set' => $post_date_set,
+                'post_date' => $post_date_actual,
                 'language' => !empty($language) ? $language : null,
                 'translation_of' => $translation_of > 0 ? $translation_of : null
             ), 201);
