@@ -235,26 +235,17 @@ class RequestDesk_Frontend_QA {
         </div>
 
         <?php
-        $faq_schema = array(
-            '@context' => 'https://schema.org',
-            '@type'    => 'FAQPage',
-            'mainEntity' => array(),
-        );
-        foreach ($qa_pairs as $qa) {
-            $faq_schema['mainEntity'][] = array(
-                '@type' => 'Question',
-                'name'  => $qa['question'],
-                'acceptedAnswer' => array(
-                    '@type' => 'Answer',
-                    'text'  => strip_tags($qa['answer']),
-                ),
-            );
-        }
-        ?>
-        <script type="application/ld+json">
-        <?php echo wp_json_encode($faq_schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT); ?>
-        </script>
-        <?php
+        // FAQPage JSON-LD schema is intentionally NOT emitted here. The
+        // canonical FAQPage emitter is RequestDesk_AEO_Core::output_schema_markup
+        // (hooked to wp_head, see class-requestdesk-aeo-core.php line 302),
+        // which reads the same aeo_data['faq_data'] post meta and emits one
+        // FAQPage script in the document head. Emitting a second script here
+        // produced duplicate FAQPage on every page where Frontend QA was
+        // enabled (caught by the contentcucumber.com 2026-05-09 SEO audit on
+        // /contact/ and other pages with auto_display_qa_frontend = true).
+        // Visible Q&A HTML above keeps Schema.org microdata
+        // (itemtype Question/Answer) so AI crawlers and Google can still
+        // extract the same data from the rendered DOM.
         return ob_get_clean();
     }
 

@@ -5,6 +5,15 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.1] - 2026-05-10
+
+### Fixed
+- **Duplicate FAQPage JSON-LD on every page where Frontend QA auto-display is enabled.** `RequestDesk_Frontend_QA::render_qa_pairs()` (class-requestdesk-frontend-qa.php) was emitting a JSON-LD `<script>` containing FAQPage AFTER the visible Q&A HTML in the document body. `RequestDesk_AEO_Core::output_schema_markup()` (class-requestdesk-aeo-core.php line 302, hooked to `wp_head`) was already emitting the same FAQPage in the document `<head>` from the same `aeo_data['faq_data']` post meta. Pages ended up with two byte-identical FAQPage scripts, which AI crawlers and Google treat as a structured-data inconsistency.
+- **Fix:** removed the JSON-LD `<script>` block at the end of `render_qa_pairs()`. Visible Q&A HTML retains its Schema.org microdata (`itemtype="https://schema.org/Question"` / `Answer`), so AI crawlers and Google extract the same data from the rendered DOM. AEO Core's `wp_head` emission becomes the single source of FAQPage schema.
+
+### Caught by
+- contentcucumber.com 2026-05-09 SEO audit. `/contact/` had two byte-identical FAQPage scripts (one in head from AEO Core, one in body from Frontend QA). Affected every page with `auto_display_qa_frontend = true` AND `aeo_data['faq_data']` set.
+
 ## [2.14.0] - 2026-04-22
 
 ### Added
