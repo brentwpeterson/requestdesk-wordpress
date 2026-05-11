@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.15.1
+ * Version: 2.15.2
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.15.1');
+define('REQUESTDESK_VERSION', '2.15.2');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -64,17 +64,12 @@ foreach ($plugin_files as $file) {
     }
 }
 
-// Enqueue comparison table styles on frontend
-if (function_exists('add_action')) {
-    add_action('wp_enqueue_scripts', function () {
-        wp_enqueue_style(
-            'requestdesk-comparison-table',
-            REQUESTDESK_PLUGIN_URL . 'assets/css/comparison-table.css',
-            array(),
-            REQUESTDESK_VERSION
-        );
-    });
-}
+// Comparison table styles are now enqueued on-demand by
+// RequestDesk_Comparison_Table::enqueue_assets() when the
+// [requestdesk_comparison_table] shortcode renders. The previous
+// unconditional enqueue here loaded the stylesheet on every page even
+// when no comparison table was present (render-blocking dead weight).
+// Removed in v2.15.2.
 
 // Register custom 5-minute cron schedule
 if (function_exists('add_filter')) {

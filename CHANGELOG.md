@@ -5,6 +5,15 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.2] - 2026-05-11
+
+### Performance
+- **`comparison-table.css` no longer enqueues on every page.** The previous unconditional enqueue in `requestdesk-connector.php` loaded the stylesheet site-wide regardless of whether the page used the `[requestdesk_comparison_table]` shortcode. The shortcode class (`class-requestdesk-comparison-table.php` line 50) already enqueues the stylesheet on-demand when the shortcode renders. The blanket hook was dead weight, render-blocking on every page that did not need it. Removed.
+- **`frontend-qa.css` is now conditionally enqueued.** Previously loaded on every singular page (`is_single() || is_page()`). Now checks the AEO `auto_display_qa_frontend` setting AND that the current post has `aeo_data['ai_questions']` registered before enqueueing. Front page is also skipped (matches the existing skip in `auto_append_qa_to_content`). Saves one render-blocking CSS request on every page that does not actually render Q&A content.
+
+### Why
+Caught by the contentcucumber.com 2026-05-09 SEO audit, mobile PSI Performance 47, 15 render-blocking stylesheets in `<head>`. These two plugin stylesheets were the easiest to scope back without removing functionality. Removing them from pages that do not need them does not affect rendering on pages that do.
+
 ## [2.15.1] - 2026-05-10
 
 ### Fixed

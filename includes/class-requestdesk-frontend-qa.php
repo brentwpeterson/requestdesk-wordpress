@@ -36,17 +36,50 @@ class RequestDesk_Frontend_QA {
     }
 
     /**
-     * Enqueue frontend styles for Q&A display
+     * Enqueue frontend styles for Q&A display.
+     *
+     * Loads only when the page is going to render Q&A content. Previously
+     * enqueued on every singular page regardless of whether the post had
+     * AEO Q&A data (render-blocking dead weight on most pages). Now checks
+     * that AEO is enabled site-wide AND that the post has ai_questions
+     * registered before enqueueing.
+     *
+     * Tightened in v2.15.2.
      */
     public function enqueue_frontend_styles() {
-        if (is_single() || is_page()) {
-            wp_enqueue_style(
-                'requestdesk-frontend-qa',
-                REQUESTDESK_PLUGIN_URL . 'assets/css/frontend-qa.css',
-                array(),
-                REQUESTDESK_VERSION
-            );
+        if (!is_single() && !is_page()) {
+            return;
         }
+        if (is_front_page()) {
+            return;
+        }
+
+        $settings = get_option('requestdesk_aeo_settings', array());
+        if (!($settings['auto_display_qa_frontend'] ?? false)) {
+            return;
+        }
+
+        $show_qa = apply_filters('requestdesk_show_qa_on_template', true, get_queried_object_id());
+        if (!$show_qa) {
+            return;
+        }
+
+        $post_id = get_queried_object_id();
+        if (!$post_id) {
+            return;
+        }
+
+        $aeo_data = get_post_meta($post_id, 'aeo_data', true);
+        if (!is_array($aeo_data) || empty($aeo_data['ai_questions'])) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'requestdesk-frontend-qa',
+            REQUESTDESK_PLUGIN_URL . 'assets/css/frontend-qa.css',
+            array(),
+            REQUESTDESK_VERSION
+        );
     }
 
     /**
