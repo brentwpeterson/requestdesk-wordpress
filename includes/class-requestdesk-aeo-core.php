@@ -300,6 +300,23 @@ class RequestDesk_AEO_Core {
      * Output schema markup in head
      */
     public function output_schema_markup() {
+        // CC-FULL-02: emit ProfessionalService + OfferCatalog on the home
+        // page so AI engines have an explicit entity for what the site
+        // sells. Additive and isolated: its own ld+json block, runs before
+        // (and independent of) the single/page FAQ logic below so it is
+        // unaffected by the early return and cannot regress existing schema.
+        if (is_front_page()) {
+            if (!$this->schema_generator) {
+                $this->schema_generator = new RequestDesk_Schema_Generator();
+            }
+            $ps_schema = $this->schema_generator->generate_professional_service_schema();
+            if (!empty($ps_schema)) {
+                echo '<script type="application/ld+json">';
+                echo json_encode($ps_schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+                echo '</script>' . "\n";
+            }
+        }
+
         if (!is_single() && !is_page()) {
             return;
         }

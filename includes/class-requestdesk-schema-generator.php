@@ -932,6 +932,59 @@ class RequestDesk_Schema_Generator {
     }
 
     /**
+     * Generate ProfessionalService + OfferCatalog schema for the home page.
+     *
+     * Gives AI engines an explicit machine-readable entity for what the
+     * site sells (the category handle the SEO/AI audit flagged as missing,
+     * CC-FULL-02). Service list and description track the site's own
+     * llms.txt declared positioning.
+     */
+    public function generate_professional_service_schema() {
+        $home = trailingslashit(home_url());
+        $schema = array(
+            '@context' => 'https://schema.org',
+            '@type' => 'ProfessionalService',
+            'name' => get_bloginfo('name'),
+            'url' => $home,
+            'description' => get_bloginfo('description'),
+            'knowsAbout' => array(
+                'Ecommerce content marketing',
+                'Answer Engine Optimization',
+                'Generative Engine Optimization',
+                'SEO',
+                'HubSpot implementation',
+                'Revenue attribution'
+            ),
+            'hasOfferCatalog' => array(
+                '@type' => 'OfferCatalog',
+                'name' => 'Services',
+                'itemListElement' => array(
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Growth Marketing', 'url' => $home . 'growth-marketing')),
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'SEO / AEO / AIO')),
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'HubSpot Implementation', 'url' => $home . 'hubspot-audit')),
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Loop Marketing', 'url' => $home . 'hubspot-loop-marketing')),
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Live Event Content', 'url' => $home . 'conference-coverage'))
+                )
+            )
+        );
+
+        $custom_logo_id = get_theme_mod('custom_logo');
+        if ($custom_logo_id) {
+            $logo_url = wp_get_attachment_image_url($custom_logo_id, 'full');
+            if ($logo_url) {
+                $schema['logo'] = array('@type' => 'ImageObject', 'url' => $logo_url);
+            }
+        }
+
+        $social_profiles = $this->get_social_profiles();
+        if (!empty($social_profiles)) {
+            $schema['sameAs'] = $social_profiles;
+        }
+
+        return $schema;
+    }
+
+    /**
      * Extract HowTo steps from content
      */
     private function extract_howto_steps($content) {
