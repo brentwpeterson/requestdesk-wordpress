@@ -50,7 +50,8 @@ $plugin_files = array(
     'includes/class-requestdesk-comparison-table.php',
     'includes/class-requestdesk-partner.php',
     'includes/class-requestdesk-indexnow.php',
-    'includes/class-requestdesk-audit-capture.php'
+    'includes/class-requestdesk-audit-capture.php',
+    'includes/class-requestdesk-case-study.php'
 );
 
 foreach ($plugin_files as $file) {

@@ -429,17 +429,22 @@ class RequestDesk_Partner {
         // Show results message if redirected after import
         if (isset($_GET['imported'])) {
             $count = intval($_GET['imported']);
-            echo '<div class="notice notice-success"><p>' . $count . ' partner(s) imported as drafts.</p></div>';
+            echo '<div class="notice notice-success"><p>' . $count . ' partner(s) created as drafts.</p></div>';
+        }
+        if (isset($_GET['updated'])) {
+            $count = intval($_GET['updated']);
+            echo '<div class="notice notice-info"><p>' . $count . ' partner(s) updated (post_content, post_excerpt, and meta fields refreshed from JSON).</p></div>';
         }
         if (isset($_GET['skipped'])) {
             $count = intval($_GET['skipped']);
-            echo '<div class="notice notice-warning"><p>' . $count . ' partner(s) skipped (already exist).</p></div>';
+            echo '<div class="notice notice-warning"><p>' . $count . ' partner(s) skipped (errors).</p></div>';
         }
 
         ?>
         <div class="wrap">
             <h1>Import Partners</h1>
-            <p>Preview partners from <code>includes/data/partners-import.json</code>. Partners already in the system will be skipped.</p>
+            <p>Found <strong><?php echo count($partners); ?></strong> partner(s) in <code>includes/data/partners-import.json</code>.</p>
+            <p>Existing partners with the same name will be <strong>updated</strong> (refreshing post_content, post_excerpt, website, tagline, hero_overlay, and logo). New ones will be created as drafts.</p>
 
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <input type="hidden" name="action" value="requestdesk_import_partners" />
@@ -459,25 +464,21 @@ class RequestDesk_Partner {
                         <?php foreach ($partners as $i => $partner) :
                             $already_exists = in_array(strtolower($partner['name']), $existing_titles);
                         ?>
-                        <tr<?php echo $already_exists ? ' style="opacity:0.5;"' : ''; ?>>
+                        <tr>
                             <td>
-                                <?php if (!$already_exists) : ?>
-                                    <input type="checkbox" name="import_partners[]" value="<?php echo $i; ?>" checked />
-                                <?php else : ?>
-                                    <span title="Already exists">&#10003;</span>
-                                <?php endif; ?>
+                                <input type="checkbox" name="import_partners[]" value="<?php echo $i; ?>" checked />
                             </td>
                             <td><strong><?php echo esc_html($partner['name']); ?></strong></td>
                             <td><a href="<?php echo esc_url($partner['website']); ?>" target="_blank"><?php echo esc_html(parse_url($partner['website'], PHP_URL_HOST)); ?></a></td>
                             <td><?php echo $partner['logo_file'] ? esc_html($partner['logo_file']) : '<em>none</em>'; ?></td>
-                            <td><?php echo $already_exists ? '<span style="color:green;">Exists</span>' : '<span style="color:orange;">New</span>'; ?></td>
+                            <td><?php echo $already_exists ? '<span style="color:#0073aa">Will update</span>' : '<span style="color:#46b450">Will create</span>'; ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
 
                 <p style="margin-top: 16px;">
-                    <button type="submit" class="button button-primary">Import Selected as Drafts</button>
+                    <button type="submit" class="button button-primary">Run Import</button>
                 </p>
             </form>
 
@@ -512,8 +513,9 @@ class RequestDesk_Partner {
         $json_path = plugin_dir_path(__FILE__) . 'data/partners-import.json';
         $partners = json_decode(file_get_contents($json_path), true);
 
-        $imported = 0;
-        $skipped = 0;
+        $imported = 0;  // newly created
+        $updated  = 0;  // existing, refreshed from JSON
+        $skipped  = 0;  // errors only
         $logo_dir = plugin_dir_path(__FILE__) . 'data/logos/';
 
         foreach ($selected as $index) {
@@ -523,7 +525,9 @@ class RequestDesk_Partner {
 
             $partner = $partners[$index];
 
-            // Check if already exists
+            // Match existing by name (post_title). Mirrors the case-study
+            // importer's "update existing or create new" behavior — per Brent's
+            // 2026-05-02 expectation alignment.
             $existing = get_posts(array(
                 'post_type'      => 'cc_partner',
                 'title'          => $partner['name'],
@@ -531,59 +535,72 @@ class RequestDesk_Partner {
                 'post_status'    => 'any',
             ));
 
-            if (!empty($existing)) {
-                $skipped++;
-                continue;
-            }
-
-            // Create the partner post
             $post_content = '';
             if (!empty($partner['content'])) {
                 $post_content = wp_kses_post($partner['content']);
             }
 
-            $post_id = wp_insert_post(array(
+            $post_data = array(
                 'post_title'   => sanitize_text_field($partner['name']),
                 'post_content' => $post_content,
                 'post_excerpt' => sanitize_textarea_field($partner['excerpt']),
-                'post_status'  => 'draft',
                 'post_type'    => 'cc_partner',
-            ));
+            );
 
-            if (is_wp_error($post_id)) {
+            if (!empty($existing)) {
+                // Update existing — preserve current post_status (do not
+                // demote a published partner to draft).
+                $post_data['ID'] = $existing[0]->ID;
+                $post_id = wp_update_post($post_data, true);
+                $is_update = true;
+            } else {
+                // New post lands as draft for editorial review.
+                $post_data['post_status'] = 'draft';
+                $post_id = wp_insert_post($post_data, true);
+                $is_update = false;
+            }
+
+            if (is_wp_error($post_id) || !$post_id) {
+                $skipped++;
                 continue;
             }
 
-            // Set website meta
+            // Refresh meta fields on both create and update.
             if (!empty($partner['website'])) {
                 update_post_meta($post_id, '_requestdesk_partner_website', esc_url_raw($partner['website']));
             }
-
-            // Set tagline if provided
             if (!empty($partner['tagline'])) {
                 update_post_meta($post_id, '_requestdesk_partner_tagline', sanitize_text_field($partner['tagline']));
             }
-
-            // Set hero overlay color if provided
             if (!empty($partner['hero_overlay'])) {
                 update_post_meta($post_id, '_requestdesk_partner_hero_overlay', sanitize_hex_color($partner['hero_overlay']));
             }
 
-            // Upload and attach logo if file exists
+            // Upload and attach logo if file exists. On update, only re-upload
+            // if no logo is currently set, so re-imports don't churn the media
+            // library or overwrite a manually-curated logo.
             if (!empty($partner['logo_file'])) {
-                $logo_path = $logo_dir . $partner['logo_file'];
-                if (file_exists($logo_path)) {
-                    $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
-                    if ($attachment_id) {
-                        update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
+                $current_logo = get_post_meta($post_id, '_requestdesk_partner_logo', true);
+                if (empty($current_logo)) {
+                    $logo_path = $logo_dir . $partner['logo_file'];
+                    if (file_exists($logo_path)) {
+                        $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
+                        if ($attachment_id) {
+                            update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
+                            set_post_thumbnail($post_id, $attachment_id);
+                        }
                     }
                 }
             }
 
-            $imported++;
+            if ($is_update) {
+                $updated++;
+            } else {
+                $imported++;
+            }
         }
 
-        wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=' . $imported . '&skipped=' . $skipped));
+        wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=' . $imported . '&updated=' . $updated . '&skipped=' . $skipped));
         exit;
     }
 
@@ -655,9 +672,19 @@ class RequestDesk_Partner {
         }
         ?>
         <div class="<?php echo esc_attr($card_class); ?>">
-            <?php if ($logo_id) : ?>
+            <?php if ($logo_id) :
+                // wp_get_attachment_image returns empty for SVGs without image dimensions.
+                // Fall back to a direct <img> tag using the attachment URL.
+                $logo_html = wp_get_attachment_image($logo_id, 'medium', false, array('class' => 'cc-partner-card__logo-img'));
+                if (empty($logo_html)) {
+                    $logo_url = wp_get_attachment_url($logo_id);
+                    if ($logo_url) {
+                        $logo_html = '<img src="' . esc_url($logo_url) . '" alt="' . esc_attr($post->post_title) . ' logo" class="cc-partner-card__logo-img" loading="lazy">';
+                    }
+                }
+            ?>
                 <div class="cc-partner-card__logo">
-                    <?php echo wp_get_attachment_image($logo_id, 'medium', false, array('class' => 'cc-partner-card__logo-img')); ?>
+                    <?php echo $logo_html; ?>
                 </div>
             <?php endif; ?>
 

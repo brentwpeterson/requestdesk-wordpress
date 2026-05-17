@@ -26,12 +26,35 @@
     display: flex;
     gap: 40px;
     align-items: center;
+    /* Fixed hero height across all slot rotations — prevents CLS when
+       the active slot swaps between image/video/text+terminal. */
+    min-height: clamp(440px, 48vw, 560px);
 }
 
 /* Left Column */
 .rd-home-hero__left {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Right Column also centers within the locked height */
+.rd-home-hero__right {
+    align-self: center;
+}
+
+/* Cap the rotating headline so text slots fit within the same hero height
+   as image/video slots. Slightly tighter than before but still bold. */
+.rd-home-hero__headline {
+    font-size: clamp(40px, 6vw, 76px) !important;
+}
+
+/* Headline rotator: stack slots, only active visible */
+.rd-home-hero__rotating {
+    position: relative;
+    min-height: clamp(180px, 21vw, 270px);
 }
 
 .rd-home-hero__headline {
@@ -43,12 +66,88 @@
     line-height: 0.85;
     margin: 0 0 15px;
     letter-spacing: -0.02em;
+    display: block;
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 400ms ease;
+}
+
+.rd-home-hero__headline--active {
+    opacity: 1;
+    pointer-events: auto;
+    position: relative;
+    inset: auto;
+}
+
+/* Featured image slot (replaces terminal/video for that slot) */
+.rd-home-hero__featured-image {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 0;
+}
+
+.rd-home-hero__featured-image-img {
+    width: 100%;
+    max-width: 580px;
+    height: auto;
+    display: block;
+    border-radius: 16px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 /* Right Column */
 .rd-home-hero__right {
     flex: 1;
     min-width: 0;
+    position: relative;
+}
+
+/* CTA rotator: stack slots, only active visible */
+.rd-home-hero__cta-block {
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    transition: opacity 400ms ease;
+}
+
+.rd-home-hero__cta-block--active {
+    opacity: 1;
+    pointer-events: auto;
+    position: relative;
+    inset: auto;
+}
+
+/* Nav dots */
+.rd-hero-nav {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.rd-hero-nav__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: background 200ms ease, transform 200ms ease;
+}
+
+.rd-hero-nav__dot:hover {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+.rd-hero-nav__dot--active {
+    background: var(--rd-hero-headline-color, #58c558);
+    transform: scale(1.2);
 }
 
 .rd-home-hero__form-wrap {
