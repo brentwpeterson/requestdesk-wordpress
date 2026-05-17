@@ -5,6 +5,20 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] - 2026-05-14
+
+### Added
+- **Audit Capture module** — new `class-requestdesk-audit-capture.php`:
+  - Registers a `cc_audit_request` CPT for logging audit requests from newsletter button clicks. Admin UI under "Audit Requests" menu.
+  - Settings submenu sets the notification email for new requests.
+  - Public landing-page shortcode `[cc_audit_landing]`. Reads `?em=` and `?dom=` query params from the URL: when both are present, captures the click directly with no form; when only email is present, prefills it on a single-field URL form; with neither, shows a two-field fallback.
+  - REST endpoint `POST /wp-json/cc-audit/v1/request` for programmatic submission with `{email, url, source}`.
+  - Sends a plain-text notification email with a deep link to the CPT record on every new capture.
+- Documentation in `docs/audit-capture.md` covering the WP setup steps, HubSpot smart-content button HTML for has-domain and no-domain audiences, REST contract, and fulfillment loop.
+
+### Why
+Newsletter subscribers know their email is already on file; making them refill a form to request an audit is needless friction. The button now carries identity into the URL, and subscribers with a known company domain submit with zero clicks past the email button itself. v1 is deliberately MVP — capture + notify, manual audit fulfillment via Claude Code. HMAC link signing, automated audit pipeline, and HubSpot timeline events are tracked as v2 work.
+
 ## [2.15.2] - 2026-05-11
 
 ### Performance

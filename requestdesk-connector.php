@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.15.2
+ * Version: 2.16.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.15.2');
+define('REQUESTDESK_VERSION', '2.16.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -49,7 +49,8 @@ $plugin_files = array(
     'admin/stats-bar-settings-page.php',
     'includes/class-requestdesk-comparison-table.php',
     'includes/class-requestdesk-partner.php',
-    'includes/class-requestdesk-indexnow.php'
+    'includes/class-requestdesk-indexnow.php',
+    'includes/class-requestdesk-audit-capture.php'
 );
 
 foreach ($plugin_files as $file) {
@@ -69,7 +70,7 @@ foreach ($plugin_files as $file) {
 // [requestdesk_comparison_table] shortcode renders. The previous
 // unconditional enqueue here loaded the stylesheet on every page even
 // when no comparison table was present (render-blocking dead weight).
-// Removed in v2.15.2.
+// Removed in v2.16.0.
 
 // Register custom 5-minute cron schedule
 if (function_exists('add_filter')) {
@@ -137,7 +138,8 @@ function requestdesk_init() {
         'RequestDesk_Freshness_Tracker',
         'RequestDesk_Citation_Tracker',
         'RequestDesk_Frontend_QA',
-        'RequestDesk_IndexNow'
+        'RequestDesk_IndexNow',
+        'RequestDesk_Audit_Capture'
     );
 
     foreach ($aeo_classes as $class_name) {
