@@ -1,0 +1,64 @@
+{
+  "slug": "brand-search-cannibalization",
+  "title": "Five URLs Competing for the Same Brand Name, 30% Impressions Recovered",
+  "status": "publish",
+  "excerpt": "On a brand-search audit, five different URLs from the same site were competing for the brand's own name. Google was rotating which one ranked #1. Consolidating to one canonical URL reclaimed around 30% of brand-search impressions within two weeks.",
+  "client_name": "Anonymized mid-market ecommerce brand",
+  "client_url": "",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single audit + fix",
+  "type": "Brand-Search Audit",
+  "date_started": "",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "A mid-market ecommerce brand came in because their branded search performance looked unstable. Some weeks the homepage ranked #1 for the brand name. Other weeks an old about-us page ranked. Other weeks a tag archive page showed up. Conversion rate from branded search dropped on the weeks when the wrong page ranked.\n\nFive different URLs from the same site were competing for the brand's own name. The homepage. An old 'about' page that had been retired but was still indexed. A redirect that never fully propagated (Google still had the source URL in its index). A tag archive page that listed every blog post tagged with the brand. A category page that pulled the brand into the URL. Google was rotating which of the five showed up as the #1 result, week to week.\n\nBrand searches are the highest-intent traffic any site gets. Letting Google pick from five competing URLs means whichever wins that day is what your highest-intent visitor lands on. Sometimes that is your homepage. Often it is not.",
+  "approach": "Step one was a branded query review in Google Search Console. Filtering the queries report for the brand name surfaced five distinct landing URLs across the trailing 90 days. Each one had thousands of impressions. The clicks were distributed across all five.\n\nStep two was a SERP scrape over time. We ran the brand name through a SERP tracker for the prior 30 days. The #1 result rotated between the five URLs, with no consistent winner.\n\nStep three was identifying why each URL existed. The homepage was canonical. The old 'about' page was supposed to be deleted but had only been unlinked, not redirected. The redirect that never propagated had been set up correctly but Google's cache still held the source URL. The tag archive and category page were CMS artifacts (WordPress generates them automatically when content is tagged or categorized with the brand name).\n\nStep four was the consolidation plan. Redirect the old 'about' page to the homepage. Force a recrawl of the never-propagated redirect through GSC URL Inspection. Either deindex the tag archive and category page (preferred) or canonicalize them to the homepage. Ensure internal links pointed only at the homepage for the brand term.",
+  "results": "Within two weeks, brand-search impressions to the canonical homepage recovered around 30%. Google stopped rotating the #1 result and consistently surfaced the homepage. Branded conversion rate stabilized.\n\nThe tag archive and category page were deindexed via robots meta. The old 'about' page redirected. Google's cache caught up on the never-propagated redirect after a forced recrawl. The five-way competition collapsed into one canonical destination.",
+  "content": "<h2>The Setup</h2>\n<p>A mid-market ecommerce brand came in because their branded search performance looked unstable. Some weeks the homepage ranked #1 for their brand name. Other weeks an old about page ranked. Other weeks a tag archive showed up. Conversion rate dropped on the weeks when the wrong page ranked.</p>\n<p>Branded search is the highest-intent traffic a site gets. Whichever URL wins on a given day is what the highest-intent visitor lands on. Sometimes that was the homepage. Often it was not.</p>\n\n<h2>What We Found</h2>\n<p>Five different URLs from the same site were competing for the brand's own name.</p>\n<ol>\n<li><strong>Homepage.</strong> The intended canonical destination.</li>\n<li><strong>An old \"about\" page.</strong> Retired internally but still indexed because nobody redirected it.</li>\n<li><strong>A redirect that never fully propagated.</strong> Set up correctly, but Google's cache still held the source URL.</li>\n<li><strong>A tag archive.</strong> WordPress had auto-generated it from a tag using the brand name.</li>\n<li><strong>A category page.</strong> Same root cause as the tag archive, different CMS taxonomy.</li>\n</ol>\n<p>Google was rotating which of the five showed up as #1. The rotation wasted brand-search impressions on URLs that did not convert.</p>\n\n<h2>The Diagnostic</h2>\n<p>Four steps.</p>\n<ol>\n<li><strong>GSC branded query review.</strong> Filtering the queries report for the brand name across 90 days surfaced five distinct landing URLs. Each one had thousands of impressions. Clicks were distributed across all five.</li>\n<li><strong>SERP rotation tracking.</strong> A 30-day SERP scrape showed the #1 result rotating between the five URLs with no consistent winner.</li>\n<li><strong>Source attribution per URL.</strong> Why does each URL exist? Which is canonical, which is an artifact, which is a leftover?</li>\n<li><strong>Consolidation plan.</strong> A redirect map, a deindex list, and an internal-link cleanup pass.</li>\n</ol>\n\n<h2>The Fix</h2>\n<ul>\n<li>Redirected the old \"about\" page to the homepage with a 301.</li>\n<li>Forced a recrawl of the never-propagated redirect through GSC URL Inspection. Google's cache caught up within a week.</li>\n<li>Deindexed the tag archive and the category page via <code>robots</code> meta. The brand name no longer needed its own auto-generated taxonomy pages.</li>\n<li>Audited internal links and pointed every brand-term anchor at the homepage. No more linking from blog posts to the tag archive.</li>\n</ul>\n\n<h2>Outcome</h2>\n<p>Within two weeks, brand-search impressions to the canonical homepage recovered around 30%. Google stopped rotating the #1 result and consistently surfaced the homepage. Branded conversion rate stabilized.</p>\n<p>The five-way competition collapsed into one canonical destination. The wasted impressions on tag archives and orphan pages came back to where they could convert.</p>\n\n<h2>Lessons</h2>\n<ul>\n<li><strong>Brand-search cannibalization is invisible until you look at it directly.</strong> Aggregate metrics for the brand name look fine. The problem only shows up when you attribute clicks per landing URL.</li>\n<li><strong>WordPress generates competing URLs automatically.</strong> Tag archives and category pages for brand-name taxonomies will rank if the site has enough authority. Either deindex them or do not tag with the brand name.</li>\n<li><strong>Unlinking is not removing.</strong> An old page that no longer has internal links is still indexed. Redirect it or deindex it. Otherwise Google can keep ranking it for years.</li>\n<li><strong>Redirects can fail silently in Google's cache.</strong> A 301 set up server-side does not always propagate immediately. URL Inspection plus a recrawl request is the fastest way to force the cache update.</li>\n<li><strong>Audit the internal-link graph.</strong> External backlinks are visible. Internal links are how a CMS quietly votes for the wrong URL. Cleaning up internal links to point at the canonical destination is half the fix.</li>\n</ul>\n\n<h2>Brent's Take</h2>\n<p>The fix list looks technical, but the real lesson is simpler. The site was casting five votes for itself on every brand search and letting Google pick the winner. A canonical URL is one vote, repeated everywhere. That is what stable brand-search performance looks like.</p>",
+  "stats": [
+    {
+      "value": "5 -> 1",
+      "label": "URLs Competing for Brand Name"
+    },
+    {
+      "value": "~30%",
+      "label": "Brand-Search Impressions Recovered"
+    },
+    {
+      "value": "2 weeks",
+      "label": "Time to Stabilize SERP"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber audited a mid-market ecommerce brand's branded search performance and found five different URLs from the same site competing for the brand's own name (homepage, an old about page, a redirect that never propagated, a tag archive, and a category page). Google was rotating the #1 result week to week. Consolidating to a single canonical URL through redirects, deindexing, and internal-link cleanup reclaimed around 30% of brand-search impressions within two weeks.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 24,
+  "seo_title": "Brand-Search Cannibalization Audit Case Study | Content Cucumber",
+  "seo_description": "How a mid-market ecommerce brand reclaimed around 30% of brand-search impressions in two weeks by consolidating five competing URLs into one canonical homepage.",
+  "industries": [
+    "Ecommerce"
+  ],
+  "platforms": [
+    "WordPress"
+  ],
+  "services": [
+    "Brand-Search Audit",
+    "Cannibalization Audit",
+    "Technical SEO Audit"
+  ],
+  "outcomes": [
+    "Brand SERP Stabilized",
+    "Impressions Recovered"
+  ],
+  "sizes": [
+    "Mid-market"
+  ],
+  "years": []
+}

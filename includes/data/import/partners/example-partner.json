@@ -1,0 +1,8 @@
+{
+  "name": "Example Partner",
+  "website": "https://example.com/",
+  "linkedin": "https://www.linkedin.com/company/example/",
+  "excerpt": "A short description of the partner and what they offer.",
+  "logo_file": "",
+  "content": "<p>Full partner description goes here. Describe what the partner does and how they complement your services.</p>\n\n<h2>Key benefits of the offering:</h2>\n<ul>\n<li><strong>Benefit one:</strong> Description of the first key benefit.</li>\n<li><strong>Benefit two:</strong> Description of the second key benefit.</li>\n</ul>\n\n<h2>Why partner together?</h2>\n<p>Explain the value of the partnership and how it benefits customers.</p>"
+}

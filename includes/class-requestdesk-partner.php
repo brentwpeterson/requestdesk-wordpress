@@ -398,23 +398,60 @@ class RequestDesk_Partner {
     /**
      * Render the Import Partners admin page
      */
+    private function p_import_dir() { return plugin_dir_path(__FILE__) . 'data/import/partners/'; }
+    private function p_legacy_path() { return plugin_dir_path(__FILE__) . 'data/partners-import.json'; }
+
+    private function p_ensure_dirs() {
+        $b = $this->p_import_dir();
+        foreach (array($b, $b . 'imported/', $b . 'failed/') as $d) {
+            if (!is_dir($d)) { wp_mkdir_p($d); }
+        }
+    }
+
+    /**
+     * Inbox model: ONE JSON object per file in data/import/partners/.
+     * Backward compatible: a legacy data/partners-import.json ARRAY is
+     * also surfaced (each element a pending row) until fully imported,
+     * then the whole legacy file is archived. Returns a list of
+     * ['key','entry','src'=>'file|legacy','path'].
+     */
+    private function p_collect_pending() {
+        $this->p_ensure_dirs();
+        $items = array();
+        $files = glob($this->p_import_dir() . '*.json');
+        if (is_array($files)) {
+            sort($files);
+            foreach ($files as $f) {
+                $data = json_decode(file_get_contents($f), true);
+                if (!is_array($data)) { continue; }
+                if (isset($data[0]) && is_array($data[0])) { $data = $data[0]; }
+                $items[] = array('key' => 'file:' . basename($f), 'entry' => $data, 'src' => 'file', 'path' => $f);
+            }
+        }
+        $legacy = $this->p_legacy_path();
+        if (file_exists($legacy)) {
+            $arr = json_decode(file_get_contents($legacy), true);
+            if (is_array($arr)) {
+                foreach ($arr as $idx => $e) {
+                    if (is_array($e)) {
+                        $items[] = array('key' => 'legacy:' . $idx, 'entry' => $e, 'src' => 'legacy', 'path' => $legacy);
+                    }
+                }
+            }
+        }
+        return $items;
+    }
+
+    private function p_archive_file($path, $ok) {
+        $b = $this->p_import_dir();
+        $sub = $ok ? 'imported/' : 'failed/';
+        @rename($path, $b . $sub . date('Ymd-His') . '-' . basename($path));
+    }
+
     public function render_import_page() {
-        $json_path = plugin_dir_path(__FILE__) . 'data/partners-import.json';
+        $pending = $this->p_collect_pending();
+        $dir_disp = 'includes/data/import/partners/';
 
-        if (!file_exists($json_path)) {
-            echo '<div class="wrap"><h1>Import Partners</h1>';
-            echo '<div class="notice notice-error"><p>Import file not found: ' . esc_html($json_path) . '</p></div></div>';
-            return;
-        }
-
-        $partners = json_decode(file_get_contents($json_path), true);
-        if (!$partners) {
-            echo '<div class="wrap"><h1>Import Partners</h1>';
-            echo '<div class="notice notice-error"><p>Could not parse import JSON.</p></div></div>';
-            return;
-        }
-
-        // Check which partners already exist
         $existing = get_posts(array(
             'post_type'      => 'cc_partner',
             'posts_per_page' => -1,
@@ -422,73 +459,68 @@ class RequestDesk_Partner {
             'fields'         => 'ids',
         ));
         $existing_titles = array();
-        foreach ($existing as $pid) {
-            $existing_titles[] = strtolower(get_the_title($pid));
-        }
+        foreach ($existing as $pid) { $existing_titles[] = strtolower(get_the_title($pid)); }
 
-        // Show results message if redirected after import
         if (isset($_GET['imported'])) {
-            $count = intval($_GET['imported']);
-            echo '<div class="notice notice-success"><p>' . $count . ' partner(s) created as drafts.</p></div>';
+            echo '<div class="notice notice-success"><p>' . intval($_GET['imported']) . ' partner(s) created as drafts.</p></div>';
         }
         if (isset($_GET['updated'])) {
-            $count = intval($_GET['updated']);
-            echo '<div class="notice notice-info"><p>' . $count . ' partner(s) updated (post_content, post_excerpt, and meta fields refreshed from JSON).</p></div>';
+            echo '<div class="notice notice-info"><p>' . intval($_GET['updated']) . ' partner(s) updated.</p></div>';
         }
         if (isset($_GET['skipped'])) {
-            $count = intval($_GET['skipped']);
-            echo '<div class="notice notice-warning"><p>' . $count . ' partner(s) skipped (errors).</p></div>';
+            echo '<div class="notice notice-warning"><p>' . intval($_GET['skipped']) . ' partner(s) skipped (errors).</p></div>';
         }
-
         ?>
         <div class="wrap">
             <h1>Import Partners</h1>
-            <p>Found <strong><?php echo count($partners); ?></strong> partner(s) in <code>includes/data/partners-import.json</code>.</p>
-            <p>Existing partners with the same name will be <strong>updated</strong> (refreshing post_content, post_excerpt, website, tagline, hero_overlay, and logo). New ones will be created as drafts.</p>
-
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                <input type="hidden" name="action" value="requestdesk_import_partners" />
-                <?php wp_nonce_field('requestdesk_import_partners', 'requestdesk_import_nonce'); ?>
-
-                <table class="widefat striped" style="max-width: 900px;">
-                    <thead>
-                        <tr>
-                            <th style="width:30px;"><input type="checkbox" id="check-all" checked /></th>
-                            <th>Name</th>
-                            <th>Website</th>
-                            <th>Logo</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($partners as $i => $partner) :
-                            $already_exists = in_array(strtolower($partner['name']), $existing_titles);
-                        ?>
-                        <tr>
-                            <td>
-                                <input type="checkbox" name="import_partners[]" value="<?php echo $i; ?>" checked />
-                            </td>
-                            <td><strong><?php echo esc_html($partner['name']); ?></strong></td>
-                            <td><a href="<?php echo esc_url($partner['website']); ?>" target="_blank"><?php echo esc_html(parse_url($partner['website'], PHP_URL_HOST)); ?></a></td>
-                            <td><?php echo $partner['logo_file'] ? esc_html($partner['logo_file']) : '<em>none</em>'; ?></td>
-                            <td><?php echo $already_exists ? '<span style="color:#0073aa">Will update</span>' : '<span style="color:#46b450">Will create</span>'; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-
-                <p style="margin-top: 16px;">
-                    <button type="submit" class="button button-primary">Run Import</button>
-                </p>
-            </form>
-
-            <script>
-            jQuery(document).ready(function($) {
-                $('#check-all').on('change', function() {
-                    $('input[name="import_partners[]"]').prop('checked', this.checked);
+            <?php if (empty($pending)) : ?>
+                <div class="notice notice-info"><p><strong>Inbox empty.</strong> Drop one JSON file per partner into <code><?php echo esc_html($dir_disp); ?></code> (name it after the partner, e.g. <code>portal-iq.json</code>). Only pending files appear here; each moves to <code>imported/</code> after a successful import, so this list never grows past your new work.</p></div>
+            <?php else : ?>
+                <p>Found <strong><?php echo count($pending); ?></strong> pending partner<?php echo count($pending) === 1 ? '' : 's'; ?> in <code><?php echo esc_html($dir_disp); ?></code>. Existing names are <strong>updated</strong> (post_status preserved); new names are created as drafts. Imported files move to <code>imported/</code>; failed to <code>failed/</code>.</p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="requestdesk_import_partners" />
+                    <?php wp_nonce_field('requestdesk_import_partners', 'requestdesk_import_nonce'); ?>
+                    <table class="widefat striped" style="max-width: 1000px;">
+                        <thead>
+                            <tr>
+                                <th style="width:30px;"><input type="checkbox" id="check-all" checked /></th>
+                                <th>File</th>
+                                <th>Name</th>
+                                <th>Website</th>
+                                <th>Logo</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($pending as $it) :
+                                $partner = $it['entry'];
+                                $pname = $partner['name'] ?? '';
+                                $already_exists = $pname && in_array(strtolower($pname), $existing_titles);
+                                $fname = ($it['src'] === 'file') ? basename($it['path']) : 'legacy array #' . substr($it['key'], 7);
+                            ?>
+                            <tr>
+                                <td><input type="checkbox" name="import_items[]" value="<?php echo esc_attr($it['key']); ?>" checked /></td>
+                                <td><code><?php echo esc_html($fname); ?></code></td>
+                                <td><strong><?php echo esc_html($pname); ?></strong></td>
+                                <td><?php echo !empty($partner['website']) ? '<a href="' . esc_url($partner['website']) . '" target="_blank">' . esc_html(parse_url($partner['website'], PHP_URL_HOST)) . '</a>' : ''; ?></td>
+                                <td><?php echo !empty($partner['logo_file']) ? esc_html($partner['logo_file']) : '<em>none</em>'; ?></td>
+                                <td><?php echo $already_exists ? '<span style="color:#0073aa">Will update</span>' : '<span style="color:#46b450">Will create</span>'; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 16px;">
+                        <button type="submit" class="button button-primary">Run Import (selected)</button>
+                    </p>
+                </form>
+                <script>
+                jQuery(document).ready(function($) {
+                    $('#check-all').on('change', function() {
+                        $('input[name="import_items[]"]').prop('checked', this.checked);
+                    });
                 });
-            });
-            </script>
+                </script>
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -503,105 +535,116 @@ class RequestDesk_Partner {
             wp_die('Unauthorized');
         }
 
-        $selected = isset($_POST['import_partners']) ? array_map('intval', $_POST['import_partners']) : array();
-
-        if (empty($selected)) {
-            wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=0'));
-            exit;
-        }
-
-        $json_path = plugin_dir_path(__FILE__) . 'data/partners-import.json';
-        $partners = json_decode(file_get_contents($json_path), true);
+        $selected = isset($_POST['import_items']) ? (array) $_POST['import_items'] : array();
+        $selected = array_map('sanitize_text_field', $selected);
+        $pending  = $this->p_collect_pending();
 
         $imported = 0;  // newly created
-        $updated  = 0;  // existing, refreshed from JSON
+        $updated  = 0;  // existing, refreshed
         $skipped  = 0;  // errors only
-        $logo_dir = plugin_dir_path(__FILE__) . 'data/logos/';
+        $legacy_total = 0;
+        $legacy_done  = 0;
+        $legacy_path  = null;
 
-        foreach ($selected as $index) {
-            if (!isset($partners[$index])) {
-                continue;
-            }
+        foreach ($pending as $it) {
+            if ($it['src'] === 'legacy') { $legacy_total++; $legacy_path = $it['path']; }
+            if (!in_array($it['key'], $selected, true)) { continue; }
 
-            $partner = $partners[$index];
-
-            // Match existing by name (post_title). Mirrors the case-study
-            // importer's "update existing or create new" behavior — per Brent's
-            // 2026-05-02 expectation alignment.
-            $existing = get_posts(array(
-                'post_type'      => 'cc_partner',
-                'title'          => $partner['name'],
-                'posts_per_page' => 1,
-                'post_status'    => 'any',
-            ));
-
-            $post_content = '';
-            if (!empty($partner['content'])) {
-                $post_content = wp_kses_post($partner['content']);
-            }
-
-            $post_data = array(
-                'post_title'   => sanitize_text_field($partner['name']),
-                'post_content' => $post_content,
-                'post_excerpt' => sanitize_textarea_field($partner['excerpt']),
-                'post_type'    => 'cc_partner',
-            );
-
-            if (!empty($existing)) {
-                // Update existing — preserve current post_status (do not
-                // demote a published partner to draft).
-                $post_data['ID'] = $existing[0]->ID;
-                $post_id = wp_update_post($post_data, true);
-                $is_update = true;
+            $partner = $it['entry'];
+            $ok = false;
+            if (!empty($partner['name'])) {
+                $res = $this->partner_import_entry($partner);
+                if ($res === 'created') { $imported++; $ok = true; }
+                elseif ($res === 'updated') { $updated++; $ok = true; }
+                else { $skipped++; }
             } else {
-                // New post lands as draft for editorial review.
-                $post_data['post_status'] = 'draft';
-                $post_id = wp_insert_post($post_data, true);
-                $is_update = false;
-            }
-
-            if (is_wp_error($post_id) || !$post_id) {
                 $skipped++;
-                continue;
             }
 
-            // Refresh meta fields on both create and update.
-            if (!empty($partner['website'])) {
-                update_post_meta($post_id, '_requestdesk_partner_website', esc_url_raw($partner['website']));
+            if ($it['src'] === 'file') {
+                $this->p_archive_file($it['path'], $ok);
+            } elseif ($it['src'] === 'legacy' && $ok) {
+                $legacy_done++;
             }
-            if (!empty($partner['tagline'])) {
-                update_post_meta($post_id, '_requestdesk_partner_tagline', sanitize_text_field($partner['tagline']));
-            }
-            if (!empty($partner['hero_overlay'])) {
-                update_post_meta($post_id, '_requestdesk_partner_hero_overlay', sanitize_hex_color($partner['hero_overlay']));
-            }
+        }
 
-            // Upload and attach logo if file exists. On update, only re-upload
-            // if no logo is currently set, so re-imports don't churn the media
-            // library or overwrite a manually-curated logo.
-            if (!empty($partner['logo_file'])) {
-                $current_logo = get_post_meta($post_id, '_requestdesk_partner_logo', true);
-                if (empty($current_logo)) {
-                    $logo_path = $logo_dir . $partner['logo_file'];
-                    if (file_exists($logo_path)) {
-                        $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
-                        if ($attachment_id) {
-                            update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
-                            set_post_thumbnail($post_id, $attachment_id);
-                        }
-                    }
-                }
-            }
-
-            if ($is_update) {
-                $updated++;
-            } else {
-                $imported++;
-            }
+        if ($legacy_path && $legacy_total > 0 && $legacy_done >= $legacy_total && file_exists($legacy_path)) {
+            $b = $this->p_import_dir();
+            if (!is_dir($b . 'imported/')) { wp_mkdir_p($b . 'imported/'); }
+            @rename($legacy_path, $b . 'imported/' . date('Ymd-His') . '-legacy-' . basename($legacy_path));
         }
 
         wp_redirect(admin_url('edit.php?post_type=cc_partner&page=requestdesk-partner-import&imported=' . $imported . '&updated=' . $updated . '&skipped=' . $skipped));
         exit;
+    }
+
+    /**
+     * Import (create or update) ONE partner entry. Returns 'created',
+     * 'updated', or false on error. Match-by-name, post_status preserved
+     * on update, logo re-uploaded only if none set — all preserved verbatim
+     * from the original array importer.
+     */
+    private function partner_import_entry($partner) {
+        $logo_dir = plugin_dir_path(__FILE__) . 'data/logos/';
+
+        $existing = get_posts(array(
+            'post_type'      => 'cc_partner',
+            'title'          => $partner['name'],
+            'posts_per_page' => 1,
+            'post_status'    => 'any',
+        ));
+
+        $post_content = '';
+        if (!empty($partner['content'])) {
+            $post_content = wp_kses_post($partner['content']);
+        }
+
+        $post_data = array(
+            'post_title'   => sanitize_text_field($partner['name']),
+            'post_content' => $post_content,
+            'post_excerpt' => sanitize_textarea_field($partner['excerpt'] ?? ''),
+            'post_type'    => 'cc_partner',
+        );
+
+        if (!empty($existing)) {
+            $post_data['ID'] = $existing[0]->ID;
+            $post_id = wp_update_post($post_data, true);
+            $is_update = true;
+        } else {
+            $post_data['post_status'] = 'draft';
+            $post_id = wp_insert_post($post_data, true);
+            $is_update = false;
+        }
+
+        if (is_wp_error($post_id) || !$post_id) {
+            return false;
+        }
+
+        if (!empty($partner['website'])) {
+            update_post_meta($post_id, '_requestdesk_partner_website', esc_url_raw($partner['website']));
+        }
+        if (!empty($partner['tagline'])) {
+            update_post_meta($post_id, '_requestdesk_partner_tagline', sanitize_text_field($partner['tagline']));
+        }
+        if (!empty($partner['hero_overlay'])) {
+            update_post_meta($post_id, '_requestdesk_partner_hero_overlay', sanitize_hex_color($partner['hero_overlay']));
+        }
+
+        if (!empty($partner['logo_file'])) {
+            $current_logo = get_post_meta($post_id, '_requestdesk_partner_logo', true);
+            if (empty($current_logo)) {
+                $logo_path = $logo_dir . $partner['logo_file'];
+                if (file_exists($logo_path)) {
+                    $attachment_id = $this->upload_logo($logo_path, $post_id, $partner['name']);
+                    if ($attachment_id) {
+                        update_post_meta($post_id, '_requestdesk_partner_logo', $attachment_id);
+                        set_post_thumbnail($post_id, $attachment_id);
+                    }
+                }
+            }
+        }
+
+        return $is_update ? 'updated' : 'created';
     }
 
     /**

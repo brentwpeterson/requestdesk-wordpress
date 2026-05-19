@@ -1,0 +1,61 @@
+{
+  "slug": "yoast-sitemap-cleanup",
+  "title": "13 Dead Sitemaps in GSC, Cleaned in Two Minutes",
+  "status": "publish",
+  "excerpt": "On a migration audit, 13 dead Yoast sitemap URLs were still registered in Google Search Console. The current native WordPress sitemap was not registered at all. A two-minute cleanup gave the site the cleanest crawl signal it had seen in years.",
+  "client_name": "Anonymized B2B services company on WordPress",
+  "client_url": "",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single audit",
+  "type": "Migration Audit",
+  "date_started": "",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "A B2B services company came in for a migration audit on their WordPress site. Their crawl coverage in Google Search Console looked noisy and they could not explain why the same URLs kept getting flagged.\n\nThirteen sitemap URLs were still registered in GSC from a 2018 Yoast setup. Every one of them returned 0 indexed URLs. The site had since moved to the WordPress native sitemap, and that sitemap was not registered in GSC at all. Google was being asked to crawl thirteen empty sitemaps and was never told where the real one lived.",
+  "approach": "Step one was the Search Console sitemaps report. The 13 dead Yoast URLs showed up immediately, all with the same status (zero indexed URLs, last fetched years ago).\n\nStep two was confirming the current sitemap. We pulled /wp-sitemap.xml directly and verified it was generating correctly with current URLs.\n\nStep three was the cleanup. Each dead Yoast sitemap was deleted from GSC. The native WordPress sitemap was submitted and verified.",
+  "results": "Within days the noise in the GSC coverage report cleared. New crawl activity started landing on real, current URLs. The site had not had a clean crawl signal since the Yoast deprecation, and a two-minute cleanup restored it.\n\nThe sitemap report went from 13 dead entries (all 0 URLs indexed) to one active sitemap reflecting the live site.",
+  "content": "<h2>The Setup</h2>\n<p>A B2B services company on WordPress came in for a migration audit. Their crawl coverage in Google Search Console was noisy. Pages they expected to see were getting flagged and they could not figure out why.</p>\n\n<h2>What We Found</h2>\n<p>Thirteen sitemap URLs were still registered in GSC. All of them dated back to a 2018 Yoast SEO plugin setup. Every one returned 0 indexed URLs.</p>\n<p>The site had since moved off Yoast and was running on the WordPress native sitemap (<code>/wp-sitemap.xml</code>). That sitemap was not registered in GSC. Google was being asked to crawl 13 empty files and was never told where the live sitemap lived.</p>\n\n<h2>The Diagnostic</h2>\n<p>Three steps. Each one took under a minute.</p>\n<ol>\n<li>Open the Sitemaps report in Google Search Console. The 13 dead Yoast URLs were sitting at the top of the list.</li>\n<li>Hit the live native sitemap directly to confirm it was generating correctly with current URLs.</li>\n<li>Cross-check <code>robots.txt</code> to make sure it was pointing at the right sitemap. It was not.</li>\n</ol>\n\n<h2>The Fix</h2>\n<p>Two minutes total.</p>\n<ul>\n<li>Deleted all 13 dead Yoast sitemaps from GSC.</li>\n<li>Submitted <code>/wp-sitemap.xml</code> as the active sitemap.</li>\n<li>Updated <code>robots.txt</code> to point at the native sitemap.</li>\n</ul>\n\n<h2>Outcome</h2>\n<p>Within days the GSC coverage report cleared. New crawl activity started landing on real, current URLs. The site had not had a clean crawl signal in years, and the fix took less time than the email confirming it was done.</p>\n\n<h2>Lessons</h2>\n<ul>\n<li><strong>Sitemap registrations outlive plugins.</strong> When a site migrates off a SEO plugin, the sitemaps that plugin generated stay registered in GSC unless someone removes them. They quietly waste crawl budget for years.</li>\n<li><strong>GSC will not warn you.</strong> Dead sitemaps with 0 indexed URLs do not trigger an alert. They sit there forever until someone audits the report.</li>\n<li><strong>The native WordPress sitemap is real.</strong> Since WP 5.5 it is generated automatically. If a site moved off Yoast or RankMath without registering the native sitemap, Google has no current map of the site.</li>\n<li><strong>Migration audits catch this.</strong> Every WordPress migration audit Content Cucumber runs starts with the GSC sitemap report. It is the cheapest, fastest signal in the entire toolkit.</li>\n</ul>\n\n<h2>Brent's Take</h2>\n<p>Two minutes of cleanup undid years of crawl noise. The slow burn problem is the worst kind. Nothing breaks visibly, but nothing works correctly either. A migration audit is exactly when you find these.</p>",
+  "stats": [
+    {
+      "value": "13",
+      "label": "Dead Sitemaps Removed"
+    },
+    {
+      "value": "0",
+      "label": "URLs Indexed From Old Sitemaps"
+    },
+    {
+      "value": "2 min",
+      "label": "Cleanup Time"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber audited a B2B services WordPress site and found 13 dead Yoast sitemap URLs still registered in Google Search Console from a 2018 setup, all returning zero indexed URLs. The current native WordPress sitemap was never registered. The two-minute fix removed all 13 dead sitemaps and submitted the live one, restoring a clean crawl signal.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 20,
+  "seo_title": "Dead Yoast Sitemaps Audit Case Study | Content Cucumber",
+  "seo_description": "How a two-minute Google Search Console cleanup removed 13 dead Yoast sitemap URLs from 2018 and restored a B2B services site's crawl signal after years of noise.",
+  "industries": [
+    "B2B Services"
+  ],
+  "platforms": [
+    "WordPress"
+  ],
+  "services": [
+    "Technical SEO Audit",
+    "Migration Audit"
+  ],
+  "outcomes": [
+    "Crawl Signal Restored",
+    "GSC Cleanup"
+  ],
+  "sizes": [],
+  "years": []
+}

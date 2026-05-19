@@ -1,0 +1,69 @@
+{
+  "slug": "vip-supply-co-bigcommerce",
+  "title": "BigCommerce's VIP Supply Co. Migration Story",
+  "status": "publish",
+  "excerpt": "Case study we wrote for BigCommerce. Covers VIP Supply Co.'s 4-month migration from Shopify to BigCommerce B2B Edition, serving 1,800+ restaurants with 1,100+ SKUs.",
+  "content": "<p><strong>Read the published version on BigCommerce:</strong> <a href=\"https://www.bigcommerce.com/case-study/vip-supply-co/\" target=\"_blank\" rel=\"noopener\">bigcommerce.com/case-study/vip-supply-co/</a></p>\n\n<p>Content Cucumber wrote this customer case study for BigCommerce's prospect-facing content library. We interviewed VIP Supply Co. leadership and Access Solutions (the implementation agency), gathered the technical and business details, and structured the narrative around the customer's transformation from Shopify to BigCommerce B2B Edition.</p>",
+  "client_name": "BigCommerce",
+  "client_url": "https://www.bigcommerce.com/",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single engagement",
+  "type": "Case study as a service",
+  "date_started": "2026-04-01",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "BigCommerce needed a customer case study showing how VIP Supply Co. transformed from Shopify to BigCommerce B2B Edition. The story needed to translate complex B2B requirements (multi-user company accounts, role-based hierarchies, custom-print product workflows, integrations with Fishbowl, QuickBooks, Avalara, and Stripe) into a clear, prospect-facing narrative.\n\nThe case study had to land for two audiences at once: B2B distributors evaluating a platform migration, and BigCommerce's own sales team using it as proof in deals.",
+  "approach": "We interviewed VIP Supply Co. leadership and Access Solutions (the implementation agency partner) to gather the technical, operational, and business details.\n\nFrom the source material we structured the narrative around four beats: the limitation that triggered the migration, the requirements that ruled out the existing platform, the implementation, and the outcomes. We surfaced the metrics that mattered (4-month implementation, 1,100+ SKUs, 1,800 restaurants, 302 customer groups, 219 price lists) and used direct quotes from the Managing Partner and the agency CRO to anchor the story.\n\nDelivered as a polished case study ready for BigCommerce's content library and sales enablement.",
+  "results": "Published at <a href=\"https://www.bigcommerce.com/case-study/vip-supply-co/\" target=\"_blank\" rel=\"noopener\">bigcommerce.com/case-study/vip-supply-co</a>. The case study tells the story of VIP Supply Co.'s 4-month migration, expanded reach to 1,800 restaurants across independent and regional chains, and 1,100+ SKUs launched in under a year on BigCommerce B2B Edition.",
+  "stats": [
+    {
+      "value": "4 months",
+      "label": "Contract to Launch"
+    },
+    {
+      "value": "1,800+",
+      "label": "Restaurants Served"
+    },
+    {
+      "value": "1,100+",
+      "label": "SKUs Launched"
+    },
+    {
+      "value": "302",
+      "label": "Customer Groups Managed"
+    }
+  ],
+  "quote": "BigCommerce opened up a whole new world of customers.",
+  "quote_name": "Jay Earley",
+  "quote_title": "Managing Partner",
+  "quote_company": "VIP Supply Co.",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber wrote BigCommerce's VIP Supply Co. case study, published April 2026 on bigcommerce.com. The piece covers VIP Supply's 4-month migration from Shopify to BigCommerce B2B Edition: 1,100+ SKUs launched, 1,800 restaurants served, and 302 customer groups managed. BigCommerce is the client. VIP Supply Co. is the customer featured in the story.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": true,
+  "display_priority": 1,
+  "seo_title": "BigCommerce VIP Supply Co. Case Study (Written by Content Cucumber)",
+  "seo_description": "How Content Cucumber wrote BigCommerce's VIP Supply Co. case study, covering a 4-month migration to BigCommerce B2B Edition serving 1,800+ restaurants.",
+  "industries": [
+    "B2B Distribution",
+    "Restaurant Supply"
+  ],
+  "platforms": [
+    "BigCommerce"
+  ],
+  "services": [
+    "Case Study Writing"
+  ],
+  "outcomes": [
+    "Migration Recovery",
+    "Catalog Expansion"
+  ],
+  "sizes": [
+    "Mid-market"
+  ],
+  "years": [
+    "2026"
+  ]
+}

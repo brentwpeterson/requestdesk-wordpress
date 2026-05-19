@@ -1,0 +1,62 @@
+{
+  "slug": "redirect-chain-link-equity",
+  "title": "A Two-Hop Redirect Chain Was Leaking 15% of Every Backlink",
+  "status": "publish",
+  "excerpt": "Every external backlink to the site was passing through two redirects on the way to the canonical URL. Conservatively, that was leaking around 15% of link equity from every inbound link. One nginx rewrite consolidated it to a single hop.",
+  "client_name": "Anonymized B2B SaaS company",
+  "client_url": "",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single audit + fix",
+  "type": "Technical SEO Audit",
+  "date_started": "",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "A B2B SaaS site came in for a backlink audit after rankings on competitive head terms had stalled. Their domain authority looked healthy on paper. The links were there. The pages they pointed at were strong. Something between the link and the page was bleeding equity.\n\nEvery external backlink was going through a two-hop redirect chain. The nginx layer redirected from www to non-www (hop one). Then the WordPress canonical handler added a second hop to enforce the trailing slash (hop two). Conservatively, that two-hop chain was leaking around 15% of the link equity from every inbound link. Google docs treat each redirect as a small dilution. Two hops compound.",
+  "approach": "Step one was a redirect trace. We pulled a sample of 20 high-authority backlinks and ran each one through a redirect tracer (curl -IL is enough). Every single one showed the same pattern.\n\n  GET https://www.example.com/page  ->  301  https://example.com/page  ->  301  https://example.com/page/  ->  200\n\nTwo redirects. Same root cause repeated across the entire link profile.\n\nStep two was finding the source of each hop. The first redirect lived in the nginx server block (a www-to-apex rule that had been in place since launch). The second lived inside WordPress, where the canonical handler enforces trailing slashes on permalinks.\n\nStep three was consolidating both decisions into the nginx layer. One rewrite rule went from www-without-slash directly to apex-with-slash, in a single 301.",
+  "results": "Every external backlink now resolves in one hop instead of two. The conservative estimate of recovered link equity is around 15% per inbound link. On a site with hundreds of referring domains, that is a meaningful share of the link profile no longer being thrown away.\n\nThe fix took one nginx config change and a reload. No content moved, no URLs changed for users.",
+  "content": "<h2>The Setup</h2>\n<p>A B2B SaaS company came in for a backlink audit. Their rankings on competitive head terms had stalled. Domain authority looked healthy on paper. The links were there. The pages those links pointed at were strong. Something between the inbound link and the live page was leaking value.</p>\n\n<h2>What We Found</h2>\n<p>Every external backlink to the site was going through a two-hop redirect chain.</p>\n<pre><code>GET https://www.example.com/page\n  -&gt; 301 https://example.com/page\n  -&gt; 301 https://example.com/page/\n  -&gt; 200 OK</code></pre>\n<p>Two hops, same root cause repeated across hundreds of referring domains. Google's documentation treats each redirect as a small equity loss. Two redirects compound. Conservatively, that was around 15% of link equity bleeding off every single inbound link.</p>\n\n<h2>The Diagnostic</h2>\n<p>Three steps.</p>\n<ol>\n<li><strong>Redirect trace on a sample of high-authority backlinks.</strong> A simple <code>curl -IL</code> against twenty referring URLs. All twenty showed the same two-hop pattern.</li>\n<li><strong>Find the source of each hop.</strong> The first hop lived in the nginx server block as a long-standing www-to-apex rule. The second hop lived inside WordPress, where the canonical handler enforces the trailing slash on permalinks.</li>\n<li><strong>Decide where to consolidate.</strong> Doing the consolidation in nginx is faster, more reliable, and removes the WordPress hop entirely. One rewrite rule, evaluated before WordPress is even loaded.</li>\n</ol>\n\n<h2>The Fix</h2>\n<p>A single nginx rewrite that took both decisions in one hop. Configuration changed, nginx reloaded, every backlink in the profile now resolves in one redirect instead of two.</p>\n\n<h2>Outcome</h2>\n<p>Every external backlink now lands in a single hop. On a site with hundreds of referring domains, recovering an estimated 15% of equity per link is a meaningful chunk of the link profile no longer being discarded.</p>\n<p>No URLs changed for users. No content moved. The fix lives entirely in server config.</p>\n\n<h2>Lessons</h2>\n<ul>\n<li><strong>Two redirects is one too many.</strong> Single-hop redirects pass nearly all the equity. Each additional hop is a small tax. The compounding adds up across an entire link profile.</li>\n<li><strong>Backlink audits do not stop at the link.</strong> A clean backlink list is not a clean link profile. The path from the link to the live page is part of the audit.</li>\n<li><strong>Decide redirect logic in one layer.</strong> When nginx and the application both apply canonical rules, you get chains. Pick one layer (almost always the web server) and let everything below it serve the canonical path directly.</li>\n<li><strong><code>curl -IL</code> is the cheapest tool in technical SEO.</strong> Twenty seconds against a referring URL surfaces problems no third-party crawler will catch in a default scan.</li>\n</ul>\n\n<h2>Brent's Take</h2>\n<p>Long-standing infrastructure rules are the easiest place for equity leaks to hide. Nobody touches them because they have been there since launch. That is exactly why an outside audit catches them.</p>",
+  "stats": [
+    {
+      "value": "2 hops -> 1 hop",
+      "label": "Redirect Chain Consolidated"
+    },
+    {
+      "value": "~15%",
+      "label": "Estimated Link Equity Recovered Per Link"
+    },
+    {
+      "value": "1",
+      "label": "Nginx Rewrite Required"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber audited a B2B SaaS site and found every external backlink was passing through a two-hop redirect chain. The nginx layer redirected www to non-www, then WordPress added a second redirect for the trailing slash. The conservative leak was around 15% of link equity per inbound link. One nginx rewrite consolidated both hops into a single 301.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 21,
+  "seo_title": "Two-Hop Redirect Chain Audit Case Study | Content Cucumber",
+  "seo_description": "How a B2B SaaS site recovered an estimated 15% of link equity per backlink by consolidating a two-hop nginx and WordPress redirect chain into a single 301.",
+  "industries": [
+    "B2B SaaS"
+  ],
+  "platforms": [
+    "WordPress",
+    "Nginx"
+  ],
+  "services": [
+    "Technical SEO Audit",
+    "Backlink Audit"
+  ],
+  "outcomes": [
+    "Link Equity Recovered",
+    "Redirect Chain Eliminated"
+  ],
+  "sizes": [],
+  "years": []
+}

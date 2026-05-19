@@ -1,0 +1,61 @@
+{
+  "slug": "aggregaterating-self-serving",
+  "title": "AggregateRating Was Stripped Silently for Six Years",
+  "status": "publish",
+  "excerpt": "A site had a 5.0 AggregateRating attached to its Organization schema on every blog post. The markup was technically valid. Google had been silently stripping the rich result for six years because of the self-serving rule.",
+  "client_name": "Anonymized professional services company",
+  "client_url": "",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single audit + fix",
+  "type": "Schema Audit",
+  "date_started": "",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "A professional services company came in wondering why their star ratings never showed up in search. They had Review markup. They had AggregateRating markup. The Rich Results Test said the page was eligible. Google was not displaying stars on a single result.\n\nThe site had AggregateRating with a 5.0 score attached to the Organization schema on every single blog post. The markup validated. The structured data report in GSC said it was clean. The rich result never rendered. The reason was Google's self-serving review rule, which has been live since 2019. AggregateRating on an Organization or LocalBusiness needs to reflect reviews of the business as a whole, with the reviews visible on the page. A blog post is not where the business itself is being reviewed. Google sees that pattern and silently drops the rich result.\n\nThe self-serving rule is one of the quietest filters in search. Nothing tells you it is happening. The markup is valid. The data type is supported. Google simply does not surface stars.",
+  "approach": "Step one was running every page type through the Rich Results Test and cross-referencing with the live SERP. The pattern was consistent. Validation passed on every page, stars displayed on no page.\n\nStep two was reading the schema source. The AggregateRating block was hardcoded in the theme's header.php as part of the Organization JSON-LD object. It rendered on every page including blog posts, the about page, contact page, and the homepage.\n\nStep three was determining where AggregateRating belonged. The reviews being aggregated were for specific service offerings, not the company as a whole. The right home for that data was the Service schema on the relevant service pages, with visible reviews on each page to satisfy the visibility requirement.\n\nStep four was the rebuild. AggregateRating was removed from the Organization schema sitewide. Per-service AggregateRating blocks were added to each service page, each tied to the reviews displayed on that page.",
+  "results": "Within Google's normal indexing cycle, star ratings began appearing on the service pages where they belonged. The rich result that had been silently suppressed for six years was finally rendering, on the pages where it was relevant.\n\nThe blog posts no longer carried inflationary 5.0 ratings they had no claim to. The site picked up rich-result eligibility on the pages that drive revenue (services), instead of on pages that were never going to convert anyway (blog).",
+  "content": "<h2>The Setup</h2>\n<p>A professional services company came in asking why their star ratings never showed up in search. They had Review markup. They had AggregateRating markup. The Rich Results Test confirmed the page was eligible. Google never displayed stars on a single result.</p>\n\n<h2>What We Found</h2>\n<p>AggregateRating with a 5.0 score was attached to the Organization schema on every blog post. The markup was technically valid. The structured data report in Google Search Console said it was clean. The rich result was being stripped silently.</p>\n<p>The reason is Google's self-serving review rule, in place since 2019. AggregateRating on an Organization or LocalBusiness needs to reflect reviews of the business as a whole, and the reviews being aggregated need to be visible on the page. A blog post is not where the business is being reviewed. Google sees that pattern and silently drops the rich result.</p>\n<p>This rule is one of the quietest filters in search. Nothing tells you it is happening. The markup validates. The data type is supported. Google simply does not surface stars.</p>\n\n<h2>The Diagnostic</h2>\n<p>Four steps.</p>\n<ol>\n<li><strong>Page-type sweep through the Rich Results Test.</strong> Validation passed on every page sampled. Stars displayed on no page in the SERP. The mismatch between \"valid\" and \"rendered\" is the tell.</li>\n<li><strong>Read the schema source.</strong> The AggregateRating block was hardcoded in the theme's header.php as part of the Organization JSON-LD object. Every page on the site carried it (blog, about, contact, homepage).</li>\n<li><strong>Determine where the rating belonged.</strong> The reviews being aggregated were for specific service offerings, not the company as a whole. The correct home was Service schema on the relevant service pages, with the underlying reviews visible on each page.</li>\n<li><strong>Plan the rebuild so the rating still survived.</strong> The 5.0 was a real average from real reviews. Moving it required mapping each review to the service it belonged to, not throwing the data away.</li>\n</ol>\n\n<h2>The Fix</h2>\n<ul>\n<li>Removed AggregateRating from the Organization schema sitewide.</li>\n<li>Added per-service AggregateRating blocks to each service page.</li>\n<li>Each block was tied to the reviews rendered on that page.</li>\n<li>Re-validated through the Rich Results Test, then waited for Google's normal indexing cycle.</li>\n</ul>\n\n<h2>Outcome</h2>\n<p>Within the normal indexing cycle, stars began appearing on the service pages where they belonged. The rich result that had been silently suppressed for six years was finally rendering. Inflationary 5.0 ratings were gone from blog posts they had no claim to.</p>\n<p>Rich-result eligibility moved from low-intent pages (blog) to revenue pages (services). The pages that drive bookings now carry the trust signal Google was willing to display.</p>\n\n<h2>Lessons</h2>\n<ul>\n<li><strong>\"Valid\" is not the same as \"rendered.\"</strong> The Rich Results Test confirms the markup parses. It does not promise Google will display the result. A page can pass every test and still be silently stripped.</li>\n<li><strong>The self-serving rule is the most common cause of missing stars.</strong> AggregateRating on Organization or LocalBusiness needs visible reviews of the business itself. Sitewide AggregateRating without visible review content fails this rule on every page that is not a review page.</li>\n<li><strong>Schema audit tools flag missing markup. They do not flag inappropriate markup.</strong> A site with the wrong schema in the right format will get a clean report from most automated tools. Reading the schema in context is what catches the self-serving violation.</li>\n<li><strong>Move the rating, do not delete it.</strong> A real 5.0 from real reviews is an asset. Mapping it to the right schema type (Service, Product, Recipe, Course) keeps the data alive while making it eligible.</li>\n</ul>\n\n<h2>Brent's Take</h2>\n<p>Six years of stars never displayed. Nobody on the site team did anything wrong. The markup was technically correct. The rule that disqualified it is one Google added without changing the validator. This is the kind of silent regression a schema audit is built to find.</p>",
+  "stats": [
+    {
+      "value": "6 years",
+      "label": "Rich Result Silently Stripped"
+    },
+    {
+      "value": "100%",
+      "label": "Of Blog Posts Carrying Invalid AggregateRating"
+    },
+    {
+      "value": "Service Pages",
+      "label": "Where Stars Now Render"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber audited a professional services site and found AggregateRating with a 5.0 score attached to Organization schema on every blog post. The markup was technically valid, but Google had been silently stripping the rich result for six years because of the self-serving rule (AggregateRating on Organization needs to reflect reviews of the business as a whole with visible reviews on the page). The fix moved AggregateRating to Service schema on the relevant service pages, where the data belonged.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 22,
+  "seo_title": "AggregateRating Self-Serving Rule Audit Case Study | Content Cucumber",
+  "seo_description": "How a professional services site lost stars in search for six years because AggregateRating was on Organization schema sitewide, and how moving it to Service schema restored rich results.",
+  "industries": [
+    "Professional Services"
+  ],
+  "platforms": [
+    "WordPress"
+  ],
+  "services": [
+    "Schema Audit",
+    "Structured Data Repair"
+  ],
+  "outcomes": [
+    "Rich Results Restored",
+    "Schema Compliance"
+  ],
+  "sizes": [],
+  "years": []
+}

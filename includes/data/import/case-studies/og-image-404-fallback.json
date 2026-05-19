@@ -1,0 +1,61 @@
+{
+  "slug": "og-image-404-fallback",
+  "title": "Nine Months of Social Shares Promoting the Wrong Brand",
+  "status": "publish",
+  "excerpt": "A site's og:image had been returning 404 for nine months. Facebook, LinkedIn, and Bing were all silently falling back to a partner company's logo from a nearby image tag. Total fix time once diagnosed: 3 minutes.",
+  "client_name": "Anonymized B2B company with a partner brand on the site",
+  "client_url": "",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Single audit + fix",
+  "type": "Social/Open Graph Audit",
+  "date_started": "",
+  "date_published": "2026-04-29",
+  "last_verified": "2026-04-29",
+  "challenge": "A B2B company noticed that some of their social shares were rendering with the wrong logo. The brand showing up on LinkedIn and Facebook previews was a partner company's logo, not theirs. Nobody could figure out how it had been going on or for how long.\n\nTheir og:image had been returning 404 for nine months. The theme had hardcoded an uploads path that never existed (the file had been moved during a media reorganization, and the og:image meta tag was never updated). When Facebook, LinkedIn, and Bing's crawlers fetched the page and could not load the og:image, they fell back to the next available image tag on the page. The next available image tag happened to be a partner company's logo in the footer. For nine months, every share of the site on every social network had been displaying that partner's logo as the brand.\n\nNobody had caught it because the platforms do not warn you. A 404 og:image silently degrades to whatever image the platform can find. The site looked fine to humans visiting it. Only people who shared a link saw the problem, and most of them assumed it was the platform's fault.",
+  "approach": "Step one was running the live site through three social share previewers (Facebook Sharing Debugger, LinkedIn Post Inspector, X Card Validator). All three returned the same fallback image. None of them flagged the og:image as broken. They just showed the next-best image they could find.\n\nStep two was inspecting the page source. The og:image meta tag pointed at a hardcoded path: /wp-content/uploads/2024/social-default.jpg. A direct request to that URL returned 404.\n\nStep three was tracing why. The site had been through a media library reorganization. The image was moved into a different folder structure. The og:image path in the theme was never updated. Nine months passed.\n\nStep four was finding the right image and updating the path. Three minutes from diagnosis to fix. Push, scrape, verify.",
+  "results": "All three previewers immediately picked up the corrected og:image after a manual rescrape. Every share thereafter rendered with the correct brand. Facebook's cached fallback was forced to refresh through the Sharing Debugger. LinkedIn's cache cleared on its own within hours.\n\nNine months of social shares promoting the wrong brand stopped within an hour of diagnosis.",
+  "content": "<h2>The Setup</h2>\n<p>A B2B company noticed something off about their social shares. The brand rendering on LinkedIn and Facebook previews was not theirs. It was a partner company's logo. They asked us to figure out what was happening and how long it had been going on.</p>\n\n<h2>What We Found</h2>\n<p>The og:image had been returning 404 for nine months.</p>\n<p>The theme had a hardcoded uploads path that no longer existed. The file had been moved during a media library reorganization. The og:image meta tag was never updated to match. When Facebook, LinkedIn, and Bing crawled the page and could not load the og:image, they fell back to the next available image tag. That next image was a partner company's logo in the footer. Every share for nine months rendered with that partner's logo as the brand.</p>\n<p>Nobody caught it because the platforms do not warn you. A broken og:image silently degrades to whatever the platform can scrape. The site looked correct to anyone visiting it. Only people who shared a link saw the wrong logo, and most assumed the platform was at fault.</p>\n\n<h2>The Diagnostic</h2>\n<p>Four steps. The whole audit took fifteen minutes.</p>\n<ol>\n<li><strong>Run the live site through three previewers.</strong> Facebook Sharing Debugger, LinkedIn Post Inspector, X Card Validator. All three returned the same fallback image. None of them flagged the og:image as broken. They simply rendered the best image they could find.</li>\n<li><strong>Inspect the page source.</strong> The og:image meta tag pointed at <code>/wp-content/uploads/2024/social-default.jpg</code>. A direct request to that URL returned 404.</li>\n<li><strong>Trace the cause.</strong> A media library reorganization had moved the file. The hardcoded theme reference was never updated.</li>\n<li><strong>Find the right image and update the path.</strong> Replace, push, rescrape, verify.</li>\n</ol>\n\n<h2>The Fix</h2>\n<p>Three minutes from diagnosis to fix.</p>\n<ul>\n<li>Updated the og:image path in the theme to a real, current asset.</li>\n<li>Forced a Facebook rescrape through the Sharing Debugger.</li>\n<li>Verified LinkedIn picked up the new image (its cache cleared on its own within hours).</li>\n<li>Verified Bing on a fresh share.</li>\n</ul>\n\n<h2>Outcome</h2>\n<p>Nine months of social shares promoting the wrong brand stopped within an hour. Every share thereafter rendered with the correct logo. The fix that took three minutes had been costing brand exposure across three networks for the better part of a year.</p>\n\n<h2>Lessons</h2>\n<ul>\n<li><strong>A broken og:image does not throw an error.</strong> It silently degrades. Every social platform falls back to a different image, and none of them tell you the og:image was the intended one.</li>\n<li><strong>Media reorganizations break hardcoded paths.</strong> Anything in a theme file that points at <code>/wp-content/uploads/...</code> is fragile. A move or rename anywhere in the media library can break the reference without warning.</li>\n<li><strong>Run share previewers as part of every audit.</strong> Facebook Sharing Debugger, LinkedIn Post Inspector, X Card Validator. Each one takes thirty seconds. They are the only place where a 404 og:image becomes visible.</li>\n<li><strong>The fallback image matters more than people think.</strong> When your og:image fails, the platform picks the next one on the page. If that happens to be a partner logo, a sponsor, or an ad, your brand is replaced by theirs in every share.</li>\n</ul>\n\n<h2>Brent's Take</h2>\n<p>Nine months of free brand exposure went to a partner company because nobody opened the Sharing Debugger after a media reorganization. The fix took three minutes. The cost of not catching it was nine months of social-share inventory pointed at the wrong logo.</p>",
+  "stats": [
+    {
+      "value": "9 months",
+      "label": "Wrong Brand on Every Share"
+    },
+    {
+      "value": "3 networks",
+      "label": "Affected (Facebook, LinkedIn, Bing)"
+    },
+    {
+      "value": "3 min",
+      "label": "Fix Time Once Diagnosed"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber audited a B2B site whose og:image had been returning 404 for nine months. The theme had hardcoded an uploads path that no longer existed after a media library reorganization. Facebook, LinkedIn, and Bing all silently fell back to a partner company's logo in the page's footer, so every social share for nine months promoted the wrong brand. Total fix time once diagnosed was 3 minutes.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 23,
+  "seo_title": "og:image 404 Audit Case Study | Content Cucumber",
+  "seo_description": "How a B2B site spent nine months promoting a partner company's logo on every social share because of a 404 og:image, and how a three-minute fix restored the right brand.",
+  "industries": [
+    "B2B"
+  ],
+  "platforms": [
+    "WordPress"
+  ],
+  "services": [
+    "Social/Open Graph Audit",
+    "Technical SEO Audit"
+  ],
+  "outcomes": [
+    "Brand Restored on Social",
+    "Open Graph Compliance"
+  ],
+  "sizes": [],
+  "years": []
+}

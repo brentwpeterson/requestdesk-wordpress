@@ -619,66 +619,114 @@ class RequestDesk_Case_Study {
         );
     }
 
+    private function cs_import_dir() { return plugin_dir_path(__FILE__) . 'data/import/case-studies/'; }
+    private function cs_legacy_path() { return plugin_dir_path(__FILE__) . 'data/case-studies-import.json'; }
+
+    private function cs_ensure_dirs() {
+        $b = $this->cs_import_dir();
+        foreach (array($b, $b . 'imported/', $b . 'failed/') as $d) {
+            if (!is_dir($d)) { wp_mkdir_p($d); }
+        }
+    }
+
+    /**
+     * Inbox model: ONE JSON object per file in data/import/case-studies/.
+     * Backward compatible: a legacy data/case-studies-import.json ARRAY is
+     * also surfaced (each element a pending row) until fully imported, then
+     * the whole legacy file is archived. Returns a list of
+     * ['key','entry','src'=>'file|legacy','path'].
+     */
+    private function cs_collect_pending() {
+        $this->cs_ensure_dirs();
+        $items = array();
+        $files = glob($this->cs_import_dir() . '*.json');
+        if (is_array($files)) {
+            sort($files);
+            foreach ($files as $f) {
+                $data = json_decode(file_get_contents($f), true);
+                if (!is_array($data)) { continue; }
+                if (isset($data[0]) && is_array($data[0])) { $data = $data[0]; } // tolerate [ {…} ]
+                $items[] = array('key' => 'file:' . basename($f), 'entry' => $data, 'src' => 'file', 'path' => $f);
+            }
+        }
+        $legacy = $this->cs_legacy_path();
+        if (file_exists($legacy)) {
+            $arr = json_decode(file_get_contents($legacy), true);
+            if (is_array($arr)) {
+                foreach ($arr as $idx => $e) {
+                    if (is_array($e)) {
+                        $items[] = array('key' => 'legacy:' . $idx, 'entry' => $e, 'src' => 'legacy', 'path' => $legacy);
+                    }
+                }
+            }
+        }
+        return $items;
+    }
+
+    private function cs_archive_file($path, $ok) {
+        $b = $this->cs_import_dir();
+        $sub = $ok ? 'imported/' : 'failed/';
+        @rename($path, $b . $sub . date('Ymd-His') . '-' . basename($path));
+    }
+
     public function render_import_page() {
-        $json_path = plugin_dir_path(__FILE__) . 'data/case-studies-import.json';
+        $pending = $this->cs_collect_pending();
+        $dir_disp = 'includes/data/import/case-studies/';
         ?>
         <div class="wrap">
-            <h1>Import Case Studies</h1>
+            <h1>Import Our Work (Case Studies)</h1>
             <?php
             if (isset($_GET['imported'])) {
-                $count = intval($_GET['imported']);
-                echo '<div class="notice notice-success"><p><strong>' . $count . '</strong> case study/studies imported.</p></div>';
+                echo '<div class="notice notice-success"><p><strong>' . intval($_GET['imported']) . '</strong> created.</p></div>';
             }
             if (isset($_GET['updated'])) {
-                $count = intval($_GET['updated']);
-                echo '<div class="notice notice-info"><p><strong>' . $count . '</strong> case study/studies updated.</p></div>';
+                echo '<div class="notice notice-info"><p><strong>' . intval($_GET['updated']) . '</strong> updated.</p></div>';
             }
             if (isset($_GET['skipped'])) {
-                $count = intval($_GET['skipped']);
-                echo '<div class="notice notice-warning"><p><strong>' . $count . '</strong> skipped (errors).</p></div>';
+                echo '<div class="notice notice-warning"><p><strong>' . intval($_GET['skipped']) . '</strong> skipped (errors).</p></div>';
             }
 
-            if (!file_exists($json_path)) {
-                echo '<div class="notice notice-error"><p>Import file not found at: <code>' . esc_html($json_path) . '</code><br>Drop a JSON file there with the case study data, or upload one below.</p></div>';
+            if (empty($pending)) {
+                echo '<div class="notice notice-info"><p><strong>Inbox empty.</strong> Drop one JSON file per entry into <code>' . esc_html($dir_disp) . '</code> (name it after the slug, e.g. <code>chalet-market.json</code>). Only pending files appear here; each moves to <code>imported/</code> after a successful import, so this list never grows past your new work.</p></div>';
             } else {
-                $cases = json_decode(file_get_contents($json_path), true);
-                if (!is_array($cases)) {
-                    echo '<div class="notice notice-error"><p>Could not parse import JSON.</p></div>';
-                } else {
-                    echo '<p>Found <strong>' . count($cases) . '</strong> case study/studies in <code>' . esc_html(basename($json_path)) . '</code>.</p>';
-                    echo '<p>Existing case studies with the same slug will be <strong>updated</strong> (overwriting fields). New ones will be created as drafts.</p>';
-                    ?>
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <input type="hidden" name="action" value="requestdesk_import_case_studies">
-                        <?php wp_nonce_field('requestdesk_import_case_studies', 'requestdesk_cs_import_nonce'); ?>
-                        <table class="widefat striped">
-                            <thead><tr><th>Slug</th><th>Title</th><th>Client</th><th>Status</th></tr></thead>
-                            <tbody>
-                            <?php foreach ($cases as $c) :
-                                $existing = get_page_by_path($c['slug'], OBJECT, 'cc_case_study');
-                                $status = $existing ? '<span style="color:#0073aa">Will update</span>' : '<span style="color:#46b450">Will create</span>';
-                            ?>
-                                <tr>
-                                    <td><code><?php echo esc_html($c['slug'] ?? ''); ?></code></td>
-                                    <td><?php echo esc_html($c['title'] ?? ''); ?></td>
-                                    <td><?php echo esc_html($c['client_name'] ?? ''); ?></td>
-                                    <td><?php echo $status; ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                        <p class="submit">
-                            <button type="submit" class="button button-primary">Run Import</button>
-                            <a href="<?php echo esc_url(admin_url('edit.php?post_type=cc_case_study')); ?>" class="button">Cancel</a>
-                        </p>
-                    </form>
-                    <?php
-                }
+                echo '<p>Found <strong>' . count($pending) . '</strong> pending entr' . (count($pending) === 1 ? 'y' : 'ies') . ' in <code>' . esc_html($dir_disp) . '</code>. Existing slugs are <strong>updated</strong>; new slugs are created as drafts. Imported files move to <code>imported/</code> and leave this list. Failed files move to <code>failed/</code>.</p>';
+                ?>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="requestdesk_import_case_studies">
+                    <?php wp_nonce_field('requestdesk_import_case_studies', 'requestdesk_cs_import_nonce'); ?>
+                    <table class="widefat striped">
+                        <thead><tr><th style="width:30px;"><input type="checkbox" id="cs-check-all" checked></th><th>File</th><th>Slug</th><th>Title</th><th>Client</th><th>Status</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($pending as $it) :
+                            $c = $it['entry'];
+                            $slug = $c['slug'] ?? '';
+                            $existing = $slug ? get_page_by_path($slug, OBJECT, 'cc_case_study') : null;
+                            $status = $existing ? '<span style="color:#0073aa">Will update</span>' : '<span style="color:#46b450">Will create</span>';
+                            $fname = ($it['src'] === 'file') ? basename($it['path']) : 'legacy array #' . substr($it['key'], 7);
+                        ?>
+                            <tr>
+                                <td><input type="checkbox" name="import_items[]" value="<?php echo esc_attr($it['key']); ?>" checked></td>
+                                <td><code><?php echo esc_html($fname); ?></code></td>
+                                <td><code><?php echo esc_html($slug); ?></code></td>
+                                <td><?php echo esc_html($c['title'] ?? ''); ?></td>
+                                <td><?php echo esc_html($c['client_name'] ?? ''); ?></td>
+                                <td><?php echo $status; ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <p class="submit">
+                        <button type="submit" class="button button-primary">Run Import (selected)</button>
+                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=cc_case_study')); ?>" class="button">Cancel</a>
+                    </p>
+                </form>
+                <script>jQuery(function($){$('#cs-check-all').on('change',function(){$('input[name="import_items[]"]').prop('checked',this.checked);});});</script>
+                <?php
             }
             ?>
 
-            <h2 style="margin-top:40px">JSON Schema</h2>
-            <p>Each case study object supports these top-level fields:</p>
+            <h2 style="margin-top:40px">JSON Schema (one object per file)</h2>
+            <p>Each file in the import directory holds <strong>one</strong> case study object (a single-element array is also accepted). Top-level fields:</p>
             <pre style="background:#f6f7f7;padding:16px;border-radius:4px;overflow:auto;font-size:12px">{
   "slug":              "chalet-market",
   "title":             "How Chalet Market Grew Organic Traffic 105%",
@@ -730,24 +778,57 @@ class RequestDesk_Case_Study {
             wp_die('Invalid nonce');
         }
 
-        $json_path = plugin_dir_path(__FILE__) . 'data/case-studies-import.json';
-        if (!file_exists($json_path)) {
-            wp_redirect(admin_url('edit.php?post_type=cc_case_study&page=requestdesk-case-study-import&skipped=1'));
-            exit;
-        }
-        $cases = json_decode(file_get_contents($json_path), true);
-        if (!is_array($cases)) {
-            wp_redirect(admin_url('edit.php?post_type=cc_case_study&page=requestdesk-case-study-import&skipped=1'));
-            exit;
-        }
+        $selected = isset($_POST['import_items']) ? (array) $_POST['import_items'] : array();
+        $selected = array_map('sanitize_text_field', $selected);
+        $pending  = $this->cs_collect_pending();
 
         $created = 0;
         $updated = 0;
         $skipped = 0;
+        $legacy_total = 0;
+        $legacy_done  = 0;
+        $legacy_path  = null;
 
-        foreach ($cases as $c) {
-            if (empty($c['slug']) || empty($c['title'])) { $skipped++; continue; }
+        foreach ($pending as $it) {
+            if ($it['src'] === 'legacy') { $legacy_total++; $legacy_path = $it['path']; }
+            if (!in_array($it['key'], $selected, true)) { continue; }
 
+            $c = $it['entry'];
+            $ok = false;
+            if (!empty($c['slug']) && !empty($c['title'])) {
+                $res = $this->cs_import_entry($c);
+                if ($res === 'created') { $created++; $ok = true; }
+                elseif ($res === 'updated') { $updated++; $ok = true; }
+                else { $skipped++; }
+            } else {
+                $skipped++;
+            }
+
+            if ($it['src'] === 'file') {
+                $this->cs_archive_file($it['path'], $ok);
+            } elseif ($it['src'] === 'legacy' && $ok) {
+                $legacy_done++;
+            }
+        }
+
+        // Archive the legacy array file only once every one of its entries
+        // has been imported this run (partial selection leaves it in place).
+        if ($legacy_path && $legacy_total > 0 && $legacy_done >= $legacy_total && file_exists($legacy_path)) {
+            $b = $this->cs_import_dir();
+            if (!is_dir($b . 'imported/')) { wp_mkdir_p($b . 'imported/'); }
+            @rename($legacy_path, $b . 'imported/' . date('Ymd-His') . '-legacy-' . basename($legacy_path));
+        }
+
+        wp_redirect(admin_url('edit.php?post_type=cc_case_study&page=requestdesk-case-study-import&imported=' . $created . '&updated=' . $updated . '&skipped=' . $skipped));
+        exit;
+    }
+
+    /**
+     * Import (create or update) ONE case study entry. Returns 'created',
+     * 'updated', or false on error. All meta/taxonomy/featured-image logic
+     * is preserved verbatim from the original array importer.
+     */
+    private function cs_import_entry($c) {
             $existing = get_page_by_path($c['slug'], OBJECT, 'cc_case_study');
             $post_data = array(
                 'post_type'    => 'cc_case_study',
@@ -761,12 +842,12 @@ class RequestDesk_Case_Study {
             if ($existing) {
                 $post_data['ID'] = $existing->ID;
                 $post_id = wp_update_post($post_data, true);
-                if (!is_wp_error($post_id)) $updated++;
+                $result = 'updated';
             } else {
                 $post_id = wp_insert_post($post_data, true);
-                if (!is_wp_error($post_id)) $created++;
+                $result = 'created';
             }
-            if (is_wp_error($post_id) || !$post_id) { $skipped++; continue; }
+            if (is_wp_error($post_id) || !$post_id) { return false; }
 
             // Meta fields
             $meta_map = array(
@@ -827,10 +908,8 @@ class RequestDesk_Case_Study {
                 }
                 if ($attachment_id) set_post_thumbnail($post_id, $attachment_id);
             }
-        }
 
-        wp_redirect(admin_url('edit.php?post_type=cc_case_study&page=requestdesk-case-study-import&imported=' . $created . '&updated=' . $updated . '&skipped=' . $skipped));
-        exit;
+        return $result;
     }
 }
 
