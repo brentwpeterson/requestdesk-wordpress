@@ -17,10 +17,22 @@
   "approach": "Content Cucumber and Portal IQ split the work along the natural seam between the two layers and meet a HubSpot client with one combined offering. Portal IQ runs its automated HubSpot audit, a HubSpot App Marketplace certified product that scans Marketing, Sales, Service, and the CRM and returns a prioritized set of recommendations. Content Cucumber, as a HubSpot Solutions Partner, runs the content and discoverability layer around it: schema, llms.txt, citable content, AEO. The two teams keep their own brands, their own contracts, and their own work surfaces. Content Cucumber already resells Portal IQ partner-branded audits as part of its HubSpot Solutions Partner offering, so the collaboration is live and operational, not a pitch deck.",
   "results": "A HubSpot client engaging the combined offering gets one engagement and two layers. Portal IQ's audit covers portal health, configuration, and app use. Content Cucumber's layer covers the content, schema, and AEO work that turns a healthy portal into a brand AI engines name. The two layers do not overlap and are not bundled by reselling one as the other. Each side carries its own deliverable under its own brand, with reciprocal referral running in both directions. Co-sell is the lead shape; white-label of Portal IQ partner-branded audits through Content Cucumber is the second working shape and is already live.",
   "stats": [
-    { "value": "Two layers", "label": "Portal health and content discoverability, one engagement" },
-    { "value": "HubSpot App", "label": "Portal IQ is Marketplace certified" },
-    { "value": "Solutions Partner", "label": "Content Cucumber is a HubSpot Solutions Partner" },
-    { "value": "White-label", "label": "Partner-branded audits already live through CC" }
+    {
+      "value": "Two layers",
+      "label": "Portal health and content discoverability, one engagement"
+    },
+    {
+      "value": "HubSpot App",
+      "label": "Portal IQ is Marketplace certified"
+    },
+    {
+      "value": "Solutions Partner",
+      "label": "Content Cucumber is a HubSpot Solutions Partner"
+    },
+    {
+      "value": "White-label",
+      "label": "Partner-branded audits already live through CC"
+    }
   ],
   "quote": "",
   "quote_name": "",
@@ -34,10 +46,20 @@
   "display_priority": 0,
   "seo_title": "How Content Cucumber and Portal IQ Collaborate on HubSpot Audits",
   "seo_description": "The Content Cucumber and Portal IQ partnership model. Two complementary layers of a HubSpot engagement, one combined offering: automated portal audit plus content, schema, and AEO discoverability.",
-  "industries": ["B2B SaaS", "HubSpot Ecosystem"],
-  "platforms": ["HubSpot"],
-  "services": ["AEO and GEO", "HubSpot Audit"],
-  "outcomes": ["Partnership"],
+  "industries": [
+    "B2B SaaS"
+  ],
+  "platforms": [
+    "HubSpot"
+  ],
+  "services": [
+    "Schema & AEO"
+  ],
+  "outcomes": [
+    "Partnership"
+  ],
   "sizes": [],
-  "years": ["2026"]
+  "years": [
+    "2026"
+  ]
 }

@@ -43,18 +43,16 @@
   "seo_title": "AggregateRating Self-Serving Rule Audit Case Study | Content Cucumber",
   "seo_description": "How a professional services site lost stars in search for six years because AggregateRating was on Organization schema sitewide, and how moving it to Service schema restored rich results.",
   "industries": [
-    "Professional Services"
+    "B2B Services"
   ],
   "platforms": [
     "WordPress"
   ],
   "services": [
-    "Schema Audit",
-    "Structured Data Repair"
+    "Schema & AEO"
   ],
   "outcomes": [
-    "Rich Results Restored",
-    "Schema Compliance"
+    "Schema & Rich Results"
   ],
   "sizes": [],
   "years": []
