@@ -5,6 +5,15 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.5] - 2026-05-21
+
+### Added
+- **Case Study "Completion" admin column.** New column on Posts → Case Studies surfaces missing fields per row as small chips (photo, industry, platform, service, outcome, stat, excerpt, body, AEO). Rows with all required fields show a green "complete" badge. Drives the production push: at a glance Brent can see which case studies still need work without clicking into each post.
+- Helper `RequestDesk_Case_Study::get_completion($post_id)` returns `['complete' => bool, 'missing' => [...]]` and is also reusable from templates / REST endpoints later.
+
+### Why
+Case studies need finishing work (photos, AEO summaries, etc.) and there was no surface that showed gaps without opening each post one at a time. Photo-per-card is the visual lift Brent wants on the archive — the column makes "what's missing across the catalog" a single glance instead of a clicking exercise.
+
 ## [2.16.4] - 2026-05-21
 
 ### Security / Scoping

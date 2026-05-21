@@ -569,8 +569,9 @@ class RequestDesk_Case_Study {
         foreach ($cols as $key => $val) {
             $new[$key] = $val;
             if ($key === 'title') {
-                $new['cc_cs_client']   = 'Client';
-                $new['cc_cs_pinned']   = 'Pinned';
+                $new['cc_cs_client']     = 'Client';
+                $new['cc_cs_completion'] = 'Completion';
+                $new['cc_cs_pinned']     = 'Pinned';
             }
         }
         return $new;
@@ -580,10 +581,64 @@ class RequestDesk_Case_Study {
         if ($col === 'cc_cs_client') {
             echo esc_html(get_post_meta($post_id, '_cc_cs_client_name', true));
         }
+        if ($col === 'cc_cs_completion') {
+            $status = $this->get_completion($post_id);
+            if ($status['complete']) {
+                echo '<span style="display:inline-block;background:#d4edda;color:#155724;padding:2px 10px;border-radius:3px;font-size:11px;font-weight:600;">complete</span>';
+            } else {
+                foreach ($status['missing'] as $field) {
+                    echo '<span style="display:inline-block;background:#fff3cd;color:#856404;padding:2px 8px;border-radius:3px;font-size:11px;margin-right:4px;margin-bottom:2px;">' . esc_html($field) . '</span>';
+                }
+            }
+        }
         if ($col === 'cc_cs_pinned') {
             $pinned = get_post_meta($post_id, '_cc_cs_pinned', true);
-            echo $pinned === '1' ? '★' : '';
+            echo $pinned === '1' ? '&#9733;' : '';
         }
+    }
+
+    // Per-row completion checklist — surfaces what each case study is still missing
+    // so the WP admin list view shows gaps at a glance. Drives the Completion column.
+    public function get_completion($post_id) {
+        $missing = array();
+
+        if (!has_post_thumbnail($post_id)) {
+            $missing[] = 'photo';
+        }
+
+        $tax_labels = array(
+            'case_study_industry' => 'industry',
+            'case_study_platform' => 'platform',
+            'case_study_service'  => 'service',
+            'case_study_outcome'  => 'outcome',
+        );
+        foreach ($tax_labels as $tax => $label) {
+            $terms = wp_get_object_terms($post_id, $tax, array('fields' => 'ids'));
+            if (is_wp_error($terms) || empty($terms)) {
+                $missing[] = $label;
+            }
+        }
+
+        $stats = get_post_meta($post_id, '_cc_cs_stats', true);
+        if (!is_array($stats) || empty($stats[0]['value'])) {
+            $missing[] = 'stat';
+        }
+
+        if (trim((string) get_post_field('post_excerpt', $post_id)) === '') {
+            $missing[] = 'excerpt';
+        }
+
+        $body      = trim(strip_tags((string) get_post_field('post_content', $post_id)));
+        $challenge = trim((string) get_post_meta($post_id, '_cc_cs_challenge', true));
+        if ($body === '' && $challenge === '') {
+            $missing[] = 'body';
+        }
+
+        if (trim((string) get_post_meta($post_id, '_cc_cs_aeo_summary', true)) === '') {
+            $missing[] = 'AEO';
+        }
+
+        return array('complete' => empty($missing), 'missing' => $missing);
     }
 
     // =========================================================================
