@@ -913,4 +913,6 @@ class RequestDesk_Case_Study {
     }
 }
 
-new RequestDesk_Case_Study();
+if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+    new RequestDesk_Case_Study();
+}

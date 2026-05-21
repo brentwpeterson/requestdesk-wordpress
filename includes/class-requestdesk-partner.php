@@ -761,5 +761,7 @@ class RequestDesk_Partner {
     }
 }
 
-// Initialize
-new RequestDesk_Partner();
+// Initialize (CC-only — see requestdesk_is_cc_site() in main plugin file)
+if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+    new RequestDesk_Partner();
+}

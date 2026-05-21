@@ -5,6 +5,16 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.4] - 2026-05-21
+
+### Security / Scoping
+- **CC-only modules gated by host.** `RequestDesk_Partner` (cc_partner CPT, "CC Partners" admin menu, partner importer) and `RequestDesk_Case_Study` (cc_case_study CPT, "Our Work" admin menu, case-study importer) previously instantiated unconditionally on every site that loaded the plugin. On non-CC sites (e.g. Talk Commerce) this exposed the import UI loaded with CC's partner/case-study data files (which ship inside the plugin), one click away from importing CC content into another site's DB.
+- Added `requestdesk_is_cc_site()` helper in `requestdesk-connector.php`. Returns true on `contentcucumber.com`, `www.contentcucumber.com`, or `contentcucumber.local`. Override with `define('REQUESTDESK_CC_FEATURES', true|false)` in `wp-config.php` for staging or future-site cases.
+- Bottom-of-file instantiations in `class-requestdesk-partner.php` and `class-requestdesk-case-study.php` now wrapped in the gate.
+
+### Why
+Reading the code confirmed every consumer of this plugin (TC and any other site running it) had the full CC partner roster sitting in `includes/data/import/partners/*.json` plus a working admin import page. Not actively leaking, but one mis-click away. Gating the instantiation kills the exposure without touching the data files — those still ship as code so a future CC reinstall can replay them.
+
 ## [2.16.0] - 2026-05-14
 
 ### Added

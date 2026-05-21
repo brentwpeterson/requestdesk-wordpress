@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.16.3
+ * Version: 2.16.4
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,9 +15,20 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.16.3');
+define('REQUESTDESK_VERSION', '2.16.4');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// CC-only modules (partner, case-study) gate by host or override constant.
+// Other sites with this plugin would otherwise expose CC's partner/case-study
+// admin menus and one-click importers loaded with CC data shipped in the plugin.
+function requestdesk_is_cc_site() {
+    if (defined('REQUESTDESK_CC_FEATURES')) {
+        return (bool) REQUESTDESK_CC_FEATURES;
+    }
+    $host = parse_url(home_url(), PHP_URL_HOST);
+    return in_array($host, array('contentcucumber.com', 'www.contentcucumber.com', 'contentcucumber.local'), true);
+}
 
 // Load plugin files with error handling
 $plugin_files = array(
