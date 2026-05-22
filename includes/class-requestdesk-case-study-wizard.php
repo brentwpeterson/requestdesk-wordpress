@@ -83,7 +83,40 @@ class RequestDesk_Case_Study_Wizard {
             <!-- STEP 1: Information format                                    -->
             <!-- ============================================================ -->
             <section class="rdcs-step" data-step="1">
-                <h2>Choose your information format</h2>
+                <h2>Start the case study</h2>
+
+                <?php
+                $partners = get_posts(array(
+                    'post_type'      => 'cc_partner',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'orderby'        => 'title',
+                    'order'          => 'ASC',
+                ));
+                ?>
+                <table class="form-table rdcs-partner-row">
+                    <tr>
+                        <th><label for="rdcs-partner">Connect a partner</label></th>
+                        <td>
+                            <select id="rdcs-partner" name="rdcs_partner">
+                                <option value="0">&mdash; No partner / client only &mdash;</option>
+                                <?php foreach ($partners as $partner) : ?>
+                                    <option value="<?php echo (int) $partner->ID; ?>"><?php echo esc_html($partner->post_title); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">
+                                <?php if (empty($partners)) : ?>
+                                    No partners published yet. <a href="<?php echo esc_url(admin_url('post-new.php?post_type=cc_partner')); ?>">Add one</a> if this case study was delivered with a partner.
+                                <?php else : ?>
+                                    If this case study was delivered with a partner from your Partners directory, pick them here. Optional.
+                                <?php endif; ?>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <hr class="rdcs-divider">
+
                 <p class="rdcs-subhead">The information I have about this client lives:</p>
 
                 <div class="rdcs-card-grid">

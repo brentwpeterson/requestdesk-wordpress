@@ -121,6 +121,23 @@
     margin: 0 0 20px;
 }
 
+/* ---------- Partner connect row (Step 1) ---------- */
+.rdcs-partner-row {
+    margin-top: 4px;
+}
+.rdcs-partner-row th {
+    width: 200px;
+    padding-left: 0;
+}
+.rdcs-partner-row select {
+    min-width: 320px;
+}
+.rdcs-divider {
+    border: 0;
+    border-top: 1px solid #e5e7eb;
+    margin: 24px 0 18px;
+}
+
 /* ---------- Format choice cards (Step 1) ---------- */
 .rdcs-card-grid {
     display: grid;
