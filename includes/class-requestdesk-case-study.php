@@ -111,6 +111,7 @@ class RequestDesk_Case_Study {
             'hierarchical'      => true,
             'show_admin_column' => true,
             'show_in_rest'      => true,
+            'show_in_menu'      => false,
             'rewrite'           => false,
         ));
 
@@ -133,6 +134,7 @@ class RequestDesk_Case_Study {
                 'hierarchical'      => true,
                 'show_admin_column' => true,
                 'show_in_rest'      => true,
+                'show_in_menu'      => false,
                 'rewrite'           => array('slug' => 'our-work/' . $info[2]),
             ));
         }
