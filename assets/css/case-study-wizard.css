@@ -138,6 +138,21 @@
     margin: 24px 0 18px;
 }
 
+/* ---------- Status line ---------- */
+.rdcs-status {
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    min-height: 18px;
+    color: #4b5563;
+    background: #f3f4f6;
+}
+.rdcs-status[data-kind="busy"] { background: #fef3c7; color: #92400e; }
+.rdcs-status[data-kind="ok"]   { background: #d1fae5; color: #065f46; }
+.rdcs-status[data-kind="err"]  { background: #fee2e2; color: #991b1b; }
+.rdcs-status:empty { display: none; }
+
 /* ---------- Format choice cards (Step 1) ---------- */
 .rdcs-card-grid {
     display: grid;

@@ -59,6 +59,14 @@ class RequestDesk_Case_Study_Wizard {
             REQUESTDESK_VERSION,
             true
         );
+        wp_localize_script(
+            'requestdesk-case-study-wizard',
+            'RDCS_CFG',
+            array(
+                'restUrl' => esc_url_raw(rest_url('requestdesk/v1')),
+                'nonce'   => wp_create_nonce('wp_rest'),
+            )
+        );
     }
 
     public function render_page() {
@@ -195,12 +203,9 @@ class RequestDesk_Case_Study_Wizard {
             <!-- ============================================================ -->
             <section class="rdcs-step" data-step="3" hidden>
                 <h2>Generate draft</h2>
-                <p class="rdcs-subhead">Send your information to RequestDesk and produce a first draft.</p>
-                <div class="rdcs-placeholder">
-                    <p><strong>Phase A:</strong> this step is a placeholder.</p>
-                    <p>In Phase B this button will call <code>POST /api/case-study-wizard/{id}/generate</code> via the connector's existing API key. The result lands in Step 4 for review.</p>
-                    <button type="button" class="button button-primary" disabled>Generate draft (wired in Phase B)</button>
-                </div>
+                <p class="rdcs-subhead">Send your information to RequestDesk and produce a first draft. Generation takes 30 to 60 seconds.</p>
+                <button type="button" class="button button-primary button-large" data-rdcs-action="generate">Generate draft</button>
+                <p class="description">The result lands in Step 4 for review and edit before you publish.</p>
             </section>
 
             <!-- ============================================================ -->
@@ -217,11 +222,8 @@ class RequestDesk_Case_Study_Wizard {
             <!-- ============================================================ -->
             <section class="rdcs-step" data-step="5" hidden>
                 <h2>Publish</h2>
-                <p class="rdcs-subhead">Save the final case study as a draft post in <em>Case Studies</em>.</p>
-                <div class="rdcs-placeholder">
-                    <p><strong>Phase A:</strong> placeholder. In Phase B this maps the wizard payload to the existing <code>cc_case_study</code> CPT (client details, story, stats, quote, AEO summary) and creates a draft.</p>
-                    <button type="button" class="button button-primary" disabled>Create draft (wired in Phase B)</button>
-                </div>
+                <p class="rdcs-subhead">Save the final case study as a draft post under <em>Case Studies</em>. You will land on the standard WordPress editor for final review, image selection, and publishing.</p>
+                <button type="button" class="button button-primary button-large" data-rdcs-action="publish">Create draft and open editor</button>
             </section>
 
             <!-- ============================================================ -->

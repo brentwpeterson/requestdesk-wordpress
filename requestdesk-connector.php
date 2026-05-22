@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.17.2
+ * Version: 2.18.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.17.2');
+define('REQUESTDESK_VERSION', '2.18.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -63,7 +63,8 @@ $plugin_files = array(
     'includes/class-requestdesk-indexnow.php',
     'includes/class-requestdesk-audit-capture.php',
     'includes/class-requestdesk-case-study.php',
-    'includes/class-requestdesk-case-study-wizard.php'
+    'includes/class-requestdesk-case-study-wizard.php',
+    'includes/class-requestdesk-case-study-wizard-api.php'
 );
 
 foreach ($plugin_files as $file) {
