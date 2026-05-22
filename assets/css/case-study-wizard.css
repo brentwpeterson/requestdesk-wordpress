@@ -1,0 +1,203 @@
+/* RequestDesk Case Study Wizard
+   Visual reference: the Shopify partner case-study wizard.
+   Phase A: structure + Shopify-inspired green progress bar.
+*/
+
+.rdcs-wizard-wrap {
+    max-width: 1080px;
+    margin: 20px auto;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.rdcs-header {
+    text-align: center;
+    margin: 28px 0 32px;
+}
+.rdcs-header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 4px 0;
+    color: #1a1a1a;
+}
+.rdcs-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin: 0;
+}
+
+/* ---------- Progress bar ---------- */
+
+.rdcs-progress {
+    list-style: none;
+    padding: 24px 28px;
+    margin: 0 0 28px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    counter-reset: rdcs-step;
+    position: relative;
+}
+.rdcs-progress li {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    color: #9ca3af;
+    font-size: 12px;
+    position: relative;
+}
+.rdcs-progress li .rdcs-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #d1d5db;
+    display: inline-block;
+    transition: background 0.15s;
+    z-index: 2;
+}
+.rdcs-progress li .rdcs-label {
+    font-weight: 500;
+}
+
+/* connector line between dots */
+.rdcs-progress li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    left: calc(50% + 11px);
+    right: calc(-50% + 11px);
+    height: 2px;
+    background: #d1d5db;
+    z-index: 1;
+}
+
+/* Active + completed states (green like Shopify) */
+.rdcs-progress li.is-done .rdcs-dot,
+.rdcs-progress li.is-active .rdcs-dot {
+    background: #16a34a;
+}
+.rdcs-progress li.is-done + li::before,
+.rdcs-progress li.is-done::after {
+    background: #16a34a;
+}
+.rdcs-progress li.is-done .rdcs-label,
+.rdcs-progress li.is-active .rdcs-label {
+    color: #1a1a1a;
+}
+
+/* ---------- Step eyebrow ---------- */
+.rdcs-step-eyebrow {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: #6b7280;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+/* ---------- Step card ---------- */
+.rdcs-step {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    border-top: 3px solid #16a34a;
+}
+.rdcs-step h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 6px;
+}
+.rdcs-subhead {
+    color: #4b5563;
+    margin: 0 0 20px;
+}
+
+/* ---------- Format choice cards (Step 1) ---------- */
+.rdcs-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+}
+.rdcs-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 18px 18px 20px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    position: relative;
+}
+.rdcs-card:hover {
+    border-color: #16a34a;
+    background: #f0fdf4;
+}
+.rdcs-card input[type="radio"] {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    margin: 0;
+}
+.rdcs-card-icon {
+    font-size: 22px;
+}
+.rdcs-card-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1a1a1a;
+}
+.rdcs-card-desc {
+    font-size: 12.5px;
+    color: #4b5563;
+    line-height: 1.5;
+}
+.rdcs-card.is-selected {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 1px #16a34a inset;
+}
+
+/* ---------- Form table cleanup inside wizard ---------- */
+.rdcs-step .form-table th {
+    width: 220px;
+    padding: 14px 10px 14px 0;
+    font-weight: 500;
+    color: #374151;
+}
+.rdcs-step textarea,
+.rdcs-step input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ---------- Placeholder blocks (Phase A) ---------- */
+.rdcs-placeholder {
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    padding: 18px;
+    background: #f9fafb;
+    color: #4b5563;
+}
+.rdcs-placeholder p { margin: 0 0 10px; }
+.rdcs-placeholder p:last-child { margin: 0; }
+
+/* ---------- Footer nav ---------- */
+.rdcs-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding: 0 4px;
+}
+.rdcs-nav .button { min-width: 120px; }

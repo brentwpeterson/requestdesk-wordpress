@@ -48,7 +48,8 @@ function requestdesk_settings_page() {
             'claude_model' => sanitize_text_field($_POST['claude_model']),
             'requestdesk_endpoint' => sanitize_text_field($_POST['requestdesk_endpoint']),
             'auto_sync_on_publish' => isset($_POST['auto_sync_on_publish']),
-            'auto_sync_on_update' => isset($_POST['auto_sync_on_update'])
+            'auto_sync_on_update' => isset($_POST['auto_sync_on_update']),
+            'enable_case_study_wizard' => isset($_POST['enable_case_study_wizard'])
         );
 
         update_option('requestdesk_settings', $settings);
@@ -181,6 +182,20 @@ function requestdesk_settings_page() {
                             </label>
                             <p class="description">
                                 Choose when posts should be automatically pushed to RequestDesk's RAG system
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Case Study Creator</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="enable_case_study_wizard" value="1" <?php checked($settings['enable_case_study_wizard'] ?? false, true); ?>>
+                                Enable the Case Study Creator wizard
+                            </label>
+                            <p class="description">
+                                Adds a guided wizard under Case Studies &rarr; Create with Wizard. The wizard walks
+                                you through gathering client information and generates a case study draft via
+                                RequestDesk's AI. Uses this connector's existing API key.
                             </p>
                         </td>
                     </tr>

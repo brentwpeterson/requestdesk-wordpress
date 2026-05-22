@@ -24,6 +24,17 @@ if (!defined('ABSPATH')) {
 
 class RequestDesk_Case_Study {
 
+    /**
+     * Whether the Case Study Creator wizard is enabled for this site.
+     * Controlled by the "Case Study Creator" checkbox on the RequestDesk
+     * settings page. Read by the wizard menu registration so the menu only
+     * appears after the admin opts in.
+     */
+    public static function wizard_enabled() {
+        $settings = get_option('requestdesk_settings', array());
+        return !empty($settings['enable_case_study_wizard']);
+    }
+
     public function __construct() {
         add_action('init', array($this, 'register_cpt'));
         add_action('init', array($this, 'register_taxonomies'));
@@ -37,8 +48,13 @@ class RequestDesk_Case_Study {
         add_filter('manage_cc_case_study_posts_columns', array($this, 'admin_columns'));
         add_action('manage_cc_case_study_posts_custom_column', array($this, 'admin_column_content'), 10, 2);
         add_action('pre_get_posts', array($this, 'archive_sort_pinned'));
-        add_action('admin_menu', array($this, 'add_import_page'));
-        add_action('admin_post_requestdesk_import_case_studies', array($this, 'handle_import'));
+
+        // The JSON bulk-importer ships CC client data and stays CC-only even
+        // when the CPT itself goes universal across all connector installs.
+        if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+            add_action('admin_menu', array($this, 'add_import_page'));
+            add_action('admin_post_requestdesk_import_case_studies', array($this, 'handle_import'));
+        }
     }
 
     // =========================================================================
@@ -517,19 +533,19 @@ class RequestDesk_Case_Study {
             'datePublished' => $published ?: get_the_date('Y-m-d', $post_id),
             'author'        => array(
                 '@type' => 'Organization',
-                'name'  => 'Content Cucumber',
+                'name'  => get_bloginfo('name'),
                 'url'   => home_url('/'),
             ),
             'publisher'     => array(
                 '@type' => 'Organization',
-                'name'  => 'Content Cucumber',
+                'name'  => get_bloginfo('name'),
             ),
             'mainEntityOfPage' => get_permalink($post_id),
         );
         if ($writer) {
             $schema['author'] = array(
                 array('@type' => 'Person', 'name' => $writer),
-                array('@type' => 'Organization', 'name' => 'Content Cucumber'),
+                array('@type' => 'Organization', 'name' => get_bloginfo('name')),
             );
         }
         if ($thumb) $schema['image'] = $thumb;
@@ -552,7 +568,7 @@ class RequestDesk_Case_Study {
                 ),
                 'itemReviewed' => array(
                     '@type' => 'Organization',
-                    'name'  => 'Content Cucumber',
+                    'name'  => get_bloginfo('name'),
                 ),
             );
             $schema['review']['author'] = array_filter($schema['review']['author']);
@@ -968,6 +984,4 @@ class RequestDesk_Case_Study {
     }
 }
 
-if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
-    new RequestDesk_Case_Study();
-}
+new RequestDesk_Case_Study();
