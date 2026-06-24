@@ -1,0 +1,140 @@
+/**
+ * RequestDesk Brand Asset Hub — admin grid styles
+ * Loaded only on the Brand Assets page.
+ */
+
+.rd-asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.rd-asset-empty {
+    grid-column: 1 / -1;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 40px;
+    text-align: center;
+    color: #50575e;
+}
+
+.rd-asset-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.rd-asset-thumb {
+    background: #f6f7f7;
+    border-bottom: 1px solid #dcdcde;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    min-height: 120px;
+}
+
+.rd-asset-thumb img {
+    max-width: 100%;
+    max-height: 220px;
+    height: auto;
+    display: block;
+}
+
+.rd-asset-body {
+    padding: 14px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rd-asset-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #1d2327;
+}
+
+.rd-asset-dims {
+    font-size: 12px;
+    color: #787c82;
+    margin-top: -4px;
+}
+
+.rd-asset-stats {
+    font-size: 12px;
+    color: #2271b1;
+    background: #f0f6fc;
+    border-radius: 3px;
+    padding: 4px 8px;
+}
+
+.rd-asset-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: #50575e;
+}
+
+.rd-asset-field span {
+    font-weight: 600;
+}
+
+.rd-asset-field input {
+    width: 100%;
+}
+
+.rd-asset-rotation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #50575e;
+    margin: 2px 0;
+}
+
+.rd-asset-rotation input {
+    margin: 0;
+}
+
+.rd-asset-actions-edit {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0 6px;
+}
+
+.rd-asset-remove {
+    color: #b32d2e;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.rd-asset-remove:hover {
+    color: #8a2424;
+}
+
+.rd-asset-saved {
+    font-size: 12px;
+    color: #00794d;
+    min-height: 16px;
+}
+
+.rd-asset-copy {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-top: 1px solid #f0f0f1;
+    padding-top: 12px;
+}
+
+.rd-asset-copy .rd-copy.rd-copied {
+    background: #00794d;
+    border-color: #00794d;
+    color: #fff;
+}

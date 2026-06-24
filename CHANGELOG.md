@@ -5,6 +5,67 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.24.1] - 2026-06-24
+
+### Fixed
+- **Brand Assets menu 404 + parent-menu hijack.** The Brand Assets submenu registered at `admin_menu` priority 10, but because the module instantiates at file-load it fired *before* the main RequestDesk menu was built — so its parent (`requestdesk-aeo-analytics`) didn't exist yet. WordPress then made Brand Assets the first submenu (so clicking "RequestDesk" landed on it) and generated a malformed `/wp-admin/requestdesk-brand-assets` URL that 404'd. Registering at priority 11 guarantees the parent exists first; the parent now lands on the AEO Dashboard and Brand Assets resolves to the correct `admin.php?page=requestdesk-brand-assets`.
+
+## [2.24.0] - 2026-06-24
+
+### Added
+- **Bundled demo ads.** Two demo creatives ship inside the plugin (`assets/img/demo-ads/`): an 1980s-mullet-teen banner (1200×300) and sidebar (300×600), each labeled with its pixel size. A **"Load demo ads"** button on the Brand Assets page sideloads them into the Media Library, flags them in rotation with the right placement, and links them to the homepage — idempotent (dedupes by a `_rd_demo_ad` marker). Instant, self-contained way to see the rotator working with no manual seeding.
+
+### Why
+The ad system was untestable without hand-seeding an asset. Shipping the demos in the module means the feature works out of the box: install, click "Load demo ads," turn on auto-insert / drop the widget, and the rotator is live. The two demo sizes double as the starting size registry (1200×300 banner, 300×600 sidebar).
+
+## [2.23.0] - 2026-06-24
+
+### Added
+- **Ad click + impression tracking.** Every ad link routes through a cache-proof click endpoint (`/?rd_ad_click=ID`) that increments a click counter then 302-redirects to the offer — stamping **UTM params** (`utm_source=contentcucumber`, `utm_medium=<placement>_ad`, `utm_campaign=brand_assets`, `utm_content=<id>`) so GA attributes it too. Impressions fire via a `navigator.sendBeacon` to admin-ajax when ads render (survives caching).
+- **Per-ad stats in the hub.** Each Brand Assets card shows lifetime **views · clicks · CTR**.
+- **Sponsored toggle.** Per-asset "Sponsored" checkbox adds `rel="sponsored nofollow"` to that ad's link (FTC / paid-partner ads).
+
+### Why
+Phase 3 (final) of ads-on-blog-posts. Clicks can't be counted at render time because the page HTML is cached — the redirect endpoint is the cache-proof path, and it doubles as the UTM tagger so the same click shows in GA. Impressions via beacon give a real denominator for CTR. Counters live in post meta (lifetime totals); date-range reporting via an events table is the Phase 4 upgrade.
+
+## [2.22.0] - 2026-06-24
+
+### Added
+- **Auto-insert banner ads into blog posts.** A `the_content` filter drops a random banner ad after the Nth paragraph of single posts (never pages, archives, feeds, or secondary queries). Configured on the Brand Assets page under **Blog Post Ads**: on/off + "after paragraph N" (posts shorter than N paragraphs are skipped). The inserted slot is the same cache-safe placeholder the rotator JS fills client-side.
+- **Per-post opt-out.** A **RequestDesk Ads** meta box on the post editor with "Hide auto-inserted ads in this post" (`_rd_hide_ads`).
+- In-content spacing class `.rd-ad-incontent`.
+
+### Why
+Phase 2 of ads-on-blog-posts. Hand-placing a shortcode in every post doesn't scale — flip auto-insert on once and every qualifying post gets a banner, with a per-post escape hatch. Sidebar ads stay manual via the widget (one placement, one widget area). Click + impression tracking is Phase 3.
+
+## [2.21.0] - 2026-06-24
+
+### Added
+- **Ad placements (banner vs sidebar).** Each rotation asset now has an **Ad placement** select — Any / Banner only / Sidebar only — so a sidebar slot pulls sidebar-shaped creatives and a banner slot pulls banner-shaped ones instead of one flat pool. The rotation pool is bucketed by placement (`banner`, `sidebar`, `all`); an "Any" asset fills either slot.
+- **Placement-aware widget + shortcode.** `[requestdesk_random_ad placement="banner|sidebar|all"]` and the widget's new **"Pull from"** dropdown (defaults to Sidebar) each draw from the matching bucket. The localized pools are bucketed so a page can show a banner slot and a sidebar slot drawing from different shapes, all still cache-safe.
+
+### Why
+Phase 1 of ads-on-blog-posts. "Banner" and "sidebar" are different shapes; a single rotation pool would squish a wide banner into a sidebar. Tagging each ad with where it belongs lets one engine feed both slots correctly. (Auto-insertion into post bodies and click/impression tracking land in Phases 2-3.)
+
+## [2.20.0] - 2026-06-24
+
+### Added
+- **Random Ad rotator.** Turns the Brand Asset Hub into an ads database. Each asset card gets an **"Include in ad rotation"** toggle; opted-in assets form the ad pool. Three placements share one engine: a classic **WP_Widget** ("RequestDesk: Random Ad", droppable in any widget area or the block widget editor as a legacy widget), the **`[requestdesk_random_ad count="1"]` shortcode**, and the widget's own title/count form.
+- **Cache-safe random pick.** The eligible-ad pool is localized to the page and the random selection happens in the browser (`assets/js/ad-rotator.js`), so the ad rotates on every page view even behind full-page caching. The first pool item renders server-side as a no-JS fallback. New `assets/css/ad-rotator.css`.
+
+### Why
+A static "grab the banner" library is half the ask — the other half is putting an ad on the site that changes on its own. Backing the rotator with the same Media-Library-flagged assets means the ads database and the brand-asset library are one thing; opting an asset into rotation is a checkbox, not a separate upload. Client-side selection is the standard for ad rotators on cached WordPress sites (server-side random gets frozen by the page cache).
+
+## [2.19.0] - 2026-06-24
+
+### Added
+- **Brand Asset Hub.** New "Brand Assets" admin page (RequestDesk → Brand Assets) — a grab-and-go library for promo banners, logos, mascots, and brand images. A brand asset is just a Media Library attachment flagged for the hub, so its hosted URL (`wp-content/uploads/...`) is already stable and public; no new storage. Each asset card serves four one-click copies: **Download** (file URL), **Image URL** (for emails), **Embed code** (`<a href="LINK"><img src="URL" alt="ALT" width height></a>` — the affiliate/partner-banner pattern that links back to the offer), and **Shortcode**. Per-asset "Links to" URL + alt text are editable inline.
+- **`[requestdesk_brand_asset id="123"]` shortcode** (with optional `link`, `class`, `width` overrides) renders the linked banner into any page or post.
+- New module `RequestDesk_Asset_Hub` (`includes/class-requestdesk-asset-hub.php`) + `assets/css/asset-hub.css` + `assets/js/asset-hub.js`. AJAX mark/save/remove, all nonce-protected and `manage_options`-gated.
+
+### Why
+Promo banners and brand images were living in a scratch folder (`generated_imgs/`) with no stable home, so reusing them on partner sites, guest posts, emails, or internal CC pages meant hunting down the file and hand-writing the embed each time. The hub gives every asset one stable URL and a copy-paste embed, the same way affiliate programs hand partners a banner. CC-gated via `requestdesk_is_cc_site()` (flip the guard at the bottom of the module to share it with other connector sites).
+
 ## [2.16.5] - 2026-05-21
 
 ### Added

@@ -1,0 +1,29 @@
+/**
+ * RequestDesk Random Ad rotator — front-end.
+ * Minimal: let the banner image size itself; just constrain and center the slot.
+ */
+.rd-ad-slot {
+    display: block;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.rd-ad-slot > .rd-ad-link,
+.rd-ad-slot > img,
+.rd-ad-slot > a > img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
+/* When a slot shows more than one ad, space them out. */
+.rd-ad-slot[data-count]:not([data-count="1"]) > * + * {
+    margin-top: 16px;
+}
+
+/* Banner auto-inserted into a post body: breathing room above/below. */
+.rd-ad-incontent {
+    margin: 28px auto;
+    clear: both;
+}
