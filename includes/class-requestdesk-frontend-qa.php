@@ -199,6 +199,35 @@ class RequestDesk_Frontend_QA {
             return $content;
         }
 
+        // Do not restate the article back to the reader.
+        //
+        // extract_qa_pairs() builds its pairs FROM this post's own body: a
+        // question-form H2 becomes the question and the prose under it becomes
+        // the answer. Appending those pairs as a "Frequently Asked Questions"
+        // block puts the same words on the page twice, in the same order, a
+        // few hundred pixels apart.
+        //
+        // Measured on contentcucumber.com 2026-08-01: of 60 published posts, 7
+        // had both an appended block and question-form H2s, and 6 of those
+        // repeated at least one question. On how-to-write-meta-tags-for-seo the
+        // writer's H2 and the appended question were character-for-character
+        // identical; on chatgpt-will-not-get-you-better-content all 5 were.
+        // Brent: "we write blog posts with QA built in, we have to be aware of
+        // this when automating the FAQ."
+        //
+        // A manual pair is different and still renders. Someone opened the AEO
+        // meta box and wrote a standalone question for the box, which is a
+        // deliberate act; extraction is a machine reading the article.
+        //
+        // The FAQPage schema is deliberately left alone. Its questions and
+        // answers are still visible on the page -- in the body, where the
+        // writer put them -- so the markup stays valid. Suppressing the schema
+        // here is what WOULD break it, by describing content that is no longer
+        // rendered.
+        if ($this->pairs_are_extracted_from_body(get_the_ID())) {
+            return $content;
+        }
+
         // Get Q&A pairs for current post
         $qa_html = $this->render_qa_pairs(get_the_ID(), array(
             'show_confidence' => false,
@@ -213,6 +242,49 @@ class RequestDesk_Frontend_QA {
         }
 
         return $content;
+    }
+
+    /**
+     * True when this post's Q&A pairs were all read out of its own body, so
+     * rendering them again would repeat content the reader has already passed.
+     *
+     * A pair carries source='manual' only when a human typed it into the AEO
+     * meta box (see RequestDesk_AEO_Core::save_manual_qa_pairs). Everything
+     * else arrives from extract_qa_pairs(), which parses this post's headings
+     * and prose. So: any manual pair in the set means a human intended a
+     * standalone FAQ block and it renders; a set with none is the article
+     * talking to itself.
+     *
+     * Filterable, because a site may legitimately want the block anyway (a
+     * long reference page where a summarised FAQ at the end earns its space):
+     *     add_filter('requestdesk_suppress_extracted_qa', '__return_false');
+     *
+     * @param int $post_id
+     * @return bool
+     */
+    protected function pairs_are_extracted_from_body($post_id) {
+        if (!$post_id) {
+            return false;
+        }
+
+        $pairs = $this->get_qa_pairs($post_id);
+        if (!is_array($pairs)) {
+            $pairs = array();
+        }
+
+        // No pairs at all: nothing to suppress, and render_qa_pairs() will
+        // return an empty string on its own.
+        if (empty($pairs)) {
+            return false;
+        }
+
+        foreach ($pairs as $pair) {
+            if (is_array($pair) && (($pair['source'] ?? '') === 'manual')) {
+                return false;   // a human authored at least one; show the block
+            }
+        }
+
+        return (bool) apply_filters('requestdesk_suppress_extracted_qa', true, $post_id, $pairs);
     }
 
     /**

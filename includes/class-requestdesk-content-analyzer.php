@@ -78,7 +78,7 @@ class RequestDesk_Content_Analyzer {
             $claude_qa = $this->claude_integration->extract_qa_pairs($title, strip_tags($content));
 
             if (!is_wp_error($claude_qa) && is_array($claude_qa) && !empty($claude_qa)) {
-                return $claude_qa;
+                return $this->normalize_qa_questions($claude_qa);
             }
         }
 
@@ -156,6 +156,10 @@ class RequestDesk_Content_Analyzer {
             }
         }
 
+        // Strip list numbering BEFORE dedup, so "2. Why X?" and "Why X?" are
+        // seen as the same question rather than surviving as two.
+        $qa_pairs = $this->normalize_qa_questions($qa_pairs);
+
         // Remove duplicates and sort by confidence
         $qa_pairs = $this->deduplicate_qa_pairs($qa_pairs);
 
@@ -164,6 +168,65 @@ class RequestDesk_Content_Analyzer {
         });
 
         return array_slice($qa_pairs, 0, 10); // Limit to top 10
+    }
+
+    /**
+     * Strip list numbering that a heading carried into its question text.
+     *
+     * Extraction lifts question-form headings out of the article, and when the
+     * article numbers its sections the number comes along. The result reads as
+     * broken in every place the question is then used.
+     *
+     * Live example, contentcucumber.com/blog/chatgpt-will-not-get-you-better-content
+     * on 2026-08-01: the post is a numbered list of ten, five of whose headings
+     * end in a question mark. Extraction took exactly those five, so the
+     * "Frequently Asked Questions" block rendered as 2, 5, 6, 8, 9 -- opening at
+     * "2." and skipping four numbers, referencing a list that is not in the box.
+     * The same strings went into the FAQPage schema, so Google was handed a
+     * question named "2. Why does AI content all sound the same?".
+     *
+     * Brent caught the sequence; the duplication had been the obvious defect and
+     * the numbering read as a detail until you look at which numbers are missing.
+     *
+     * Handles "2.", "2)", "(2)", "Step 2:", "Q3." and the non-breaking space
+     * WordPress likes to leave behind. A question that is ONLY a number is left
+     * alone rather than emptied.
+     *
+     * Bounded to ONE OR TWO digits. A list does not reach a hundred items, and
+     * the bound is what stops "2026: what changes?" losing its year -- a heading
+     * that opens on a four-digit number is stating a year, not counting.
+     *
+     * @param array $pairs
+     * @return array
+     */
+    protected function normalize_qa_questions($pairs) {
+        if (!is_array($pairs)) {
+            return array();
+        }
+
+        foreach ($pairs as $i => $pair) {
+            if (!is_array($pair) || !isset($pair['question'])) {
+                continue;
+            }
+
+            $q = (string) $pair['question'];
+            $q = str_replace("\xc2\xa0", ' ', $q);          // nbsp -> space
+            $stripped = preg_replace(
+                '/^\s*(?:\(?\s*(?:step|q(?:uestion)?)?\s*\d{1,2}\s*\)?\s*[\.\):\-\x{2013}\x{2014}]\s*)+/iu',
+                '',
+                $q
+            );
+
+            // Only accept the strip if something survives it.
+            $stripped = trim((string) $stripped);
+            if ($stripped !== '') {
+                $pairs[$i]['question'] = $stripped;
+            } else {
+                $pairs[$i]['question'] = trim($q);
+            }
+        }
+
+        return $pairs;
     }
 
     /**
