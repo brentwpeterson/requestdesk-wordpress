@@ -69,8 +69,28 @@ class RequestDesk_Frontend_QA {
             return;
         }
 
-        $aeo_data = get_post_meta($post_id, 'aeo_data', true);
-        if (!is_array($aeo_data) || empty($aeo_data['ai_questions'])) {
+        // Q&A lives in the requestdesk_aeo_data TABLE, not post meta. This guard
+        // used to read get_post_meta($post_id, 'aeo_data') -- a key nothing ever
+        // writes -- so it always returned early and this stylesheet never loaded,
+        // while the_content still injected the markup. Result: unstyled Q&A blocks
+        // on every post that had pairs. Leftover from the meta-to-table migration.
+        //
+        // Deliberately a direct read rather than RequestDesk_AEO_Core::get_aeo_data(),
+        // which INSERTs a row when none exists -- that would write to the database
+        // on every anonymous pageview.
+        global $wpdb;
+
+        $questions = $wpdb->get_var($wpdb->prepare(
+            "SELECT ai_questions FROM {$wpdb->prefix}requestdesk_aeo_data WHERE post_id = %d",
+            $post_id
+        ));
+
+        if (empty($questions)) {
+            return;
+        }
+
+        $decoded = json_decode($questions, true);
+        if (!is_array($decoded) || empty($decoded)) {
             return;
         }
 

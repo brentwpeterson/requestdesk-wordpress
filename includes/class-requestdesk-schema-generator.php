@@ -981,7 +981,16 @@ class RequestDesk_Schema_Generator {
             $schema['sameAs'] = $social_profiles;
         }
 
-        return $schema;
+        /**
+         * Filter the home-page ProfessionalService schema before output.
+         *
+         * Extension point so a site can enrich the entity (e.g. attach an
+         * aggregateRating from its own review data) without the connector
+         * depending on any theme-specific class.
+         *
+         * @param array $schema The ProfessionalService schema array.
+         */
+        return apply_filters('requestdesk_professional_service_schema', $schema);
     }
 
     /**

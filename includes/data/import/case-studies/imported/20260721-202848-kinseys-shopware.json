@@ -1,0 +1,67 @@
+{
+  "slug": "kinseys-shopware",
+  "title": "How Kinsey's Replaced Sana with a Sub-Second Shopware B2B Store",
+  "status": "draft",
+  "excerpt": "Case study we wrote for Shopware. Covers how archery and outdoor distributor Kinsey's replaced a slow Sana store with a 30,000-SKU Shopware B2B build by Netformic, cutting page loads from 5+ seconds to sub-second.",
+  "content": "<p><strong>Content Cucumber wrote this customer case study for Shopware.</strong> We interviewed Kinsey's and Netformic (the implementation agency), gathered the technical and commercial details, and structured the narrative around Kinsey's move from Sana to a high-performance Shopware B2B store.</p>",
+  "client_name": "Shopware",
+  "client_url": "https://www.shopware.com/",
+  "client_logo": "kinseys-logo-square.png",
+  "featured_image": "kinseys-hero.png",
+  "length": "Single engagement",
+  "type": "Case study as a service",
+  "date_started": "2026-04-01",
+  "date_published": "2026-07-05",
+  "last_verified": "2026-07-05",
+  "challenge": "Shopware needed a customer case study showing how Kinsey's, a wholesale distributor of archery and outdoor sporting goods, rebuilt its B2B store on Shopware. The story had to translate a demanding build (30,000 SKUs, more than two million price points, hierarchical B2B pricing, and firearms compliance) into a clear, prospect-facing narrative.\n\nIt had to work for two audiences at once: complex B2B distributors on aging, slow platforms, and Shopware's own sales team using it as proof that Shopware handles heavy catalogs and regulated commerce at speed.",
+  "approach": "We interviewed Kinsey's and Netformic (the implementation agency partner) to gather the technical and operational details.\n\nFrom the source material we structured the narrative around the limitation that triggered the change (a heavily customized Sana store where pages took five or more seconds to load), the requirements (hierarchical B2B pricing, ERP integration, and regulatory compliance), and the outcomes. We surfaced the metrics that mattered (30,000 SKUs and more than two million price points integrated with Microsoft Business Central, firearms serial-number validation tied to FFL expiration, page response cut from five-plus seconds to sub-second, and a six-month delivery, believed to be the first Perfion PIM to Shopware integration in the U.S.).\n\nDelivered as a polished case study ready for Shopware's content library and B2B sales enablement.",
+  "results": "Written for Shopware's customer library. It tells how Kinsey's replaced a slow, heavily customized Sana store with Shopware and Netformic, integrating hierarchical B2B pricing across 30,000 SKUs and two million-plus price points with Microsoft Business Central ERP, adding firearms serial-number and FFL compliance, and using advanced caching and geofencing to blunt scraping. Page response dropped from five-plus seconds to sub-second, delivered in six months.",
+  "stats": [
+    {
+      "value": "5s → sub-second",
+      "label": "Page Response"
+    },
+    {
+      "value": "30,000",
+      "label": "SKUs Migrated"
+    },
+    {
+      "value": "2M+",
+      "label": "B2B Price Points"
+    },
+    {
+      "value": "6 months",
+      "label": "Delivery"
+    }
+  ],
+  "quote": "",
+  "quote_name": "",
+  "quote_title": "",
+  "quote_company": "Kinsey's",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber wrote Shopware's Kinsey's case study, based on interviews with Kinsey's and agency Netformic. The piece covers how the archery and outdoor sporting-goods distributor replaced a slow Sana store with Shopware, integrating hierarchical B2B pricing across 30,000 SKUs and 2M-plus price points with Microsoft Business Central, adding firearms FFL compliance, and cutting page loads from 5-plus seconds to sub-second in a six-month build. Shopware is the client. Kinsey's is the customer featured in the story.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 5,
+  "seo_title": "Shopware Kinsey's Case Study (Written by Content Cucumber)",
+  "seo_description": "How Content Cucumber wrote Shopware's Kinsey's case study, covering a Sana-to-Shopware B2B replatform with sub-second page loads.",
+  "industries": [
+    "B2B / Wholesale"
+  ],
+  "platforms": [
+    "Shopware"
+  ],
+  "services": [
+    "Case Study Writing"
+  ],
+  "outcomes": [
+    "Technical Recovery"
+  ],
+  "sizes": [
+    "Mid-market"
+  ],
+  "years": [
+    "2026"
+  ]
+}

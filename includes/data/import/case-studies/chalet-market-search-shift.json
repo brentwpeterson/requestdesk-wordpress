@@ -1,0 +1,73 @@
+{
+  "slug": "chalet-market-search-shift",
+  "title": "How Chalet Market Grew Sales 37% While Search Impressions Fell",
+  "status": "publish",
+  "excerpt": "Impressions down, sales up. What a family-owned Montana grocer did when search stopped sending the traffic it used to.",
+  "content": "<p><strong>Content Cucumber writes the weekly content program for Chalet Market of Montana.</strong> This case study covers what happened when search impressions started falling and the business grew anyway.</p><p>All figures were pulled live on 2026-07-21 from Shopify Analytics, Google Search Console, and GA4, using matched January 1 to July 20 windows so seasonality cannot distort the comparison.</p>",
+  "client_name": "Chalet Market of Montana",
+  "client_url": "https://chaletmarket.com",
+  "client_logo": "",
+  "featured_image": "",
+  "length": "Ongoing",
+  "type": "Retainer",
+  "date_started": "2024-03-01",
+  "date_published": "2026-07-21",
+  "last_verified": "2026-07-21",
+  "challenge": "Chalet Market is a family-owned specialty food business in Belgrade, Montana, selling premium Montana meats, elk jerky, huckleberry products, and gourmet gift boxes through a Shopify store. Gwen Croghan and a small team run the whole operation, and none of them had hours to spare for publishing.\n\nThe first problem was the ordinary one. Organic traffic had flattened, the store was hard to find for anyone who did not already know the name, and nobody on the team had time to write consistently.\n\nThe second problem showed up later and is the reason this case study exists. As search results filled with AI-generated answers, the store started being shown to fewer people even as its rankings improved. A small grocer watching impressions fall has no way to tell whether the content is failing or the search page is changing underneath them, and the wrong read leads to cutting the exact thing that is working.",
+  "approach": "Real human writers produced weekly content built on keyword research and on the things only this business knows. Five content types shipped on a steady cadence.\n\nProduct spotlights featured the premium meats and specialty items with internal links and clear calls to action. Brand storytelling connected Montana heritage and family history to what the store sells. Recipe content gave customers a reason to buy ingredients they had not considered. Educational articles answered the questions the team was already fielding by phone. Community features named the local Montana partners and suppliers outright.\n\nThe last two are the ones that mattered most, and they are the ones a language model cannot produce. A model writes a competent paragraph about elk jerky, and that paragraph reads like every other paragraph about elk jerky, because the model has never met the rancher. Which Montana family raised the animal, why a recipe survived three generations, and what a product means to somebody who grew up in the valley are facts that live inside the business.\n\nIn 2026 the role of that content changed. Rather than carrying the whole strategy, it became the foundation a paid program could spend against, with the organic library doing the work of convincing the visitors the ads brought in.",
+  "results": "Between the first half of 2025 and the same period in 2026, Chalet Market grew revenue 36.6%, from $65,962 to $90,114, on 62.4% more orders. Sessions grew 50.1% and the conversion rate improved from 2.66% to 2.87%, so orders grew faster than traffic rather than simply riding it.\n\nSearch told the opposite story over the same window. Average position improved from 15.8 to 8.1 and click-through improved from 1.09% to 1.21%, while impressions fell 19% and organic clicks fell 11%. The store was ranking better, being clicked more often by the people who saw it, and being shown to fewer people overall.\n\nThe content did not stop working when the traffic curve turned. Organic sessions fell 12.6% while revenue from organic search rose 3.3% and organic orders rose 5%. Fewer visitors bought more, which is what a library of specific, human-written content does once it is in place. Reading the impression decline as a signal to invest differently, rather than as a failure, is what made the year work.",
+  "stats": [
+    {
+      "value": "+37%",
+      "label": "Revenue Growth"
+    },
+    {
+      "value": "+62%",
+      "label": "Orders"
+    },
+    {
+      "value": "15.8 to 8.1",
+      "label": "Average Search Position"
+    },
+    {
+      "value": "-19%",
+      "label": "Search Impressions"
+    }
+  ],
+  "quote": "Their content strategy has made a tangible difference in our online presence. We are seeing increased traffic to our website and Shopify store, and customers are engaging with our brand on a deeper level.",
+  "quote_name": "Gwen Croghan",
+  "quote_title": "Owner",
+  "quote_company": "Chalet Market of Montana",
+  "quote_photo": "",
+  "aeo_summary": "Chalet Market is a family-owned Montana specialty food retailer selling elk jerky, huckleberry products, and gourmet gift boxes on Shopify. Content Cucumber built a weekly program of human-written product spotlights, brand storytelling, recipes, educational articles, and local supplier features, then that library became the foundation for a paid program. Revenue grew 36.6% and orders grew 62.4% year over year even as search impressions fell 19%, because the content kept converting the visitors it did reach.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": true,
+  "display_priority": 0,
+  "seo_title": "Chalet Market Case Study | 37% Sales Growth as Impressions Fell | Content Cucumber",
+  "seo_description": "How Chalet Market, a family-owned Montana specialty food retailer on Shopify, grew revenue 37% and orders 62% with weekly human-written content, even as search impressions fell 19%.",
+  "industries": [
+    "Gourmet Food",
+    "Specialty Food",
+    "Grocery"
+  ],
+  "platforms": [
+    "Shopify"
+  ],
+  "services": [
+    "Blog Writing",
+    "SEO Content",
+    "Brand Storytelling"
+  ],
+  "outcomes": [
+    "Revenue Growth",
+    "Conversion Rate",
+    "Traffic Growth"
+  ],
+  "sizes": [
+    "SMB"
+  ],
+  "years": [
+    "2026"
+  ]
+}

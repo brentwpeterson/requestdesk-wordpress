@@ -15,3 +15,13 @@ plugin-releases/
 # Claude AI directory
 .claude/
 CLAUDE.md
+
+# Content Cucumber GSC traffic cache — site-specific generated data read by
+# the (CC-only) Content Audit module, refreshed on demand. Stays on disk so a
+# sync carries it; does not belong in the shared plugin repo.
+data/gsc-traffic.json
+
+# sync-all.sh is force-tracked despite *.sh above: it carries the guard that
+# refuses to rsync --delete over a newer destination. That guard is worthless
+# if it only exists on one machine.
+!sync-all.sh

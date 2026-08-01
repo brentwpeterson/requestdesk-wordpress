@@ -49,7 +49,10 @@ function requestdesk_settings_page() {
             'requestdesk_endpoint' => sanitize_text_field($_POST['requestdesk_endpoint']),
             'auto_sync_on_publish' => isset($_POST['auto_sync_on_publish']),
             'auto_sync_on_update' => isset($_POST['auto_sync_on_update']),
-            'enable_case_study_wizard' => isset($_POST['enable_case_study_wizard'])
+            'enable_case_study_wizard' => isset($_POST['enable_case_study_wizard']),
+            // Promote-to-Live: the live target this Local site pushes single posts to.
+            'promote_target_url' => untrailingslashit(esc_url_raw($_POST['promote_target_url'] ?? '')),
+            'promote_api_key' => sanitize_text_field($_POST['promote_api_key'] ?? ''),
         );
 
         update_option('requestdesk_settings', $settings);
@@ -214,16 +217,49 @@ function requestdesk_settings_page() {
             </div>
             
             <div class="card">
+                <h2>⬆ Promote to Live</h2>
+                <p class="description" style="margin-bottom:12px;">
+                    Lets this site push a <strong>single post</strong> to the live site with one click
+                    (Posts list → "Promote to Live", or the button in the post editor). It updates the
+                    matching live post's content + Q&amp;A in place and touches nothing else — the granular
+                    alternative to a full Magic Sync. Only updates posts that already exist on live.
+                </p>
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">Live Site URL</th>
+                        <td>
+                            <input type="url" name="promote_target_url" value="<?php echo esc_attr($settings['promote_target_url'] ?? ''); ?>" class="regular-text" placeholder="https://contentcucumber.com">
+                            <p class="description">The production site this Local site promotes posts to. No trailing slash needed.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Live API Key</th>
+                        <td>
+                            <input type="password" name="promote_api_key" value="<?php echo esc_attr($settings['promote_api_key'] ?? ''); ?>" class="regular-text" placeholder="Live site's RequestDesk API key">
+                            <p class="description">
+                                The <strong>live site's</strong> RequestDesk API Key (the "RequestDesk API Key" value in the
+                                live site's settings). Often identical to this site's key if live was cloned from Local.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
                 <h2>🔐 Security Settings</h2>
                 <table class="form-table">
                     <tr>
                         <th scope="row">RequestDesk API Key</th>
                         <td>
-                            <input type="password" name="api_key" value="<?php echo esc_attr($settings['api_key']); ?>" class="regular-text" placeholder="Enter your RequestDesk Agent API Key">
+                            <input type="password" id="requestdesk_api_key" name="api_key" value="<?php echo esc_attr($settings['api_key']); ?>" class="regular-text" placeholder="Enter your RequestDesk Agent API Key">
+                            <button type="button" id="requestdesk_generate_key" class="button" style="margin-left:10px;">Generate New Key</button>
+                            <button type="button" id="requestdesk_reveal_key" class="button" style="margin-left:4px;">Show</button>
+                            <div id="requestdesk_generate_result" style="margin-top:10px;"></div>
                             <p class="description">
                                 <strong>Required:</strong> Enter your RequestDesk agent's API key to secure this connection.<br>
                                 Only requests with this exact API key will be accepted.<br>
-                                You can find your agent's API key in the RequestDesk dashboard under Agent Settings.
+                                You can find your agent's API key in the RequestDesk dashboard under Agent Settings,
+                                or click <strong>Generate New Key</strong> to mint one for this site.
                             </p>
                             <?php if (empty($settings['api_key']) && !$settings['debug_mode']): ?>
                             <div class="notice notice-warning inline">
@@ -431,6 +467,46 @@ curl -X POST \
 
     <script>
     jQuery(document).ready(function($) {
+        // --- Reveal / hide the stored key so it can be copied.
+        $('#requestdesk_reveal_key').click(function() {
+            var field = $('#requestdesk_api_key');
+            var hidden = field.attr('type') === 'password';
+            field.attr('type', hidden ? 'text' : 'password');
+            $(this).text(hidden ? 'Hide' : 'Show');
+        });
+
+        // --- Mint a new key. Fills the field but does NOT save it; the admin
+        //     copies the value, then clicks Save Settings to activate it.
+        $('#requestdesk_generate_key').click(function() {
+            var button = $(this);
+            var field = $('#requestdesk_api_key');
+            var resultDiv = $('#requestdesk_generate_result');
+
+            if (field.val() && !confirm('Generate a new API key?\n\nWhen you click Save Settings, the current key stops working and every integration using it (RequestDesk, promote-to-live from other environments) must be updated to the new value.')) {
+                return;
+            }
+
+            button.prop('disabled', true).text('Generating...');
+
+            $.post(ajaxurl, {
+                action: 'requestdesk_generate_api_key',
+                nonce: '<?php echo wp_create_nonce('requestdesk_generate_api_key'); ?>'
+            }).done(function(response) {
+                if (response && response.success && response.data && response.data.key) {
+                    field.val(response.data.key).attr('type', 'text');
+                    $('#requestdesk_reveal_key').text('Hide');
+                    resultDiv.html('<div class="notice notice-warning inline"><p><strong>New key generated but NOT saved yet.</strong> Copy it now, then click <em>Save Settings</em> below to activate it. Until you save, the old key is still in force.</p></div>');
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Unknown error';
+                    resultDiv.html('<div class="notice notice-error inline"><p><strong>Error:</strong> ' + msg + '</p></div>');
+                }
+            }).fail(function(xhr) {
+                resultDiv.html('<div class="notice notice-error inline"><p><strong>Request failed:</strong> HTTP ' + xhr.status + '</p></div>');
+            }).always(function() {
+                button.prop('disabled', false).text('Generate New Key');
+            });
+        });
+
         $('#test_claude_connection').click(function() {
             var button = $(this);
             var apiKey = $('#claude_api_key').val();

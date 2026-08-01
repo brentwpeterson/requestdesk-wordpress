@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.24.1
+ * Version: 2.35.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.24.1');
+define('REQUESTDESK_VERSION', '2.35.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -67,6 +67,30 @@ $plugin_files = array(
     'includes/class-requestdesk-case-study-wizard-api.php',
     'includes/class-requestdesk-asset-hub.php'
 );
+
+// CC-only modules. These grew inside Content Cucumber's tree between 2.25.0
+// and 2.35.0, while the shared plugin sat at 2.24.1 — the two forked because
+// CC deploys through LocalWP and never read this repo. Reconciled 2026-08-01.
+//
+// They are gated at require time rather than inside each class: the
+// $aeo_classes loop in requestdesk_init() is class_exists()-guarded, so not
+// loading the file is enough to keep RequestDesk_Promote and
+// RequestDesk_Admin_Columns from being constructed, and QR Redirect
+// self-instantiates on require. Talk Commerce shares this plugin and should
+// not sprout a /go redirect or a Promote button it has no use for.
+//
+// To turn them on for another site, define REQUESTDESK_CC_FEATURES true in
+// wp-config.php, or add the host to requestdesk_is_cc_site() above.
+$cc_only_files = array(
+    'includes/class-requestdesk-content-audit.php',
+    'includes/class-requestdesk-promote.php',
+    'includes/class-requestdesk-admin-columns.php',
+    'includes/class-requestdesk-qr-redirect.php'
+);
+
+if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+    $plugin_files = array_merge($plugin_files, $cc_only_files);
+}
 
 foreach ($plugin_files as $file) {
     $file_path = REQUESTDESK_PLUGIN_DIR . $file;
@@ -154,7 +178,9 @@ function requestdesk_init() {
         'RequestDesk_Citation_Tracker',
         'RequestDesk_Frontend_QA',
         'RequestDesk_IndexNow',
-        'RequestDesk_Audit_Capture'
+        'RequestDesk_Audit_Capture',
+        'RequestDesk_Promote',
+        'RequestDesk_Admin_Columns'
     );
 
     foreach ($aeo_classes as $class_name) {
@@ -515,6 +541,32 @@ if (function_exists('register_deactivation_hook')) {
 function requestdesk_deactivate() {
     wp_clear_scheduled_hook('requestdesk_sync_headless_counts');
     flush_rewrite_rules();
+}
+
+/**
+ * AJAX handler: mint a fresh RequestDesk API key for THIS site.
+ *
+ * Deliberately does NOT save. It hands the candidate key back to the settings
+ * form so the key only becomes active when the admin clicks Save Settings,
+ * which gives them a chance to copy it first. Saving on generate (the pattern
+ * IndexNow uses for its own key) would instantly reject every integration
+ * already pointed at this site, with no warning and no copy of the new value.
+ *
+ * Format matches the existing keys: 32 random bytes as 43-char base64url.
+ */
+if (function_exists('add_action')) {
+    add_action('wp_ajax_requestdesk_generate_api_key', 'requestdesk_generate_api_key');
+}
+
+function requestdesk_generate_api_key() {
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(array('message' => 'Insufficient permissions'), 403);
+    }
+    check_ajax_referer('requestdesk_generate_api_key', 'nonce');
+
+    $key = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+
+    wp_send_json_success(array('key' => $key));
 }
 
 /**

@@ -127,10 +127,50 @@ class RequestDesk_AEO_Core {
             $results['data']['analysis'] = $analysis;
 
             // Extract Q&A pairs if enabled
+            $qa_pairs = array();
             if ($settings['extract_qa_pairs'] ?? true) {
                 $qa_pairs = $this->analyzer->extract_qa_pairs($post->post_content);
                 $results['data']['qa_pairs'] = $qa_pairs;
                 $results['improvements'][] = count($qa_pairs) . ' Q&A pairs extracted';
+            }
+
+            // Preserve manually-authored Q&A. extract_qa_pairs() reads the post
+            // BODY and returns nothing for posts not written in Q&A form, which
+            // previously OVERWROTE hand-authored pairs (source=manual) with an
+            // empty array on every publish/update -- silently erasing Q&A added
+            // through the admin meta box or the /aeo-qa endpoint. Manual pairs
+            // are intentional and must survive optimization.
+            //
+            // A curated set is the WHOLE set: when a post has manual pairs, the
+            // extracted ones are dropped rather than appended.
+            //
+            // This used to append any extracted pair whose question text was not
+            // an exact string match against a manual question. That dedup cannot
+            // catch a rephrasing, and rephrasing is the norm -- the extractor
+            // emits verbatim H2 text ("Why is URL accessibility the
+            // highest-scoring factor?") while an editor writes the standalone
+            // question a reader would actually ask ("What is the highest-scoring
+            // AI citation factor?"). Same question, different string, so the two
+            // never collided and every extracted pair was appended on every
+            // publish. Post 21426 went from 7 curated pairs to 12 that way, three
+            // of the additions restating a pair already in the set. Duplicate
+            // questions in FAQPage schema are exactly what the article warns
+            // against, and re-fixing the data did not hold because the next
+            // update re-appended them. 2026-07-26.
+            //
+            // Posts with no manual pairs are unaffected: extraction still runs
+            // and still populates them.
+            // ($aeo_data was loaded above, before the status flip.)
+            $existing_qa = is_array($aeo_data['ai_questions'] ?? null) ? $aeo_data['ai_questions'] : array();
+            $manual_qa = array_values(array_filter($existing_qa, function ($q) {
+                return is_array($q) && (($q['source'] ?? '') === 'manual');
+            }));
+            if (!empty($manual_qa)) {
+                $dropped = count($qa_pairs ?? array());
+                $qa_pairs = $manual_qa;
+                $results['data']['qa_pairs'] = $qa_pairs;
+                $results['improvements'][] = count($manual_qa) . ' manual Q&A kept as the complete set'
+                    . ($dropped ? " ({$dropped} extracted pair(s) dropped)" : '');
             }
 
             // Generate FAQ schema if enabled
@@ -365,6 +405,166 @@ class RequestDesk_AEO_Core {
                 )
             )
         ));
+
+        // Set manual Q&A pairs endpoint (headless / API-key writable)
+        // This is the programmatic equivalent of the "AEO Q&A Pairs" admin
+        // meta box: it writes hand-authored Q&A to a post from RequestDesk /
+        // MCP / any API client, no wp-admin login required. Unlike the meta
+        // box, it also regenerates the FAQPage schema (faq_data) so the
+        // <head> schema stays in sync with the visual block.
+        register_rest_route('requestdesk/v1', '/aeo-qa/(?P<post_id>\d+)', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_set_qa_pairs'),
+            'permission_callback' => array($this, 'check_aeo_permissions'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'type' => 'integer'
+                ),
+                'qa_pairs' => array(
+                    'required' => true,
+                    'type' => 'array'
+                ),
+                'mode' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'enum' => array('replace', 'append'),
+                    'default' => 'replace'
+                )
+            )
+        ));
+
+        // AEO coverage endpoint — which posts have Q&A pairs and which don't.
+        // /aeo-data answers "what does post N have"; this answers "which posts
+        // still need work", which is the question a backfill actually asks.
+        // Without it the only way to find the gaps is to walk the archive one
+        // post at a time.
+        register_rest_route('requestdesk/v1', '/aeo-status', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'rest_aeo_status'),
+            'permission_callback' => array($this, 'check_aeo_permissions'),
+            'args' => array(
+                'post_type' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'post'
+                ),
+                'missing_only' => array(
+                    'required' => false,
+                    'type' => 'boolean',
+                    'default' => false
+                ),
+                'per_page' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'default' => 100
+                ),
+                'page' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'default' => 1
+                )
+            )
+        ));
+    }
+
+    /**
+     * REST endpoint reporting AEO Q&A coverage across a post type.
+     *
+     * "Needs FAQ" means fewer than 2 Q&A pairs, because 2 is the threshold
+     * RequestDesk_Schema_Generator uses to emit FAQPage. A post with exactly
+     * one pair emits QAPage instead, which is still reported as needing work.
+     *
+     * Manual pairs are counted separately so a backfill can skip posts an
+     * editor has already curated — re-running the optimizer over those is what
+     * 2.32.1 and 2.33.2 were both about not doing.
+     */
+    public function rest_aeo_status($request) {
+        global $wpdb;
+
+        $post_type    = $request->get_param('post_type');
+        $missing_only = (bool) $request->get_param('missing_only');
+        $per_page     = max(1, min(500, (int) $request->get_param('per_page')));
+        $page         = max(1, (int) $request->get_param('page'));
+
+        if (!post_type_exists($post_type)) {
+            return new WP_Error(
+                'invalid_post_type',
+                sprintf('Unknown post type "%s"', $post_type),
+                array('status' => 400)
+            );
+        }
+
+        $aeo_table = $wpdb->prefix . 'requestdesk_aeo_data';
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.ID, p.post_title, p.post_name, p.post_modified,
+                    a.ai_questions, a.aeo_score, a.optimization_status, a.updated_at
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$aeo_table} a ON a.post_id = p.ID
+             WHERE p.post_type = %s AND p.post_status = 'publish'
+             ORDER BY p.post_date DESC",
+            $post_type
+        ), ARRAY_A);
+
+        $items = array();
+        foreach ((array) $rows as $row) {
+            $questions = !empty($row['ai_questions'])
+                ? json_decode($row['ai_questions'], true)
+                : array();
+            if (!is_array($questions)) {
+                $questions = array();
+            }
+
+            $qa_count = count($questions);
+            $manual_count = count(array_filter($questions, function ($q) {
+                return is_array($q) && (($q['source'] ?? '') === 'manual');
+            }));
+
+            $items[] = array(
+                'post_id'             => (int) $row['ID'],
+                'title'               => $row['post_title'],
+                'slug'                => $row['post_name'],
+                'permalink'           => get_permalink((int) $row['ID']),
+                'qa_count'            => $qa_count,
+                'manual_qa_count'     => $manual_count,
+                'needs_faq'           => $qa_count < 2,
+                'schema_emitted'      => $qa_count >= 2 ? 'FAQPage' : ($qa_count === 1 ? 'QAPage' : 'none'),
+                'aeo_score'           => isset($row['aeo_score']) ? (int) $row['aeo_score'] : null,
+                'optimization_status' => $row['optimization_status'] ?? 'never_run',
+                'optimized_at'        => $row['updated_at'] ?? null,
+                'post_modified'       => $row['post_modified'],
+            );
+        }
+
+        $total_published = count($items);
+        $total_missing   = count(array_filter($items, function ($i) {
+            return $i['needs_faq'];
+        }));
+        $total_curated   = count(array_filter($items, function ($i) {
+            return $i['manual_qa_count'] > 0;
+        }));
+
+        if ($missing_only) {
+            $items = array_values(array_filter($items, function ($i) {
+                return $i['needs_faq'];
+            }));
+        }
+
+        $total  = count($items);
+        $offset = ($page - 1) * $per_page;
+
+        return new WP_REST_Response(array(
+            'post_type'       => $post_type,
+            'total_published' => $total_published,
+            'total_missing'   => $total_missing,
+            'total_curated'   => $total_curated,
+            'total_matching'  => $total,
+            'page'            => $page,
+            'per_page'        => $per_page,
+            'total_pages'     => (int) ceil($total / $per_page),
+            'items'           => array_slice($items, $offset, $per_page),
+        ), 200);
     }
 
     /**
@@ -399,11 +599,133 @@ class RequestDesk_AEO_Core {
 
     /**
      * Check permissions for AEO operations
+     *
+     * Accepts EITHER a logged-in editor (wp-admin / cookie session) OR a valid
+     * RequestDesk API key (headless: RequestDesk, MCP, cron, curl). This is what
+     * lets the AEO endpoints be driven programmatically without a browser login.
      */
     public function check_aeo_permissions($request) {
-        // For now, require edit_posts capability
-        // In production, you might want to tie this to the RequestDesk API key system
-        return current_user_can('edit_posts');
+        // Path 1: logged-in user with edit rights (wp-admin JS, meta box, etc.)
+        if (current_user_can('edit_posts')) {
+            return true;
+        }
+
+        // Path 2: RequestDesk API key (same key/scheme as the connector's sync API)
+        if ($this->verify_aeo_api_key($request)) {
+            return true;
+        }
+
+        return new WP_Error(
+            'aeo_forbidden',
+            'A logged-in editor session or a valid RequestDesk API key is required',
+            array('status' => 401)
+        );
+    }
+
+    /**
+     * Validate the RequestDesk API key on an AEO request.
+     *
+     * Mirrors RequestDesk_API::verify_api_key so the AEO endpoints share the
+     * single connector API key stored in requestdesk_settings['api_key'].
+     * Accepts the key via the X-RequestDesk-API-Key header or an api_key param.
+     */
+    private function verify_aeo_api_key($request) {
+        $settings = get_option('requestdesk_settings', array());
+        $api_key = $settings['api_key'] ?? '';
+
+        if (empty($api_key)) {
+            return false;
+        }
+
+        $provided_key = $request->get_header('X-RequestDesk-API-Key');
+        if (empty($provided_key)) {
+            $provided_key = $request->get_param('api_key');
+        }
+
+        return !empty($provided_key) && hash_equals($api_key, $provided_key);
+    }
+
+    /**
+     * REST endpoint to set manual Q&A pairs on a post.
+     *
+     * Programmatic equivalent of the "AEO Q&A Pairs" admin meta box. Writes the
+     * pairs to aeo_data['ai_questions'] (drives the visual frontend block) AND
+     * regenerates aeo_data['faq_data'] (drives the <head> FAQPage schema) so the
+     * two never drift. Also mirrors the _requestdesk_manual_qa_pairs post meta
+     * that the meta box sets.
+     *
+     * Payload: { qa_pairs: [ {question, answer, confidence?} ], mode?: replace|append }
+     * confidence defaults to 1.0 (hand-authored). Only pairs >= 0.7 emit schema
+     * and schema needs >= 2 pairs (see RequestDesk_Schema_Generator).
+     */
+    public function rest_set_qa_pairs($request) {
+        $this->init_components();
+
+        $post_id = (int) $request->get_param('post_id');
+        $incoming = $request->get_param('qa_pairs');
+        $mode = $request->get_param('mode') ?: 'replace';
+
+        $post = get_post($post_id);
+        if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+            return new WP_Error('invalid_post', 'Post not found', array('status' => 404));
+        }
+
+        if (!is_array($incoming)) {
+            return new WP_Error('invalid_qa_pairs', 'qa_pairs must be an array', array('status' => 400));
+        }
+
+        // Sanitize and normalize incoming pairs
+        $clean = array();
+        foreach ($incoming as $pair) {
+            if (!is_array($pair)) {
+                continue;
+            }
+            $question = trim(wp_strip_all_tags($pair['question'] ?? ''));
+            $answer = trim(wp_kses_post($pair['answer'] ?? ''));
+            if ($question === '' || $answer === '') {
+                continue;
+            }
+            $confidence = isset($pair['confidence']) ? (float) $pair['confidence'] : 1.0;
+            $confidence = max(0.0, min(1.0, $confidence));
+            $clean[] = array(
+                'question' => $question,
+                'answer' => $answer,
+                'confidence' => $confidence,
+                'source' => 'manual',
+            );
+        }
+
+        if (empty($clean)) {
+            return new WP_Error('no_valid_pairs', 'No valid Q&A pairs after sanitization (each needs a question and an answer)', array('status' => 400));
+        }
+
+        // Merge with existing when appending
+        $existing = $this->get_aeo_data($post_id);
+        $existing_pairs = is_array($existing['ai_questions'] ?? null) ? $existing['ai_questions'] : array();
+        $pairs = ($mode === 'append') ? array_merge($existing_pairs, $clean) : $clean;
+
+        // Regenerate FAQPage schema so <head> stays in sync with the visual block
+        $faq_schema = $this->schema_generator->generate_faq_schema($post, $pairs);
+
+        $this->update_aeo_data($post_id, array(
+            'ai_questions' => wp_json_encode($pairs),
+            'faq_data' => wp_json_encode($faq_schema),
+            'optimization_status' => 'completed',
+            'updated_at' => current_time('mysql'),
+        ));
+
+        // Parity with the admin meta box quick-access meta
+        update_post_meta($post_id, '_requestdesk_manual_qa_pairs', $pairs);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'post_id' => $post_id,
+            'mode' => $mode,
+            'qa_pairs_saved' => count($pairs),
+            'schema_emitted' => !empty($faq_schema),
+            'schema_question_count' => !empty($faq_schema['mainEntity']) ? count($faq_schema['mainEntity']) : 0,
+            'ai_questions' => $pairs,
+        ), 200);
     }
 
     /**

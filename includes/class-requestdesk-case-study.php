@@ -46,6 +46,8 @@ class RequestDesk_Case_Study {
         add_action('save_post_cc_case_study', array($this, 'save_meta'), 10, 2);
         add_action('wp_head', array($this, 'output_schema'));
         add_filter('manage_cc_case_study_posts_columns', array($this, 'admin_columns'));
+        add_action('admin_head-edit.php', array($this, 'admin_list_css'));
+        add_action('restrict_manage_posts', array($this, 'admin_status_filter'));
         add_action('manage_cc_case_study_posts_custom_column', array($this, 'admin_column_content'), 10, 2);
         add_action('pre_get_posts', array($this, 'archive_sort_pinned'));
 
@@ -53,6 +55,7 @@ class RequestDesk_Case_Study {
         // when the CPT itself goes universal across all connector installs.
         if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
             add_action('admin_menu', array($this, 'add_import_page'));
+            add_action('admin_menu', array($this, 'add_todo_page'));
             add_action('admin_post_requestdesk_import_case_studies', array($this, 'handle_import'));
         }
     }
@@ -582,9 +585,52 @@ class RequestDesk_Case_Study {
     // =========================================================================
     // ADMIN COLUMNS
     // =========================================================================
+    public function admin_status_filter($post_type) {
+        if ($post_type !== 'cc_case_study') return;
+        $current = isset($_GET['post_status']) ? sanitize_key($_GET['post_status']) : '';
+        $statuses = array(
+            ''        => 'All statuses',
+            'publish' => 'Published',
+            'draft'   => 'Draft',
+            'pending' => 'Pending',
+            'future'  => 'Scheduled',
+            'private' => 'Private',
+        );
+        echo '<select name="post_status" id="cc-cs-status-filter">';
+        foreach ($statuses as $val => $label) {
+            printf('<option value="%s"%s>%s</option>', esc_attr($val), selected($current, $val, false), esc_html($label));
+        }
+        echo '</select>';
+    }
+
+    public function admin_list_css() {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (!$screen || $screen->post_type !== 'cc_case_study') return;
+        // Cap the narrow columns so freed table width goes to Title, not to the
+        // single-star Pinned column (Brent 2026-07-05).
+        echo '<style>
+            .post-type-cc_case_study .wp-list-table .column-cc_cs_pinned { width:64px; text-align:center; }
+            .post-type-cc_case_study .wp-list-table .column-cc_cs_completion { width:110px; }
+            .post-type-cc_case_study .wp-list-table .column-cc_cs_client { width:150px; }
+            .post-type-cc_case_study .wp-list-table th.column-taxonomy-case_study_platform,
+            .post-type-cc_case_study .wp-list-table td.column-taxonomy-case_study_platform { width:120px; }
+            .post-type-cc_case_study .wp-list-table th.column-taxonomy-case_study_year,
+            .post-type-cc_case_study .wp-list-table td.column-taxonomy-case_study_year { width:70px; }
+        </style>';
+    }
+
     public function admin_columns($cols) {
         $new = array();
+        // Drop noisy taxonomy columns from the list grid to reduce clutter
+        // (still editable on each case study). Brent 2026-07-05.
+        $drop = array(
+            'taxonomy-work_type',
+            'taxonomy-case_study_industry',
+            'taxonomy-case_study_outcome',
+            'taxonomy-case_study_size',
+        );
         foreach ($cols as $key => $val) {
+            if (in_array($key, $drop, true)) continue;
             $new[$key] = $val;
             if ($key === 'title') {
                 $new['cc_cs_client']     = 'Client';
@@ -690,6 +736,72 @@ class RequestDesk_Case_Study {
             'requestdesk-case-study-import',
             array($this, 'render_import_page')
         );
+    }
+
+    public function add_todo_page() {
+        add_submenu_page(
+            'edit.php?post_type=cc_case_study',
+            'Case Study To-Do',
+            'To-Do Pipeline',
+            'manage_options',
+            'requestdesk-case-study-todo',
+            array($this, 'render_todo_page')
+        );
+    }
+
+    /**
+     * A config-driven production checklist for the case studies (Case Studies ->
+     * To-Do Pipeline). Reads data/case-study-pipeline.json; an item flips to
+     * "Created" automatically once a cc_case_study post with its slug exists.
+     * Keeps the to-do list OFF the main grid (no placeholder posts).
+     */
+    public function render_todo_page() {
+        $file  = plugin_dir_path(__FILE__) . 'data/case-study-pipeline.json';
+        $data  = file_exists($file) ? json_decode(file_get_contents($file), true) : array();
+        $items = (isset($data['pipeline']) && is_array($data['pipeline'])) ? $data['pipeline'] : array();
+        $assets_dir = plugin_dir_path(__FILE__) . 'data/import/case-studies/assets/';
+        $done = 0;
+        foreach ($items as $it) {
+            $p = !empty($it['slug']) ? get_page_by_path($it['slug'], OBJECT, 'cc_case_study') : null;
+            if ($p && $p->post_status !== 'trash') { $done++; }
+        }
+        $total = count($items); $todo = $total - $done;
+        ?>
+        <div class="wrap">
+            <h1>Case Study To-Do</h1>
+            <p style="font-size:13px;color:#555;max-width:820px;">Production pipeline for the Shopware case studies. This is a checklist, not posts, so it never clutters the Case Studies grid. An item flips to <strong>Created</strong> automatically once a case study with its slug exists.</p>
+            <p style="font-size:15px;"><strong style="color:#15803d;"><?php echo intval($done); ?> created</strong> &middot; <strong style="color:#b45309;"><?php echo intval($todo); ?> to do</strong> &middot; <?php echo intval($total); ?> total</p>
+            <table class="widefat striped" style="max-width:900px;">
+                <thead><tr>
+                    <th style="width:26px;"></th><th>Merchant</th>
+                    <th style="width:90px;">Stage</th><th style="width:90px;">Status</th>
+                    <th style="width:60px;">Logo</th><th style="width:150px;">Action</th>
+                </tr></thead>
+                <tbody>
+                <?php foreach ($items as $it):
+                    $slug = isset($it['slug']) ? $it['slug'] : '';
+                    $post = $slug ? get_page_by_path($slug, OBJECT, 'cc_case_study') : null;
+                    $created = $post && $post->post_status !== 'trash';
+                    $logo_ok = !empty($it['logo']) && file_exists($assets_dir . $it['logo']); ?>
+                    <tr>
+                        <td style="font-size:16px;"><?php echo $created ? '&#9989;' : '&#11036;'; ?></td>
+                        <td><strong><?php echo esc_html(isset($it['merchant']) ? $it['merchant'] : ''); ?></strong>
+                            <?php if (!empty($it['source'])): ?><br><a href="<?php echo esc_url($it['source']); ?>" target="_blank" rel="noopener" style="font-size:11px;">source &#8599;</a><?php endif; ?></td>
+                        <td><?php echo esc_html(isset($it['stage']) ? $it['stage'] : ''); ?></td>
+                        <td><?php echo $created ? '<span style="color:#15803d;font-weight:600;">Created</span>' : '<span style="color:#b45309;font-weight:600;">To&nbsp;Do</span>'; ?></td>
+                        <td><?php echo $logo_ok ? '&#10003;' : '&mdash;'; ?></td>
+                        <td><?php if ($created): ?>
+                                <a class="button button-small" href="<?php echo esc_url(get_edit_post_link($post->ID)); ?>">Edit</a>
+                            <?php else: ?>
+                                <a class="button button-small button-primary" href="<?php echo esc_url(admin_url('post-new.php?post_type=cc_case_study')); ?>">Create</a>
+                            <?php endif; ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p style="color:#777;font-size:12px;margin-top:12px;">Edit the pipeline in <code>includes/data/case-study-pipeline.json</code>.</p>
+        </div>
+        <?php
     }
 
     private function cs_import_dir() { return plugin_dir_path(__FILE__) . 'data/import/case-studies/'; }
@@ -926,7 +1038,7 @@ class RequestDesk_Case_Study {
             $meta_map = array(
                 '_cc_cs_client_name'      => $c['client_name'] ?? '',
                 '_cc_cs_client_url'       => $c['client_url'] ?? '',
-                '_cc_cs_client_logo'      => $c['client_logo'] ?? '',
+                '_cc_cs_client_logo'      => ($this->cs_resolve_image($c['client_logo'] ?? '', 0) ?: ($c['client_logo'] ?? '')),
                 '_cc_cs_length'           => $c['length'] ?? '',
                 '_cc_cs_type'             => $c['type'] ?? '',
                 '_cc_cs_date_started'     => $c['date_started'] ?? '',
@@ -970,19 +1082,80 @@ class RequestDesk_Case_Study {
                 }
             }
 
-            // Featured image — if a /wp-content URL is given, find the matching attachment
-            if (!empty($c['featured_image'])) {
-                $url = $c['featured_image'];
-                $attachment_id = attachment_url_to_postid($url);
-                if (!$attachment_id) {
-                    // Try with full URL
-                    $full = home_url($url);
-                    $attachment_id = attachment_url_to_postid($full);
-                }
-                if ($attachment_id) set_post_thumbnail($post_id, $attachment_id);
+            // Featured image — resolve from an existing attachment, a remote URL,
+            // or a local file dropped in data/import/case-studies/assets/ (sideloaded).
+            $feat_att = $this->cs_resolve_image($c['featured_image'] ?? '', $post_id);
+            if ($feat_att) set_post_thumbnail($post_id, $feat_att);
+
+            // Body images — any src="cc-asset:<filename>" in the content is
+            // sideloaded from the assets/ dir and rewritten to the uploaded URL,
+            // so a case study can embed a gallery of images via the JSON.
+            $content = get_post_field('post_content', $post_id);
+            if ($content && strpos($content, 'cc-asset:') !== false) {
+                $content = preg_replace_callback('/cc-asset:([A-Za-z0-9._-]+)/', function ($m) use ($post_id) {
+                    $id = $this->cs_resolve_image($m[1], $post_id);
+                    $url = $id ? wp_get_attachment_url($id) : '';
+                    return $url ?: $m[0];
+                }, $content);
+                wp_update_post(array('ID' => $post_id, 'post_content' => $content));
             }
 
         return $result;
+    }
+
+    /**
+     * Resolve an image reference to an attachment ID. Accepts:
+     *  - numeric attachment ID (returned as-is)
+     *  - a /wp-content or full URL that matches an existing attachment
+     *  - a remote http(s) URL (sideloaded into the Media Library)
+     *  - a bare filename present in data/import/case-studies/assets/ (sideloaded)
+     * Sideloaded files are deduped by a _cc_cs_src marker so re-imports reuse them.
+     * Returns an attachment ID, or 0 if nothing could be resolved.
+     */
+    private function cs_resolve_image($ref, $post_id = 0) {
+        $ref = is_string($ref) ? trim($ref) : $ref;
+        if (empty($ref)) return 0;
+        if (is_numeric($ref)) return intval($ref);
+
+        // Already-uploaded attachment by URL.
+        $existing = attachment_url_to_postid($ref);
+        if (!$existing) $existing = attachment_url_to_postid(home_url($ref));
+        if ($existing) return $existing;
+
+        // Dedupe previously sideloaded copies by source marker.
+        $marker = md5($ref);
+        $dupe = get_posts(array(
+            'post_type'      => 'attachment',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'meta_key'       => '_cc_cs_src',
+            'meta_value'     => $marker,
+        ));
+        if (!empty($dupe)) return $dupe[0];
+
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $att_id = 0;
+        if (preg_match('#^https?://#i', $ref)) {
+            // Remote URL → sideload.
+            $att_id = media_sideload_image($ref, $post_id, null, 'id');
+        } else {
+            // Bare filename → local asset next to the import JSONs.
+            $path = plugin_dir_path(__FILE__) . 'data/import/case-studies/assets/' . basename($ref);
+            if (file_exists($path)) {
+                $tmp = wp_tempnam(basename($ref));
+                if ($tmp && copy($path, $tmp)) {
+                    $file_array = array('name' => basename($ref), 'tmp_name' => $tmp);
+                    $att_id = media_handle_sideload($file_array, $post_id);
+                    if (is_wp_error($att_id)) { @unlink($tmp); $att_id = 0; }
+                }
+            }
+        }
+        if (is_wp_error($att_id) || !$att_id) return 0;
+        update_post_meta($att_id, '_cc_cs_src', $marker);
+        return $att_id;
     }
 }
 

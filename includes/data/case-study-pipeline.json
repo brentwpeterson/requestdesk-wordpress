@@ -1,0 +1,20 @@
+{
+  "_note": "Case study production pipeline. Rendered on Case Studies -> To-Do. An item shows Created when a cc_case_study post exists with its slug; otherwise it is To Do. Keeps the pipeline off the main grid. Add rows as new completed sheet entries appear.",
+  "pipeline": [
+    { "merchant": "VaporFi",                  "stage": "Published", "slug": "vaporfi-shopware",                 "logo": "vaporfi-logo-square.png",            "source": "https://www.shopware.com/en/customers/case-studies/vaporfi/" },
+    { "merchant": "Prestige Worldwide",        "stage": "Published", "slug": "prestige-worldwide-shopware",      "logo": "prestige-worldwide-logo-square.png", "source": "https://www.shopware.com/en/customers/case-studies/elevating-prestige-worldwide-from-startup-to-ecommerce-success-with-shopware/" },
+    { "merchant": "Dunham's Sports",           "stage": "Published", "slug": "dunhams-sports-shopware",          "logo": "dunhams-sports-logo-square.png",     "source": "" },
+    { "merchant": "UPPAbaby",                  "stage": "Published", "slug": "uppababy-shopware",                "logo": "uppababy-logo-square.png",           "source": "" },
+    { "merchant": "BlueAlly",                  "stage": "Published", "slug": "blueally-shopware",                "logo": "blueally-logo-square.png",           "source": "" },
+    { "merchant": "Eagle Crusher",             "stage": "Published", "slug": "eagle-crusher-shopware",           "logo": "eagle-crusher-logo-square.png",      "source": "" },
+    { "merchant": "Miniature Market",          "stage": "Published", "slug": "miniature-market-shopware",        "logo": "miniature-market-logo-square.png",   "source": "" },
+    { "merchant": "Good360",                   "stage": "Published", "slug": "good360-shopware",                 "logo": "good360-logo-square.png",            "source": "" },
+    { "merchant": "Garmat",                    "stage": "Published", "slug": "garmat-shopware",                  "logo": "garmat-logo-square.png",             "source": "" },
+    { "merchant": "Mesher Supplies",           "stage": "Published", "slug": "mesher-supplies-shopware",         "logo": "mesher-supplies-logo-square.png",    "source": "" },
+    { "merchant": "Halron Lubricants",         "stage": "Published", "slug": "halron-lubricants-shopware",       "logo": "halron-lubricants-logo-square.png",  "source": "" },
+    { "merchant": "Kinsey's",                  "stage": "Published", "slug": "kinseys-shopware",                 "logo": "kinseys-logo-square.png",            "source": "" },
+    { "merchant": "Albany County Fasteners",   "stage": "Drafted",   "slug": "albany-county-fasteners-shopware","logo": "albany-fastners-logo-square.png",    "source": "" },
+    { "merchant": "Starline Brass",            "stage": "Drafted",   "slug": "starline-brass-shopware",          "logo": "starline-brass-logo-square.png",     "source": "" },
+    { "merchant": "Outdoor Kitchen",           "stage": "Drafted",   "slug": "outdoor-kitchen-shopware",         "logo": "outdoor-kitchen-logo-square.png",    "source": "" }
+  ]
+}

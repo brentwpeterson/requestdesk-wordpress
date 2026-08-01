@@ -207,6 +207,48 @@ class RequestDesk_API {
             )
         ));
 
+        // Post identity lookup — used by Promote-to-Live to safely confirm a
+        // target post exists at a given ID (and read its slug/status) BEFORE
+        // updating it. Lives in the requestdesk/v1 namespace on purpose: the
+        // theme locks down public wp/v2 on production, but allows this
+        // namespace, so this works headlessly where wp/v2 would 401.
+        register_rest_route($this->namespace, '/post-identity/(?P<post_id>\d+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_post_identity'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'post_id' => array(
+                    'required' => true,
+                    'type' => 'integer'
+                )
+            )
+        ));
+
+    }
+
+    /**
+     * Return the identity of a post (existence, slug, status, link) so a remote
+     * caller can verify it before pushing an update. API-key authed.
+     */
+    public function get_post_identity($request) {
+        $post_id = (int) $request->get_param('post_id');
+        $post = get_post($post_id);
+
+        if (!$post || $post->post_type !== 'post') {
+            return new WP_REST_Response(array(
+                'exists' => false,
+                'post_id' => $post_id,
+            ), 200);
+        }
+
+        return new WP_REST_Response(array(
+            'exists' => true,
+            'post_id' => $post_id,
+            'slug' => $post->post_name,
+            'status' => $post->post_status,
+            'title' => get_the_title($post),
+            'link' => get_permalink($post),
+        ), 200);
     }
 
     /**
@@ -645,11 +687,32 @@ class RequestDesk_API {
 
             if ($is_update) {
                 // Update existing post
+                $existing_post = get_post($post_id);
+
+                if (!$existing_post) {
+                    throw new Exception("No content found at ID {$post_id}; refusing to update.");
+                }
+
+                // PRESERVE THE EXISTING CONTENT TYPE.
+                //
+                // $post_data hardcodes post_type => 'post' for the create path.
+                // Passing that into wp_update_post() coerces the existing row,
+                // so updating a PAGE through this endpoint silently converted it
+                // into a blog post: the permalink moved to /blog/<slug>/, the
+                // canonical URL started returning 404, and the call still
+                // reported success. That happened to two live service pages
+                // (20924 /services/content-in-commerce/shopify-content-services/
+                // and 20953 /hubspot-audit/) on 2026-07-21.
+                //
+                // An update must never change what kind of content something is.
+                // Whatever the row already is, it stays.
+                $post_data['post_type'] = $existing_post->post_type;
+
                 $post_data['ID'] = $post_id;
-                $result = wp_update_post($post_data);
+                $result = wp_update_post($post_data, true);
 
                 if (is_wp_error($result) || $result === 0) {
-                    throw new Exception('Failed to update post: ' . ($is_wp_error($result) ? $result->get_error_message() : 'Post not found'));
+                    throw new Exception('Failed to update post: ' . (is_wp_error($result) ? $result->get_error_message() : 'Post not found'));
                 }
             } else {
                 // Check for duplicate before creating
@@ -777,6 +840,7 @@ class RequestDesk_API {
             return new WP_REST_Response(array(
                 'success' => true,
                 'post_id' => $post_id,
+                'post_type' => get_post_type($post_id),
                 'post_url' => get_permalink($post_id),
                 'edit_url' => get_edit_post_link($post_id, 'raw'),
                 'featured_image_set' => !empty($featured_image),

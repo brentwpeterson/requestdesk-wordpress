@@ -446,5 +446,71 @@
             "Mid-market"
         ],
         "years": []
+    },
+    {
+        "slug": "silicone-depot",
+        "title": "How Silicone Depot Grew Organic Traffic from 500 to 10,000+ Monthly Visitors",
+        "status": "publish",
+        "excerpt": "How a B2C and B2B silicone sealant and caulking supplier grew organic traffic from roughly 500 to over 10,000 monthly visitors with eight years of weekly human-written content.",
+        "client_name": "Silicone Depot",
+        "client_url": "https://siliconedepot.com",
+        "client_logo": "",
+        "featured_image": "",
+        "length": "Ongoing",
+        "type": "Retainer",
+        "date_started": "2018-01-01",
+        "date_published": "2026-05-16",
+        "last_verified": "2026-05-16",
+        "challenge": "Silicone Depot is a commerce supplier of silicone sealants and caulking, serving both B2C and B2B customers.\n\nIn 2018, organic traffic was roughly 500 visitors per month. Growth depended heavily on paid advertising, and the small team did not have the bandwidth to consistently publish the content needed to build durable organic visibility.\n\nKey challenges:\n- Low organic traffic (around 500 visitors per month)\n- Heavy reliance on ad spend for growth\n- Limited internal time for consistent content creation\n- Thin search visibility across product and topic keywords",
+        "approach": "Starting in 2018, our team built a weekly content engine tailored to Silicone Depot's product lines and to both their B2C and B2B audiences. Real human writers shipped articles on a consistent weekly cadence, every piece optimized for search with keyword targeting, internal linking, and structured formatting.\n\nThe program compounded year over year: eight years of human-written articles, each one continuing to earn traffic long after it published, building topical depth across the silicone sealant and caulking category.",
+        "results": "Organic traffic grew from roughly 500 visitors per month to over 10,000 per month, with the site ranking for 12,793 organic keywords. Ad spend is down, revenue is up, and the brand is stronger than ever. Eight years of human-written articles are still earning traffic today, which is what a real content engine looks like.",
+        "stats": [
+            {
+                "value": "10,000+",
+                "label": "Monthly Organic Visitors"
+            },
+            {
+                "value": "12,793",
+                "label": "Organic Keywords"
+            },
+            {
+                "value": "2018",
+                "label": "Year Started"
+            },
+            {
+                "value": "Weekly",
+                "label": "Publishing Cadence"
+            }
+        ],
+        "quote": "",
+        "quote_name": "",
+        "quote_title": "",
+        "quote_company": "Silicone Depot",
+        "quote_photo": "",
+        "aeo_summary": "Silicone Depot is a B2C and B2B commerce supplier of silicone sealants and caulking. Starting in 2018, we built a weekly human-written content engine optimized for search across their product and topic keywords. Organic traffic grew from roughly 500 to over 10,000 monthly visitors, the site now ranks for 12,793 organic keywords, ad spend is down, and revenue is up.",
+        "team_writer": "",
+        "team_editor": "",
+        "pinned": true,
+        "display_priority": 0,
+        "seo_title": "Silicone Depot Case Study Organic Traffic 500 to 10,000 Monthly Visitors | Content Cucumber",
+        "seo_description": "How Silicone Depot, a B2C and B2B silicone sealant and caulking supplier, grew organic traffic from roughly 500 to over 10,000 monthly visitors with eight years of weekly human-written content from Content Cucumber.",
+        "industries": [
+            "Building Supplies",
+            "Industrial Supplies"
+        ],
+        "platforms": [],
+        "services": [
+            "Blog Writing",
+            "SEO Content"
+        ],
+        "outcomes": [
+            "Traffic Growth"
+        ],
+        "sizes": [
+            "SMB"
+        ],
+        "years": [
+            "2018"
+        ]
     }
 ]

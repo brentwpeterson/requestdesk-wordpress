@@ -5,6 +5,59 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.35.0] - 2026-08-01
+
+### Changed
+- **The plugin is one tree again.** Between 2.25.0 and 2.35.0 this repo sat at 2.24.1 while Content Cucumber's LocalWP copy grew eleven versions of work, because CC deploys through LocalWP and never reads this repo. Nothing surfaced the split: the shared plugin kept working at Talk Commerce, and CC kept shipping. Everything CC's tree had — the AEO Q&A write path (`/aeo-qa`), the curated-pairs protection from 2.32.1 / 2.33.2, Content Audit, Promote, Admin Columns, QR Redirect, the case-study wizard updates — is now here. The seven case-study seed JSONs that existed only in this repo were kept.
+- **CC-only modules are gated at require time.** `content-audit`, `promote`, `admin-columns`, and `qr-redirect` load only when `requestdesk_is_cc_site()` passes, so Talk Commerce doesn't sprout a `/go` redirect or a Promote button it has no use for. The gate is on the `require` rather than inside each class because the `$aeo_classes` loop in `requestdesk_init()` is already `class_exists()`-guarded, and QR Redirect self-instantiates on require. Enable elsewhere with `define('REQUESTDESK_CC_FEATURES', true)`.
+- **`sync-all.sh` refuses to clobber a newer destination.** It is an `rsync --delete`; running it any time in the last six weeks would have silently destroyed all eleven versions above. It now compares `REQUESTDESK_VERSION` at both ends and stops if the destination is ahead. `FORCE_SYNC=1` overrides for a deliberate rollback.
+
+### Added
+- **`GET /requestdesk/v1/aeo-status`.** Q&A coverage across a post type in one call: per-post `qa_count`, `manual_qa_count`, `needs_faq`, which schema the post currently emits (`FAQPage` / `QAPage` / `none`), AEO score, and when it was last optimized — plus site-level `total_published`, `total_missing`, and `total_curated`. Takes `post_type`, `missing_only`, `per_page`, `page`. Same API-key auth as the rest of the AEO routes.
+
+### Why
+`/aeo-data/{id}` answers "what does post N have." Nothing answered "which posts still need work," so finding the gaps meant walking the archive one post at a time. First run on this site: **667 of 750 published posts carry no FAQ schema, and 14 have hand-curated Q&A.** That gap is the thing a backfill is aimed at, and `missing_only=true` is what lets it skip the 83 posts already covered.
+
+`manual_qa_count` is reported separately on purpose. 2.32.1 and 2.33.2 were both about not letting the extractor trample curated pairs; a backfill driven off this endpoint needs to see which posts an editor already touched so it can leave them alone.
+
+## [2.34.0] - 2026-07-30
+
+### Added
+- **QR Redirect (`/go`).** One permanent short URL sitting behind every printed QR code, so a code printed for eTail Boston can be repointed to ShopTalk (or anything else) later without a reprint. New class `RequestDesk_QR_Redirect` (`includes/class-requestdesk-qr-redirect.php`) plus a **Settings → QR Redirect** screen. `/go` answers the `default` row; `/go/<key>` answers a named row, which is how a second printed asset gets its own tracking without a second redirect. Default destination is `https://contentcucumber.com/conference-coverage/video/`, and an unmatched key always falls back to `default` — a scanned code must never 404, because a dead QR on a sticker someone kept is worse than no QR.
+- **Per-event attribution from a static code.** The redirect appends `utm_source=qr` and `utm_medium=print`, plus `utm_campaign` from the row's Campaign field and `utm_content` for named keys. Changing the campaign value when the destination is repointed keeps each event's scans separated in GA4 even though the printed code never changed. Params already present on the destination URL are never overwritten.
+
+### Safety
+- **302, deliberately, and never 301.** A 301 is cached by the browser permanently, so anyone who scanned at one event would keep landing on that event's page forever after a repoint, with the stale mapping living on their device where it cannot be corrected. The redirect also sends `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` and `Pragma: no-cache` so no intermediary (Flywheel edge, CDN, corporate proxy) can cache it either, and `X-Robots-Tag: noindex, nofollow` so the redirect URL never gets indexed in place of its destination.
+- **Resolves on `init` at priority 0**, matching on `REQUEST_URI`, rather than registering a rewrite rule. Rewrite rules require a flush that breaks quietly whenever permalinks are re-saved or the site is migrated — which for a URL printed on physical assets would be a silent, unrecoverable failure. Admin, cron, REST, AJAX and WP-CLI requests return early, and matching is on the first path segment only (so `/golf` still 404s).
+- **Invalid destinations are rejected, not saved.** A URL that fails `wp_http_validate_url()` raises a settings error instead of being written, because saving a broken destination silently kills every printed code in circulation.
+
+## [2.32.1] - 2026-07-17
+
+### Fixed
+- **Auto-optimize erased manually-authored Q&A on every publish/update (critical).** `optimize_post()` regenerates `ai_questions` by *extracting* Q&A from the post body, and for posts not written in Q&A form the extractor returns nothing — so on each `publish_post` / `save_post` (auto-optimize is on by default) it wrote an empty array over any Q&A added via the admin meta box or the `/aeo-qa` endpoint. This silently wiped the Q&A pushed to a post seconds after publishing it (and was the real reason a promoted post showed no FAQPage schema on the front end — not a display-setting difference). Fix: `optimize_post()` now preserves every pair tagged `source: manual`, keeping them and appending only non-duplicate extracted pairs, so hand-authored Q&A survive optimization. Manual Q&A must be re-added to any post where a publish already cleared them.
+
+## [2.32.0] - 2026-07-17
+
+### Added
+- **Promote to Live (per-post).** A "Promote to Live" row action on the Posts list and a button in the post editor push a *single* post from this (Local) site to the live site — the granular opposite of a full Magic Sync, which overwrites the entire live database to ship one blog change. v1 **updates an existing live post in place**: it pushes title + content (with `.local`→`.com` URL rewrite) + excerpt + the AEO Q&A pairs by the same post ID, and preserves the live post's status, URL, date, author, taxonomy, and featured image. New class `RequestDesk_Promote` (`includes/class-requestdesk-promote.php`).
+- **Promote settings.** New "Promote to Live" settings card: **Live Site URL** and **Live API Key** (the live site's RequestDesk API key — often identical if live was cloned from Local). Stored as `requestdesk_settings['promote_target_url']` / `['promote_api_key']`.
+
+### Safety
+- **Identity guard.** Promote refuses to run unless it confirms — via the connector's new API-key'd `GET /post-identity/{id}` endpoint — that a post exists at that ID with a **matching slug**, and it preserves that post's live status. Deliberately uses the `requestdesk/v1` namespace rather than public `wp/v2`, because production locks `wp/v2` down (a theme filter returns 401) while allowing this namespace. This makes it impossible to overwrite the wrong live post or silently create a duplicate. If the live post doesn't exist at that ID, it aborts (v1 does not create new live posts).
+- **Deferred, by design:** creating brand-new posts on live, sideloading images newly uploaded on Local (existing images resolve via URL rewrite; the promote warns if a post references local upload URLs), and re-linking Polylang (Spanish) translations.
+
+## [2.31.0] - 2026-07-17
+
+### Added
+- **Headless AEO Q&A write access.** New REST endpoint `POST /wp-json/requestdesk/v1/aeo-qa/{post_id}` writes hand-authored FAQ Q&A pairs to a post from RequestDesk / MCP / any API client — the programmatic equivalent of the "AEO Q&A Pairs" admin meta box, no wp-admin login required. Payload: `{ qa_pairs: [{question, answer, confidence?}], mode?: "replace"|"append" }`. Authenticated by the existing RequestDesk API key (`X-RequestDesk-API-Key` header or `api_key` param), the same key the connector sync API uses.
+
+### Fixed
+- **AEO endpoints were browser-only.** `check_aeo_permissions()` previously required `current_user_can('edit_posts')` — a cookie session — so `optimize-content` and `aeo-data` could never be driven headlessly (the code even carried a "you might want to tie this to the RequestDesk API key system" TODO). It now accepts **either** a logged-in editor **or** a valid RequestDesk API key.
+- **Manual Q&A never emitted `<head>` schema.** The admin meta-box save handler wrote `ai_questions` (visual block) but never regenerated `faq_data`, so hand-entered Q&A rendered visually yet emitted no FAQPage JSON-LD. The new write endpoint regenerates `faq_data` on every write, keeping the visual block and the head schema in sync.
+
+### Why
+FAQ Q&A could only be added by a human typing into the wp-admin meta box — no API, no MCP, and the one automated endpoint was locked behind a browser login. This closes that gap so Q&A can be written at scale from tooling, with the schema kept correct automatically.
+
 ## [2.24.1] - 2026-06-24
 
 ### Fixed

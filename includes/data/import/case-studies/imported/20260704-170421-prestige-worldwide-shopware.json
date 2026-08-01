@@ -1,0 +1,67 @@
+{
+  "slug": "prestige-worldwide-shopware",
+  "title": "How Prestige Worldwide Launched Seven Storefronts on Shopware",
+  "status": "draft",
+  "excerpt": "Case study we wrote for Shopware. Covers how electronics group Prestige Worldwide launched seven brand storefronts on Shopware 6 with Web Solutions NYC, lifting AOV 35% and cutting time to market 91%.",
+  "content": "<p><strong>Content Cucumber wrote this customer case study for Shopware.</strong> We interviewed Prestige Worldwide (Eli Rossi, VP of Marketing) and Web Solutions NYC (the implementation agency), gathered the technical and business details, and structured the narrative around Prestige Worldwide's launch of seven brand storefronts on Shopware 6.</p>\n\n<p><strong>Read the published version on Shopware:</strong> <a href=\"https://www.shopware.com/en/customers/case-studies/elevating-prestige-worldwide-from-startup-to-ecommerce-success-with-shopware/\" target=\"_blank\" rel=\"noopener\">shopware.com/en/customers/case-studies/elevating-prestige-worldwide</a></p>",
+  "client_name": "Shopware",
+  "client_url": "https://www.shopware.com/",
+  "client_logo": "prestige-worldwide-logo-square.png",
+  "featured_image": "",
+  "length": "Single engagement",
+  "type": "Case study as a service",
+  "date_started": "2025-01-01",
+  "date_published": "2026-07-04",
+  "last_verified": "2026-07-04",
+  "challenge": "Shopware needed a customer case study showing how Prestige Worldwide, a multi-brand electronics ecommerce group, went from startup to ecommerce success on Shopware 6. The story had to translate a multi-storefront, headless build into a clear, prospect-facing narrative.\n\nIt had to land for two audiences at once: multi-brand merchants weighing a platform that can run many storefronts from one backend, and Shopware's own sales team using it as proof in deals.",
+  "approach": "We interviewed Eli Rossi, VP of Marketing at Prestige Worldwide, and Web Solutions NYC, the implementation agency, to gather the technical, operational, and business details.\n\nFrom the source material we structured the narrative around the priorities that drove the build (setup speed, dynamic pricing, cross-selling and upselling, and customizable checkout) and the outcomes. We surfaced the metrics that mattered (7 storefronts launched, a 35.20% increase in average order value, and a 90.91% faster time to market), named the stack (Flow Builder, Rule Builder, native Sales Channels, headless architecture, with Shipstation, Everflow, and JetRails as technology partners), and used a direct quote from the agency to anchor the story.\n\nDelivered as a polished case study ready for Shopware's content library and sales enablement.",
+  "results": "Published at shopware.com. The case study tells how Prestige Worldwide, an electronics group behind brands like Pulse Audio, Powerpal, Eardrops, and Illuminova, partnered with Web Solutions NYC to launch seven storefronts on Shopware 6, managing multiple catalogs, prices, and brands from a single backend. Shopware's headless architecture and Flow and Rule Builders gave the team the autonomy to run, adapt, and launch storefronts efficiently, lifting average order value 35.20% and cutting time to market 90.91%.",
+  "stats": [
+    {
+      "value": "7",
+      "label": "Storefronts Launched"
+    },
+    {
+      "value": "+35.2%",
+      "label": "Average Order Value"
+    },
+    {
+      "value": "90.91%",
+      "label": "Faster Time to Market"
+    },
+    {
+      "value": "Shopware 6",
+      "label": "Platform"
+    }
+  ],
+  "quote": "Choosing Shopware was a game-changer as we worked on elevating our client's ecommerce presence. Their Flow Builder and Rule Builder, paired with the headless architecture, gave us the flexibility we needed. Plus, being open source, we had the freedom to build a solution that perfectly suited our client's needs.",
+  "quote_name": "Yitz Lieblich",
+  "quote_title": "CEO",
+  "quote_company": "Web Solutions NYC",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber wrote Shopware's Prestige Worldwide case study, based on interviews with Prestige Worldwide and agency Web Solutions NYC. The piece covers how the electronics group launched seven brand storefronts on Shopware 6 from a single backend, using Flow Builder, Rule Builder, and a headless architecture, lifting average order value 35.20% and cutting time to market 90.91%. Shopware is the client. Prestige Worldwide is the customer featured in the story.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": true,
+  "display_priority": 3,
+  "seo_title": "Shopware Prestige Worldwide Case Study (Written by Content Cucumber)",
+  "seo_description": "How Content Cucumber wrote Shopware's Prestige Worldwide case study, covering seven brand storefronts launched on Shopware 6 with a 35% AOV lift.",
+  "industries": [
+    "Ecommerce / DTC"
+  ],
+  "platforms": [
+    "Shopware"
+  ],
+  "services": [
+    "Case Study Writing"
+  ],
+  "outcomes": [
+    "Traffic Growth"
+  ],
+  "sizes": [
+    "Mid-market"
+  ],
+  "years": [
+    "2025"
+  ]
+}

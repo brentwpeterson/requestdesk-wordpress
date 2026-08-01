@@ -463,20 +463,60 @@ function requestdesk_save_aeo_meta_box_data($post_id) {
         return;
     }
 
-    // Save manual Q&A pairs if provided
+    // Save manual Q&A pairs if provided.
+    //
+    // This path is kept deliberately in step with RequestDesk_AEO_Core::rest_set_qa_pairs().
+    // Two write paths feed the same table, and where they disagreed it was always
+    // the meta box that was wrong:
+    //
+    //   1. It wrote ai_questions but never regenerated faq_data. wp_head emits
+    //      faq_data, so Q&A typed into this box rendered visually and emitted NO
+    //      FAQPage schema. Fixed in the REST path only; this is the other half.
+    //   2. It omitted source => 'manual', which is the flag auto-optimize checks
+    //      before overwriting pairs (see v2.32.1). Pairs entered here were not
+    //      protected and could be wiped -- the exact bug that release fixed.
+    //   3. It stored the decoded POST payload unsanitized.
     if (isset($_POST['requestdesk_qa_pairs']) && !empty($_POST['requestdesk_qa_pairs'])) {
         $qa_pairs = json_decode(stripslashes($_POST['requestdesk_qa_pairs']), true);
-        if (is_array($qa_pairs)) {
-            // Update the AEO data with manual Q&A pairs
+        $post = get_post($post_id);
+
+        if (is_array($qa_pairs) && $post) {
+            $clean = array();
+            foreach ($qa_pairs as $pair) {
+                if (!is_array($pair)) {
+                    continue;
+                }
+                $question = trim(wp_strip_all_tags($pair['question'] ?? ''));
+                $answer = trim(wp_kses_post($pair['answer'] ?? ''));
+                if ($question === '' || $answer === '') {
+                    continue;
+                }
+                $confidence = isset($pair['confidence']) ? (float) $pair['confidence'] : 1.0;
+                $clean[] = array(
+                    'question' => $question,
+                    'answer' => $answer,
+                    'confidence' => max(0.0, min(1.0, $confidence)),
+                    'source' => 'manual',
+                );
+            }
+
             $aeo_core = new RequestDesk_AEO_Core();
-            $aeo_data = $aeo_core->get_aeo_data($post_id);
+
+            // Ensure the row exists before update_aeo_data(), which is UPDATE-only.
+            $aeo_core->get_aeo_data($post_id);
+
+            // Regenerate FAQPage schema so <head> stays in sync with the visual block.
+            $schema_generator = new RequestDesk_Schema_Generator();
+            $faq_schema = $schema_generator->generate_faq_schema($post, $clean);
 
             $aeo_core->update_aeo_data($post_id, array(
-                'ai_questions' => json_encode($qa_pairs)
+                'ai_questions' => wp_json_encode($clean),
+                'faq_data' => wp_json_encode($faq_schema),
+                'updated_at' => current_time('mysql'),
             ));
 
             // Also update post meta for quick access
-            update_post_meta($post_id, '_requestdesk_manual_qa_pairs', $qa_pairs);
+            update_post_meta($post_id, '_requestdesk_manual_qa_pairs', $clean);
         }
     }
 }

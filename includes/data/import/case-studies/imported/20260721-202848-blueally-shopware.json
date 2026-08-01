@@ -1,0 +1,67 @@
+{
+  "slug": "blueally-shopware",
+  "title": "How BlueAlly Launched Custom B2B Sales Portals in Weeks on Shopware",
+  "status": "draft",
+  "excerpt": "Case study we wrote for Shopware. Covers how enterprise IT reseller BlueAlly moved off Magento onto self-hosted Shopware 6, launching a custom B2B portal in under six weeks with agency Bemeir.",
+  "content": "<p><strong>Content Cucumber wrote this customer case study for Shopware.</strong> We interviewed BlueAlly and Bemeir (the implementation agency), gathered the technical and commercial details, and structured the narrative around BlueAlly's move from Magento Open Source to self-hosted Shopware 6 for a complex, multi-store B2B business.</p>",
+  "client_name": "Shopware",
+  "client_url": "https://www.shopware.com/",
+  "client_logo": "blueally-logo-square.png",
+  "featured_image": "blueally-hero.png",
+  "length": "Single engagement",
+  "type": "Case study as a service",
+  "date_started": "2025-08-01",
+  "date_published": "2026-07-05",
+  "last_verified": "2026-07-05",
+  "challenge": "Shopware needed a customer case study showing how BlueAlly, a large-scale reseller of enterprise IT hardware, software, and services, rebuilt its commerce on Shopware 6. The story had to translate a genuinely complex B2B operation into a clear, prospect-facing narrative: a catalog in the millions, hundreds of branded sub-stores, punchout, ERP integration, and sales-assisted flows.\n\nIt had to work for two audiences at once: enterprise distributors weighing a replatform off aging Magento, and Shopware's own sales team using it as proof in complex B2B deals.",
+  "approach": "We interviewed BlueAlly and Bemeir (the long-time implementation agency partner) to gather the technical, infrastructure, and commercial details.\n\nFrom the source material we structured the narrative around the limitation that triggered the migration (a brittle Magento Open Source build with long development cycles and Magento's uncertain direction), the requirements the new platform had to meet, the proof-of-concept Bemeir and Shopware built, and the outcomes. We surfaced the metrics that mattered (a first custom sales portal launched in under six weeks that helped close a deal valued between 500K and 1M dollars, 200-plus branded sub-stores planned on a single backend, and a catalog load-tested past a million SKUs).\n\nDelivered as a polished case study ready for Shopware's content library and enterprise sales enablement.",
+  "results": "Written for Shopware's customer library. It tells how BlueAlly moved off Magento Open Source onto self-hosted Shopware 6 (Beyond Edition) with Bemeir, standing up a tailored B2B portal in under six weeks that helped win a major enterprise client, planning 200-plus branded sub-stores on one backend, and integrating NetSuite ERP, PayTrace, and punchout on Kubernetes-based AWS infrastructure. BlueAlly's in-house team ramped up fast, pursuing Shopware certifications and taking ownership alongside the agency.",
+  "stats": [
+    {
+      "value": "< 6 weeks",
+      "label": "First B2B Portal Live"
+    },
+    {
+      "value": "$500K–$1M",
+      "label": "Enterprise Deal Closed"
+    },
+    {
+      "value": "200+",
+      "label": "Sub-Stores on One Backend"
+    },
+    {
+      "value": "1M+",
+      "label": "SKUs Load-Tested"
+    }
+  ],
+  "quote": "We recognized the need to modernize our eCommerce infrastructure, but finding a platform that could meet both our business and engineering requirements was a challenge. Shopware has proven to be a robust foundation for our complex operations, supporting the needs across our organization. Equally important, the commitment and expertise of the people behind Shopware—from its leadership team to trusted partners like Bemeir—have given us the confidence to fully invest in the platform.",
+  "quote_name": "Jonathan Berger",
+  "quote_title": "SVP, Digital Strategy",
+  "quote_company": "BlueAlly",
+  "quote_photo": "",
+  "aeo_summary": "Content Cucumber wrote Shopware's BlueAlly case study, based on interviews with BlueAlly and agency Bemeir. The piece covers how the enterprise IT reseller moved off Magento Open Source onto self-hosted Shopware 6 Beyond Edition, launching its first custom B2B sales portal in under six weeks (helping close a deal valued between 500K and 1M dollars), planning 200-plus branded sub-stores on a single backend, with NetSuite ERP, PayTrace, and punchout integrations on AWS. Shopware is the client. BlueAlly is the customer featured in the story.",
+  "team_writer": "",
+  "team_editor": "",
+  "pinned": false,
+  "display_priority": 5,
+  "seo_title": "Shopware BlueAlly Case Study (Written by Content Cucumber)",
+  "seo_description": "How Content Cucumber wrote Shopware's BlueAlly case study, covering a Magento-to-Shopware 6 B2B replatform and a portal launched in under six weeks.",
+  "industries": [
+    "B2B / Wholesale"
+  ],
+  "platforms": [
+    "Shopware"
+  ],
+  "services": [
+    "Case Study Writing"
+  ],
+  "outcomes": [
+    "Technical Recovery"
+  ],
+  "sizes": [
+    "Enterprise"
+  ],
+  "years": [
+    "2025"
+  ]
+}

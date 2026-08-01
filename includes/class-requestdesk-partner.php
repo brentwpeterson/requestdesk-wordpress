@@ -23,6 +23,9 @@ class RequestDesk_Partner {
         add_filter('template_include', array($this, 'partner_category_template'), 99);
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_cc_partner', array($this, 'save_meta'), 10, 2);
+        add_filter('post_type_link', array($this, 'partner_permalink'), 10, 2);
+        add_action('template_redirect', array($this, 'redirect_old_partner_urls'), 1);
+        add_action('save_post_cc_partner', array($this, 'flush_partner_rules'));
         add_action('admin_menu', array($this, 'add_import_page'));
         add_action('admin_post_requestdesk_import_partners', array($this, 'handle_import'));
     }
@@ -49,8 +52,8 @@ class RequestDesk_Partner {
         register_post_type('cc_partner', array(
             'labels'       => $labels,
             'public'       => true,
-            'has_archive'  => true,
-            'rewrite'      => array('slug' => 'partners', 'with_front' => false),
+            'has_archive'  => 'partners',
+            'rewrite'      => false,
             'supports'     => array('title', 'editor', 'thumbnail', 'excerpt'),
             'taxonomies'   => array('category'),
             'menu_icon'    => 'dashicons-groups',
@@ -63,16 +66,77 @@ class RequestDesk_Partner {
      * Add rewrite rules for /partners/{category-slug}/ URLs
      */
     public function add_partner_rewrite_rules() {
+        // Partner singles now live at root: /<partner-slug>/  (explicit slugs only,
+        // so no page or post ever gets shadowed by the CPT).
+        $slugs = $this->partner_post_slugs();
+        if (!empty($slugs)) {
+            $re = implode('|', array_map(function ($s) { return preg_quote($s, '#'); }, $slugs));
+            add_rewrite_rule('^(' . $re . ')/?$', 'index.php?cc_partner=$matches[1]', 'top');
+        }
+
+        // Partner archive stays at /partners/
+        add_rewrite_rule('^partners/?$', 'index.php?post_type=cc_partner', 'top');
+
+        // Partner category archives stay at /partners/{category}/
         add_rewrite_rule(
-            'partners/([^/]+)/page/([0-9]+)/?$',
+            '^partners/([^/]+)/page/([0-9]+)/?$',
             'index.php?partner_cat_filter=$matches[1]&paged=$matches[2]',
             'top'
         );
         add_rewrite_rule(
-            'partners/([^/]+)/?$',
+            '^partners/([^/]+)/?$',
             'index.php?partner_cat_filter=$matches[1]',
             'top'
         );
+    }
+
+    /**
+     * Published partner post slugs, used to build the root rewrite rule.
+     */
+    private function partner_post_slugs() {
+        global $wpdb;
+        $rows = $wpdb->get_col(
+            "SELECT post_name FROM {$wpdb->posts} WHERE post_type = 'cc_partner' AND post_status = 'publish' AND post_name != ''"
+        );
+        return is_array($rows) ? $rows : array();
+    }
+
+    /**
+     * Canonical partner permalink is now /<slug>/ (root), not /partners/<slug>/.
+     */
+    public function partner_permalink($link, $post) {
+        if (isset($post->post_type) && $post->post_type === 'cc_partner') {
+            return home_url('/' . $post->post_name . '/');
+        }
+        return $link;
+    }
+
+    /**
+     * 301 the old /partners/<name> single URLs to the new root /<name>.
+     * The /partners/ archive and /partners/<category>/ archives are left alone.
+     */
+    public function redirect_old_partner_urls() {
+        $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
+        if (strpos($path, 'partners/') !== 0) {
+            return;
+        }
+        $rest = substr($path, strlen('partners/'));
+        if ($rest === '' || strpos($rest, '/') !== false) {
+            return; // archive root or a nested (category) path
+        }
+        $partner = get_page_by_path($rest, OBJECT, 'cc_partner');
+        if ($partner) {
+            wp_redirect(home_url('/' . $rest . '/'), 301);
+            exit;
+        }
+    }
+
+    /**
+     * Rebuild rewrite rules when a partner is saved (its slug may have changed).
+     */
+    public function flush_partner_rules() {
+        $this->add_partner_rewrite_rules();
+        flush_rewrite_rules(false);
     }
 
     /**

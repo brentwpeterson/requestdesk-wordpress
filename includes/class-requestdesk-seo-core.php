@@ -45,6 +45,9 @@ class RequestDesk_SEO_Core {
             add_action('wp_head', array($this, 'output_open_graph'), 4);
             add_action('wp_head', array($this, 'output_twitter_cards'), 5);
 
+            // B11: feeds don't render wp_head — emit noindex via HTTP header.
+            add_action('template_redirect', array($this, 'output_feed_robots_header'));
+
             // Filter document title
             add_filter('pre_get_document_title', array($this, 'filter_document_title'), 15);
             add_filter('document_title_parts', array($this, 'filter_document_title_parts'), 15);
@@ -77,10 +80,17 @@ class RequestDesk_SEO_Core {
             'twitter_card_type' => 'summary_large_image',
 
             // Robots
-            'noindex_archives' => false,
+            // B5: category and tag archives are now separate toggles (Yoast parity).
+            // Legacy installs used a single 'noindex_archives' key; reads fall back to it.
+            'noindex_category_archives' => true,
+            'noindex_tag_archives' => true,
             'noindex_author_archives' => true,
             'noindex_search_results' => true,
             'noindex_date_archives' => true,
+            // B6: paginated archive subpages (page/2/, ...) noindex.
+            'noindex_paged_archives' => true,
+            // B11: RSS/Atom feeds emit X-Robots-Tag: noindex.
+            'noindex_feeds' => true,
         );
     }
 
@@ -137,10 +147,27 @@ class RequestDesk_SEO_Core {
             ? $input['twitter_card_type']
             : 'summary_large_image';
 
-        $sanitized['noindex_archives'] = !empty($input['noindex_archives']);
+        // B5: category and tag are separate toggles. If the form posts only the
+        // legacy 'noindex_archives' key (older settings template), migrate its
+        // value into both so the setting is never silently lost.
+        $legacy_archives = isset($input['noindex_archives']) ? !empty($input['noindex_archives']) : null;
+        $sanitized['noindex_category_archives'] = isset($input['noindex_category_archives'])
+            ? !empty($input['noindex_category_archives'])
+            : ($legacy_archives !== null ? $legacy_archives : true);
+        $sanitized['noindex_tag_archives'] = isset($input['noindex_tag_archives'])
+            ? !empty($input['noindex_tag_archives'])
+            : ($legacy_archives !== null ? $legacy_archives : true);
         $sanitized['noindex_author_archives'] = !empty($input['noindex_author_archives']);
         $sanitized['noindex_search_results'] = !empty($input['noindex_search_results']);
         $sanitized['noindex_date_archives'] = !empty($input['noindex_date_archives']);
+        // B6: paginated archive subpages.
+        $sanitized['noindex_paged_archives'] = isset($input['noindex_paged_archives'])
+            ? !empty($input['noindex_paged_archives'])
+            : true;
+        // B11: feeds.
+        $sanitized['noindex_feeds'] = isset($input['noindex_feeds'])
+            ? !empty($input['noindex_feeds'])
+            : true;
 
         return $sanitized;
     }
@@ -338,7 +365,21 @@ class RequestDesk_SEO_Core {
             $robots[] = 'noindex';
         }
 
-        if ((is_category() || is_tag()) && ($this->settings['noindex_archives'] ?? false)) {
+        // B5: category and tag are independent toggles. Fall back to the legacy
+        // combined 'noindex_archives' key for installs that predate the split.
+        $legacy_archives = $this->settings['noindex_archives'] ?? false;
+        if (is_category() && ($this->settings['noindex_category_archives'] ?? $legacy_archives)) {
+            $robots[] = 'noindex';
+        }
+
+        if (is_tag() && ($this->settings['noindex_tag_archives'] ?? $legacy_archives)) {
+            $robots[] = 'noindex';
+        }
+
+        // B6: paginated archive subpages (page/2/ and beyond) should not be
+        // indexed even when the bare archive is. Guard against paginated single
+        // posts (multipage content) with !is_singular().
+        if (is_paged() && !is_singular() && ($this->settings['noindex_paged_archives'] ?? true)) {
             $robots[] = 'noindex';
         }
 
@@ -346,6 +387,32 @@ class RequestDesk_SEO_Core {
         if (!empty($robots)) {
             $robots = array_unique($robots);
             echo '<meta name="robots" content="' . esc_attr(implode(', ', $robots)) . '">' . "\n";
+        }
+    }
+
+    /**
+     * Output X-Robots-Tag header for feeds (B11)
+     *
+     * Feeds (RSS/Atom/RDF, including per-archive feeds such as /tag/SLUG/feed/)
+     * do not render wp_head, so the noindex directive must travel as an HTTP
+     * header. template_redirect fires before the feed template loads, so the
+     * headers are still mutable here. We use 'noindex, follow' so Google still
+     * follows the links out of the feed while dropping the feed URL itself.
+     * Note: intentionally NOT robots.txt Disallow — blocking the crawler would
+     * prevent Google from ever seeing this noindex and removing already-indexed
+     * feed URLs.
+     */
+    public function output_feed_robots_header() {
+        if (!is_feed()) {
+            return;
+        }
+
+        if (!($this->settings['noindex_feeds'] ?? true)) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            header('X-Robots-Tag: noindex, follow', true);
         }
     }
 
