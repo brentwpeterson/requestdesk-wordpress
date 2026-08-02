@@ -10,6 +10,12 @@
 #
 # This copies files FROM this git repo TO each target.
 # Always edit here, then run this to push changes out.
+#
+# THIS IS NOT A DEPLOY. It only writes to LOCAL trees.
+#   Talk Commerce live (tc.requestdesk.ai) -> wp-infra/deploy-tc-wp-plugin.sh
+#   Content Cucumber live                  -> LocalWP Magic Sync, Brent only
+# See DEPLOY.md. Note also that the talk-commerce destinations below are
+# symlinks back to THIS repo, so syncing TC rsyncs the source into itself.
 
 SOURCE="/Users/brent/scripts/CB-Workspace/requestdesk-wordpress/"
 

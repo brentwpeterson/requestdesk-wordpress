@@ -43,6 +43,15 @@ A WordPress plugin that adds AI-powered SEO optimization, headless CMS capabilit
 2. Activate the plugin through the Plugins menu in WordPress
 3. Go to **RequestDesk** in your WordPress admin to configure settings
 
+## Deploying (Brent's sites)
+
+**Pushing this repo to GitHub deploys nothing.** Each site has its own path:
+Talk Commerce live is `wp-infra/deploy-tc-wp-plugin.sh`, Content Cucumber is
+LocalWP Magic Sync and Brent's hands only, and TC's local site is a symlink
+into this repo that changes the moment you commit.
+
+See **[DEPLOY.md](DEPLOY.md)** before assuming a change is live.
+
 ## Headless API Setup (for SSR Frontends)
 
 If you're using WordPress as a headless CMS with a framework like Astro, follow these steps.
