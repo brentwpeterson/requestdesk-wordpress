@@ -25,3 +25,29 @@ data/gsc-traffic.json
 # refuses to rsync --delete over a newer destination. That guard is worthless
 # if it only exists on one machine.
 !sync-all.sh
+
+# Client case-study content is NOT part of the plugin.
+#
+# includes/data/import/case-studies/ is an INBOX: the importer drops JSON in,
+# processes it, and moves it to imported/. cs_ensure_dirs() recreates the
+# folders, so nothing here needs to be committed for the feature to work.
+#
+# It was tracked, so 81 files of client work shipped in every release zip --
+# case studies with named clients and their results (Chalet Market, BlueAlly,
+# Eagle Crusher, Good360, Kinsey's, UppaBaby, VIP Supply Co, Portal IQ) plus
+# their logo and hero artwork. Anyone who installed the plugin received them.
+# Found 2026-08-02 while removing hardcoded vendor URLs; see violation #290.
+#
+# The directory structure stays (.gitkeep, README). The contents do not.
+includes/data/import/case-studies/*
+!includes/data/import/case-studies/.gitkeep
+!includes/data/import/case-studies/README.md
+!includes/data/import/case-studies/imported/
+!includes/data/import/case-studies/failed/
+includes/data/import/case-studies/imported/*
+!includes/data/import/case-studies/imported/.gitkeep
+includes/data/import/case-studies/failed/*
+!includes/data/import/case-studies/failed/.gitkeep
+
+# CC's internal case-study pipeline state, not plugin code.
+includes/data/case-study-pipeline.json
