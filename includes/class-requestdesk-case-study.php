@@ -759,7 +759,7 @@ class RequestDesk_Case_Study {
         $file  = plugin_dir_path(__FILE__) . 'data/case-study-pipeline.json';
         $data  = file_exists($file) ? json_decode(file_get_contents($file), true) : array();
         $items = (isset($data['pipeline']) && is_array($data['pipeline'])) ? $data['pipeline'] : array();
-        $assets_dir = plugin_dir_path(__FILE__) . 'data/import/case-studies/assets/';
+        $assets_dir = $this->cs_assets_dir();
         $done = 0;
         foreach ($items as $it) {
             $p = !empty($it['slug']) ? get_page_by_path($it['slug'], OBJECT, 'cc_case_study') : null;
@@ -804,7 +804,69 @@ class RequestDesk_Case_Study {
         <?php
     }
 
-    private function cs_import_dir() { return plugin_dir_path(__FILE__) . 'data/import/case-studies/'; }
+    /**
+     * Where case-study JSON is dropped for import.
+     *
+     * NOT inside the plugin. Content living in a plugin directory has two
+     * problems, and this feature had both:
+     *
+     *   1. It ships. Anything under the plugin goes into the release zip, so
+     *      81 files of client case studies -- named clients, their results,
+     *      their logos -- were installed on every site that took the plugin.
+     *      Found 2026-08-02, violation #290.
+     *
+     *   2. It is DESTROYED ON UPDATE. WordPress deletes the old plugin
+     *      directory and unpacks the new one, so a pending import sitting in
+     *      includes/data/import/ does not survive a plugin update. That is a
+     *      data-loss bug nobody had hit yet only because imports are processed
+     *      quickly.
+     *
+     * Default is now uploads/requestdesk/case-studies/, which is content
+     * storage, survives updates, and is not part of the distribution.
+     *
+     * Override to put it anywhere:
+     *     add_filter('requestdesk_case_study_import_dir', fn() => '/srv/imports/');
+     *
+     * BACKWARD COMPATIBLE: if the legacy in-plugin directory still holds JSON
+     * and the new location is empty, the legacy path is used and a notice is
+     * logged. An existing install keeps working until its queue is drained.
+     */
+    private function cs_import_dir() {
+        $legacy = plugin_dir_path(__FILE__) . 'data/import/case-studies/';
+
+        $uploads = wp_upload_dir();
+        $default = (!empty($uploads['basedir']))
+            ? trailingslashit($uploads['basedir']) . 'requestdesk/case-studies/'
+            : $legacy;
+
+        $dir = trailingslashit(apply_filters('requestdesk_case_study_import_dir', $default));
+
+        // An explicit override wins outright. The legacy fallback below exists
+        // to migrate an install that never chose a path -- applying it to a
+        // deliberate choice would silently ignore the filter, which is what the
+        // first version of this did.
+        if ($dir !== trailingslashit($default)) {
+            return $dir;
+        }
+
+        // Unconfigured install: keep using the in-plugin queue only while it
+        // genuinely has work AND the new location has none, so the switch
+        // happens by itself and never splits the inbox across two directories.
+        if ($dir !== $legacy && !glob($dir . '*.json') && glob($legacy . '*.json')) {
+            return $legacy;
+        }
+
+        return $dir;
+    }
+
+    /**
+     * Artwork that accompanies an import. Follows the import directory so the
+     * two never separate.
+     */
+    private function cs_assets_dir() {
+        return trailingslashit($this->cs_import_dir()) . 'assets/';
+    }
+
     private function cs_legacy_path() { return plugin_dir_path(__FILE__) . 'data/case-studies-import.json'; }
 
     private function cs_ensure_dirs() {
@@ -1143,7 +1205,7 @@ class RequestDesk_Case_Study {
             $att_id = media_sideload_image($ref, $post_id, null, 'id');
         } else {
             // Bare filename → local asset next to the import JSONs.
-            $path = plugin_dir_path(__FILE__) . 'data/import/case-studies/assets/' . basename($ref);
+            $path = $this->cs_assets_dir() . basename($ref);
             if (file_exists($path)) {
                 $tmp = wp_tempnam(basename($ref));
                 if ($tmp && copy($path, $tmp)) {

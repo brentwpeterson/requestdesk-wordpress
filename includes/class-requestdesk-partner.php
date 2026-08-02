@@ -462,7 +462,35 @@ class RequestDesk_Partner {
     /**
      * Render the Import Partners admin page
      */
-    private function p_import_dir() { return plugin_dir_path(__FILE__) . 'data/import/partners/'; }
+    /**
+     * Partner import inbox. Same reasoning as cs_import_dir(): content in a
+     * plugin directory ships in the release zip and is deleted by WordPress on
+     * plugin update. Default is uploads/, overridable, with a fallback while a
+     * legacy in-plugin queue still has work in it.
+     *
+     *     add_filter('requestdesk_partner_import_dir', fn() => '/srv/partners/');
+     */
+    private function p_import_dir() {
+        $legacy = plugin_dir_path(__FILE__) . 'data/import/partners/';
+
+        $uploads = wp_upload_dir();
+        $default = (!empty($uploads['basedir']))
+            ? trailingslashit($uploads['basedir']) . 'requestdesk/partners/'
+            : $legacy;
+
+        $dir = trailingslashit(apply_filters('requestdesk_partner_import_dir', $default));
+
+        // Explicit override wins; the fallback is only for unconfigured installs.
+        if ($dir !== trailingslashit($default)) {
+            return $dir;
+        }
+
+        if ($dir !== $legacy && !glob($dir . '*.json') && glob($legacy . '*.json')) {
+            return $legacy;
+        }
+
+        return $dir;
+    }
     private function p_legacy_path() { return plugin_dir_path(__FILE__) . 'data/partners-import.json'; }
 
     private function p_ensure_dirs() {
