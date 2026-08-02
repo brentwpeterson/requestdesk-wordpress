@@ -366,9 +366,63 @@ class RequestDesk_AEO_Core {
 
         if (!empty($aeo_data['faq_data'])) {
             echo '<script type="application/ld+json">';
-            echo json_encode($aeo_data['faq_data'], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            echo json_encode(
+                $this->clean_faq_question_names($aeo_data['faq_data']),
+                JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+            );
             echo '</script>' . "\n";
         }
+    }
+
+    /**
+     * Strip list numbering from Question names on the way out.
+     *
+     * faq_data is a pre-built JSON-LD blob written when the post was last
+     * optimised, so it carries whatever the extractor produced at that time.
+     * Extraction lifts question-form headings out of the article, and when the
+     * article numbers its sections the number travels with them: on
+     * chatgpt-will-not-get-you-better-content the live schema shipped a question
+     * literally named "2. Why does AI content all sound the same?".
+     *
+     * class-requestdesk-content-analyzer.php now strips numbering at extraction
+     * (v2.36.1), but that only helps posts optimised AFTER the fix. Every post
+     * already in the database keeps its numbering until re-run. Cleaning here
+     * instead means the markup is correct on the next page load with no
+     * migration, no bulk re-optimise, and no write to stored data.
+     *
+     * Bounded to one or two digits so a heading that opens on a year keeps it.
+     *
+     * @param mixed $faq JSON-LD FAQPage structure as stored
+     * @return mixed same structure, question names cleaned
+     */
+    protected function clean_faq_question_names($faq) {
+        if (!is_array($faq)) {
+            return $faq;
+        }
+
+        $strip = function ($name) {
+            $name = str_replace("\xc2\xa0", ' ', (string) $name);
+            $out = preg_replace(
+                '/^\s*(?:\(?\s*(?:step|q(?:uestion)?)?\s*\d{1,2}\s*\)?\s*[\.\):\-\x{2013}\x{2014}]\s*)+/iu',
+                '',
+                $name
+            );
+            $out = trim((string) $out);
+            return $out !== '' ? $out : trim($name);
+        };
+
+        if (!empty($faq['mainEntity']) && is_array($faq['mainEntity'])) {
+            foreach ($faq['mainEntity'] as $i => $entity) {
+                if (is_array($entity) && isset($entity['name'])) {
+                    $faq['mainEntity'][$i]['name'] = $strip($entity['name']);
+                }
+            }
+        } elseif (isset($faq['name'])) {
+            // Single QAPage rather than a FAQPage list.
+            $faq['name'] = $strip($faq['name']);
+        }
+
+        return $faq;
     }
 
     /**

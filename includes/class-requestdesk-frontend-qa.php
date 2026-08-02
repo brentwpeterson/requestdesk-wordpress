@@ -202,39 +202,34 @@ class RequestDesk_Frontend_QA {
         // Do not restate the article back to the reader.
         //
         // extract_qa_pairs() builds its pairs FROM this post's own body: a
-        // question-form H2 becomes the question and the prose under it becomes
-        // the answer. Appending those pairs as a "Frequently Asked Questions"
-        // block puts the same words on the page twice, in the same order, a
-        // few hundred pixels apart.
+        // question-form H2 or H3 becomes the question and the prose under it
+        // becomes the answer. Appending those pairs as a "Frequently Asked
+        // Questions" block puts the same words on the page twice, a few hundred
+        // pixels apart.
         //
-        // Measured on contentcucumber.com 2026-08-01: of 60 published posts, 7
-        // had both an appended block and question-form H2s, and 6 of those
-        // repeated at least one question. On how-to-write-meta-tags-for-seo the
-        // writer's H2 and the appended question were character-for-character
-        // identical; on chatgpt-will-not-get-you-better-content all 5 were.
+        // Measured against the production database on 2026-08-01: 105 posts
+        // carry stored AEO pairs and 64 of them have at least one question that
+        // matches a heading in their own body.
+        //
         // Brent: "we write blog posts with QA built in, we have to be aware of
         // this when automating the FAQ."
         //
-        // A manual pair is different and still renders. Someone opened the AEO
-        // meta box and wrote a standalone question for the box, which is a
-        // deliberate act; extraction is a machine reading the article.
+        // The filtering is PER PAIR, not all-or-nothing, because the sets are
+        // usually mixed. what-gets-your-content-cited-in-ai-search stores nine
+        // questions of which three restate headings; dropping the block whole
+        // would throw away six that add something.
         //
         // The FAQPage schema is deliberately left alone. Its questions and
-        // answers are still visible on the page -- in the body, where the
-        // writer put them -- so the markup stays valid. Suppressing the schema
-        // here is what WOULD break it, by describing content that is no longer
-        // rendered.
-        if ($this->pairs_are_extracted_from_body(get_the_ID())) {
-            return $content;
-        }
-
-        // Get Q&A pairs for current post
+        // answers are still visible on the page -- in the body, where the writer
+        // put them -- so the markup stays valid. Suppressing the schema is what
+        // WOULD break it, by describing content that is no longer rendered.
         $qa_html = $this->render_qa_pairs(get_the_ID(), array(
             'show_confidence' => false,
             'title' => $settings['qa_frontend_title'] ?? 'Frequently Asked Questions',
             'show_title' => true,
             'max_pairs' => intval($settings['qa_frontend_max_pairs'] ?? 0),
-            'min_confidence' => floatval($settings['qa_frontend_min_confidence'] ?? 0.5)
+            'min_confidence' => floatval($settings['qa_frontend_min_confidence'] ?? 0.5),
+            'exclude_body_duplicates' => true,
         ));
 
         if (!empty($qa_html)) {
@@ -245,46 +240,114 @@ class RequestDesk_Frontend_QA {
     }
 
     /**
-     * True when this post's Q&A pairs were all read out of its own body, so
-     * rendering them again would repeat content the reader has already passed.
+     * Drop pairs whose question already appears as a heading in the post body.
      *
-     * A pair carries source='manual' only when a human typed it into the AEO
-     * meta box (see RequestDesk_AEO_Core::save_manual_qa_pairs). Everything
-     * else arrives from extract_qa_pairs(), which parses this post's headings
-     * and prose. So: any manual pair in the set means a human intended a
-     * standalone FAQ block and it renders; a set with none is the article
-     * talking to itself.
+     * WHY NOT source='manual'. The first version of this check trusted that
+     * field and it was wrong. `source` is stamped when someone SAVES the AEO
+     * meta box, not when they author a question, so extraction-derived pairs
+     * become "manual" the moment an editor opens the box and hits update. The
+     * production data proves it: chatgpt-will-not-get-you-better-content stores
+     * five pairs all marked source=manual, and the first one reads
+     * "2. Why does AI content all sound the same?" -- nobody types a list
+     * number into a FAQ box. Deployed on 2026-08-01, that version changed
+     * nothing on the 14 posts with manual pairs, which is where the worst
+     * duplication was.
      *
-     * Filterable, because a site may legitimately want the block anyway (a
-     * long reference page where a summarised FAQ at the end earns its space):
-     *     add_filter('requestdesk_suppress_extracted_qa', '__return_false');
+     * The content itself is the reliable signal. If the question matches a
+     * heading the reader has already scrolled past, the pair adds nothing,
+     * whatever any metadata claims about its origin.
      *
-     * @param int $post_id
-     * @return bool
+     * Comparison is normalised for case, punctuation, entities, and leading
+     * list numbering, so "2. Why does AI content all sound the same?" matches
+     * the H3 "2. Why does AI content all sound the same?" and also matches it
+     * once normalize_qa_questions() has stripped the number.
+     *
+     * Filterable per post, for a long reference page where a summarised FAQ at
+     * the end earns its space:
+     *     add_filter('requestdesk_exclude_body_duplicate_qa', '__return_false');
+     *
+     * @param int   $post_id
+     * @param array $pairs
+     * @return array
      */
-    protected function pairs_are_extracted_from_body($post_id) {
-        if (!$post_id) {
-            return false;
+    protected function drop_questions_answered_in_body($post_id, $pairs) {
+        if (!is_array($pairs) || empty($pairs)) {
+            return is_array($pairs) ? $pairs : array();
         }
 
-        $pairs = $this->get_qa_pairs($post_id);
-        if (!is_array($pairs)) {
-            $pairs = array();
+        if (!apply_filters('requestdesk_exclude_body_duplicate_qa', true, $post_id, $pairs)) {
+            return $pairs;
         }
 
-        // No pairs at all: nothing to suppress, and render_qa_pairs() will
-        // return an empty string on its own.
-        if (empty($pairs)) {
-            return false;
+        $post = get_post($post_id);
+        if (!$post || empty($post->post_content)) {
+            return $pairs;
         }
 
-        foreach ($pairs as $pair) {
-            if (is_array($pair) && (($pair['source'] ?? '') === 'manual')) {
-                return false;   // a human authored at least one; show the block
+        // Headings as the reader sees them. Run the content through the same
+        // filter WordPress does so blocks and shortcodes resolve to real markup
+        // first; fall back to the raw content if that is unavailable.
+        $rendered = $post->post_content;
+        if (function_exists('apply_filters')) {
+            $rendered = apply_filters('requestdesk_qa_body_source', $rendered, $post);
+        }
+
+        if (!preg_match_all('/<h[23][^>]*>(.*?)<\/h[23]>/is', $rendered, $matches)) {
+            return $pairs;
+        }
+
+        $headings = array();
+        foreach ($matches[1] as $heading) {
+            $key = $this->normalize_for_match($heading);
+            if ($key !== '') {
+                $headings[$key] = true;
             }
         }
 
-        return (bool) apply_filters('requestdesk_suppress_extracted_qa', true, $post_id, $pairs);
+        if (empty($headings)) {
+            return $pairs;
+        }
+
+        $kept = array();
+        foreach ($pairs as $pair) {
+            if (!is_array($pair)) {
+                $kept[] = $pair;
+                continue;
+            }
+            $key = $this->normalize_for_match($pair['question'] ?? '');
+            if ($key !== '' && isset($headings[$key])) {
+                continue;   // already answered above; do not say it twice
+            }
+            $kept[] = $pair;
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Comparison key for question/heading matching. Strips tags, entities,
+     * leading list numbering, punctuation and case, so the same sentence
+     * matches whether or not it still carries its "2." and whether or not the
+     * heading was written with a curly apostrophe.
+     *
+     * @param string $text
+     * @return string
+     */
+    protected function normalize_for_match($text) {
+        $text = wp_strip_all_tags((string) $text);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        $text = str_replace("\xc2\xa0", ' ', $text);
+        $text = strtolower(trim($text));
+        // leading list numbering: "2.", "2)", "(2)", "step 2:", "q3."
+        $text = preg_replace(
+            '/^\s*(?:\(?\s*(?:step|q(?:uestion)?)?\s*\d{1,2}\s*\)?\s*[\.\):\-\x{2013}\x{2014}]\s*)+/iu',
+            '',
+            $text
+        );
+        $text = preg_replace('/[^a-z0-9 ]+/u', '', $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+
+        return trim((string) $text);
     }
 
     /**
@@ -301,7 +364,11 @@ class RequestDesk_Frontend_QA {
             'title' => 'Frequently Asked Questions',
             'show_title' => true,
             'max_pairs' => 0,
-            'min_confidence' => 0.5
+            'min_confidence' => 0.5,
+            // Off by default: an explicit [requestdesk_qa] shortcode is a
+            // deliberate placement and renders whatever the post has. Only the
+            // automatic append turns this on.
+            'exclude_body_duplicates' => false,
         ));
 
         // Get AEO data
@@ -311,6 +378,11 @@ class RequestDesk_Frontend_QA {
 
         if (empty($qa_pairs)) {
             return '';
+        }
+
+        // Drop pairs that merely restate a heading already in the article.
+        if (!empty($options['exclude_body_duplicates'])) {
+            $qa_pairs = $this->drop_questions_answered_in_body($post_id, $qa_pairs);
         }
 
         // Filter by confidence
