@@ -177,8 +177,8 @@ class RequestDesk_Content_Analyzer {
      * article numbers its sections the number comes along. The result reads as
      * broken in every place the question is then used.
      *
-     * Live example, contentcucumber.com/blog/chatgpt-will-not-get-you-better-content
-     * on 2026-08-01: the post is a numbered list of ten, five of whose headings
+     * Worked example from a real post on 2026-08-01: a numbered list of ten,
+     * five of whose headings
      * end in a question mark. Extraction took exactly those five, so the
      * "Frequently Asked Questions" block rendered as 2, 5, 6, 8, 9 -- opening at
      * "2." and skipping four numbers, referencing a list that is not in the box.

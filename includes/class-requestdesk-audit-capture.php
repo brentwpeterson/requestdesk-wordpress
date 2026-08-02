@@ -20,6 +20,25 @@ class RequestDesk_Audit_Capture {
     const REST_NAMESPACE = 'cc-audit/v1';
     const SHORTCODE_TAG  = 'cc_audit_landing';
 
+    /**
+     * The address audit confirmations appear to come from.
+     *
+     * Was a hardcoded vendor address in user-facing output.
+     * This plugin installs on sites that are not Content Cucumber, so that told
+     * their visitors to watch for mail from a company they have no relationship
+     * with. Derived from the site's own admin address unless overridden.
+     *
+     *     add_filter('requestdesk_audit_from_address', fn() => 'hello@example.com');
+     */
+    public static function audit_from_address() {
+        $default = get_option('admin_email');
+        if (!$default) {
+            $host = wp_parse_url(home_url(), PHP_URL_HOST);
+            $default = 'audit@' . ($host ?: 'example.com');
+        }
+        return apply_filters('requestdesk_audit_from_address', $default);
+    }
+
     public function __construct() {
         add_action('init',          array($this, 'register_cpt'));
         add_action('rest_api_init', array($this, 'register_routes'));
@@ -150,7 +169,7 @@ class RequestDesk_Audit_Capture {
         return '<div class="cc-audit-card cc-audit-card--confirm">'
              . '<h2>' . esc_html($atts['heading']) . '</h2>'
              . '<p>' . wp_kses_post($msg) . '</p>'
-             . '<p class="cc-audit-note">Watch for an email from <code>audit@contentcucumber.com</code>.</p>'
+             . '<p class="cc-audit-note">Watch for an email from <code>' . esc_html(self::audit_from_address()) . '</code>.</p>'
              . '</div>';
     }
 
@@ -172,7 +191,7 @@ class RequestDesk_Audit_Capture {
                 <?php endif; ?>
                 <label>
                     URL to audit
-                    <input type="url" name="cc_audit_url" placeholder="https://yoursite.com" required />
+                    <input type="url" name="cc_audit_url" placeholder="https://example.com" required />
                 </label>
                 <button type="submit"><?php echo esc_html($atts['submit_label']); ?></button>
             </form>
@@ -295,7 +314,7 @@ class RequestDesk_Audit_Capture {
             <h2>How to use</h2>
             <p>
                 Drop the <code>[cc_audit_landing]</code> shortcode on a page (e.g.
-                <code>contentcucumber.com/audit/</code>). Newsletter buttons should
+                <code>example.com/audit/</code>). Newsletter buttons should
                 link there with <code>?em={{contact.email}}&amp;dom={{contact.company}}</code>.
             </p>
             <p>

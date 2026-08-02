@@ -319,7 +319,7 @@ class RequestDesk_Asset_Hub {
                 <label class="rd-asset-field">
                     <span>Links to</span>
                     <input type="url" class="rd-asset-link regular-text" value="<?php echo esc_attr($a['link']); ?>"
-                           placeholder="https://contentcucumber.com/content-refresh-at-scale">
+                           placeholder="https://example.com/a-landing-page">
                 </label>
                 <label class="rd-asset-field">
                     <span>Alt text</span>

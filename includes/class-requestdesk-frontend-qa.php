@@ -438,7 +438,7 @@ class RequestDesk_Frontend_QA {
         // which reads the same aeo_data['faq_data'] post meta and emits one
         // FAQPage script in the document head. Emitting a second script here
         // produced duplicate FAQPage on every page where Frontend QA was
-        // enabled (caught by the contentcucumber.com 2026-05-09 SEO audit on
+        // enabled (caught by the 2026-05-09 SEO audit on
         // /contact/ and other pages with auto_display_qa_frontend = true).
         // Visible Q&A HTML above keeps Schema.org microdata
         // (itemtype Question/Answer) so AI crawlers and Google can still

@@ -32,8 +32,26 @@ class RequestDesk_QR_Redirect {
     /** Option holding the destination map: key => array(url, campaign). */
     const OPTION_MAP = 'requestdesk_qr_redirect_map';
 
-    /** Fallback used when no destination is configured yet. */
-    const DEFAULT_URL = 'https://contentcucumber.com/conference-coverage/video/';
+    /**
+     * Fallback used when no destination is configured yet.
+     *
+     * Deliberately NOT a real URL. This plugin installs on sites other than the
+     * one it was written for, so a vendor address baked in here would point
+     * someone else's visitors at us the moment their map was empty. An empty
+     * string means "resolve to this site's own home_url()" -- see default_url().
+     */
+    const DEFAULT_URL = '';
+
+    /**
+     * Where /go points when nothing is configured.
+     *
+     * Filterable so a site can set a real landing page without touching code:
+     *     add_filter('requestdesk_qr_default_url', fn() => home_url('/events/'));
+     */
+    public static function default_url() {
+        $url = self::DEFAULT_URL !== '' ? self::DEFAULT_URL : home_url('/');
+        return apply_filters('requestdesk_qr_default_url', $url);
+    }
 
     /** The path prefix the QR codes encode. */
     const PREFIX = 'go';
@@ -148,7 +166,7 @@ class RequestDesk_QR_Redirect {
             }
         }
 
-        return array('url' => self::DEFAULT_URL, 'campaign' => '');
+        return array('url' => self::default_url(), 'campaign' => '');
     }
 
     /**
@@ -262,7 +280,7 @@ class RequestDesk_QR_Redirect {
 
         $map = get_option(self::OPTION_MAP, array());
         if (!is_array($map) || empty($map)) {
-            $map = array('default' => array('url' => self::DEFAULT_URL, 'campaign' => ''));
+            $map = array('default' => array('url' => self::default_url(), 'campaign' => ''));
         }
 
         // Always render one spare row so a new event can be added without
@@ -318,7 +336,7 @@ class RequestDesk_QR_Redirect {
                                 <input type="url"
                                        name="<?php echo esc_attr(self::OPTION_MAP); ?>[<?php echo (int) $i; ?>][url]"
                                        value="<?php echo esc_attr($row['url']); ?>"
-                                       placeholder="https://contentcucumber.com/..."
+                                       placeholder="https://example.com/..."
                                        class="regular-text" style="width:100%;">
                             </td>
                             <td>

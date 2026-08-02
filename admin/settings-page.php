@@ -228,7 +228,7 @@ function requestdesk_settings_page() {
                     <tr>
                         <th scope="row">Live Site URL</th>
                         <td>
-                            <input type="url" name="promote_target_url" value="<?php echo esc_attr($settings['promote_target_url'] ?? ''); ?>" class="regular-text" placeholder="https://contentcucumber.com">
+                            <input type="url" name="promote_target_url" value="<?php echo esc_attr($settings['promote_target_url'] ?? ''); ?>" class="regular-text" placeholder="https://example.com">
                             <p class="description">The production site this Local site promotes posts to. No trailing slash needed.</p>
                         </td>
                     </tr>
