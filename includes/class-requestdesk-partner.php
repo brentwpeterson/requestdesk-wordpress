@@ -491,6 +491,30 @@ class RequestDesk_Partner {
 
         return $dir;
     }
+    /**
+     * Where partner logo files are read from during import.
+     *
+     * These are IMPORT SOURCE, not runtime assets. partner_import_entry()
+     * copies each file into the uploads directory, creates an attachment with
+     * wp_insert_attachment() and sets it as the partner's featured image, so
+     * once a partner is imported its logo lives in the media library like any
+     * other image. Nothing renders from this directory.
+     *
+     * It was inside the plugin, which meant 22 already-consumed logo files
+     * shipped in every release zip and sat on a public URL long after the
+     * import that needed them. Same defect as the case-study payload
+     * (7cdc731); this is the partner half.
+     *
+     * Follows p_import_dir() so logos and the JSON that references them cannot
+     * end up in different places. Filterable independently if they need to be
+     * separate:
+     *     add_filter('requestdesk_partner_logo_dir', fn() => '/srv/logos/');
+     */
+    private function p_logo_dir() {
+        $default = trailingslashit($this->p_import_dir()) . 'logos/';
+        return trailingslashit(apply_filters('requestdesk_partner_logo_dir', $default));
+    }
+
     private function p_legacy_path() { return plugin_dir_path(__FILE__) . 'data/partners-import.json'; }
 
     private function p_ensure_dirs() {
@@ -677,7 +701,7 @@ class RequestDesk_Partner {
      * from the original array importer.
      */
     private function partner_import_entry($partner) {
-        $logo_dir = plugin_dir_path(__FILE__) . 'data/logos/';
+        $logo_dir = $this->p_logo_dir();
 
         $existing = get_posts(array(
             'post_type'      => 'cc_partner',

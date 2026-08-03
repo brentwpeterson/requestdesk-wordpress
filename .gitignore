@@ -51,3 +51,18 @@ includes/data/import/case-studies/failed/*
 
 # CC's internal case-study pipeline state, not plugin code.
 includes/data/case-study-pipeline.json
+
+# Partner import source. Same reasoning as case-studies above: logos are copied
+# into the media library on import (wp_insert_attachment + set_post_thumbnail),
+# so the plugin copies are spent the moment a partner exists. Nothing renders
+# from these paths.
+includes/data/import/partners/*
+!includes/data/import/partners/.gitkeep
+!includes/data/import/partners/imported/
+!includes/data/import/partners/failed/
+includes/data/import/partners/imported/*
+!includes/data/import/partners/imported/.gitkeep
+includes/data/import/partners/failed/*
+!includes/data/import/partners/failed/.gitkeep
+includes/data/logos/
+includes/data/partner-ctas/
