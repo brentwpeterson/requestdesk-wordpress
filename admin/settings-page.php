@@ -50,6 +50,9 @@ function requestdesk_settings_page() {
             'auto_sync_on_publish' => isset($_POST['auto_sync_on_publish']),
             'auto_sync_on_update' => isset($_POST['auto_sync_on_update']),
             'enable_case_study_wizard' => isset($_POST['enable_case_study_wizard']),
+            // Gates the partner / case-study / promote / content-audit modules.
+            // See requestdesk_is_cc_site(). A wp-config constant still overrides it.
+            'enable_site_modules' => isset($_POST['enable_site_modules']),
             // Promote-to-Live: the live target this Local site pushes single posts to.
             'promote_target_url' => untrailingslashit(esc_url_raw($_POST['promote_target_url'] ?? '')),
             'promote_api_key' => sanitize_text_field($_POST['promote_api_key'] ?? ''),
@@ -185,6 +188,30 @@ function requestdesk_settings_page() {
                             </label>
                             <p class="description">
                                 Choose when posts should be automatically pushed to RequestDesk's RAG system
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Site-specific modules</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="enable_site_modules" value="1" <?php checked(!empty($settings['enable_site_modules'])); ?> <?php disabled(defined('REQUESTDESK_CC_FEATURES')); ?>>
+                                Enable Partners, Case Studies, Promote and Content Audit
+                            </label>
+                            <p class="description">
+                                These add admin menus and one-click importers that most installs have no use for,
+                                so they are off by default. Turning this on is what makes them appear.
+                                <?php if (defined('REQUESTDESK_CC_FEATURES')): ?>
+                                    <br><strong>Locked by wp-config.php</strong> &mdash;
+                                    <code>REQUESTDESK_CC_FEATURES</code> is defined as
+                                    <code><?php echo REQUESTDESK_CC_FEATURES ? 'true' : 'false'; ?></code>,
+                                    which overrides this checkbox.
+                                <?php endif; ?>
+                            </p>
+                            <p class="description">
+                                Until 2026-08-03 this was decided by a list of hostnames hardcoded in the plugin,
+                                which meant a customer's domains shipped in the source and a renamed or staging
+                                site silently lost its features. It is a setting now.
                             </p>
                         </td>
                     </tr>

@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.39.0
+ * Version: 2.40.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,19 +15,72 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.39.0');
+define('REQUESTDESK_VERSION', '2.40.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// CC-only modules (partner, case-study) gate by host or override constant.
-// Other sites with this plugin would otherwise expose CC's partner/case-study
-// admin menus and one-click importers loaded with CC data shipped in the plugin.
+// Site-specific modules (partner, case-study, promote, content-audit) are off
+// unless a site turns them on. They add admin menus and importers that most
+// installs have no use for.
+//
+// This used to be an allowlist of hostnames written into this file. That put a
+// customer's domains in the source of a distributed plugin -- readable by
+// everyone who installs it, and unchangeable without a code edit, so a staging
+// or renamed site silently lost its features. Configuration does not belong in
+// a repo. Removed 2026-08-03; see violation #290.
+//
+// Resolution order:
+//   1. REQUESTDESK_CC_FEATURES in wp-config.php  (deployment override, wins)
+//   2. the "Enable site-specific modules" setting (Settings -> RequestDesk)
+//   3. a one-time inference for installs that predate the setting
 function requestdesk_is_cc_site() {
     if (defined('REQUESTDESK_CC_FEATURES')) {
         return (bool) REQUESTDESK_CC_FEATURES;
     }
-    $host = parse_url(home_url(), PHP_URL_HOST);
-    return in_array($host, array('contentcucumber.com', 'www.contentcucumber.com', 'contentcucumber.local'), true);
+
+    $settings = get_option('requestdesk_settings', array());
+    if (is_array($settings) && array_key_exists('enable_site_modules', $settings)) {
+        return !empty($settings['enable_site_modules']);
+    }
+
+    return requestdesk_seed_site_modules_setting();
+}
+
+/**
+ * One-time migration for installs that predate the setting.
+ *
+ * Infers from CONTENT rather than hostname: a site that already holds
+ * cc_case_study or cc_partner posts was plainly using these modules, so turning
+ * them off underneath it would be a regression. Anything else defaults to off,
+ * which is the correct default for a module most installs do not want.
+ *
+ * Writes the answer to the setting so this never runs twice, and so the value
+ * becomes editable in admin like any other setting.
+ */
+function requestdesk_seed_site_modules_setting() {
+    global $wpdb;
+
+    $has_content = false;
+    // Direct query on purpose: post types are not registered yet at plugin load,
+    // and this runs once in the life of an install.
+    $found = $wpdb->get_var(
+        "SELECT ID FROM {$wpdb->posts}
+          WHERE post_type IN ('cc_case_study','cc_partner')
+            AND post_status NOT IN ('auto-draft','trash')
+          LIMIT 1"
+    );
+    if ($found) {
+        $has_content = true;
+    }
+
+    $settings = get_option('requestdesk_settings', array());
+    if (!is_array($settings)) {
+        $settings = array();
+    }
+    $settings['enable_site_modules'] = $has_content;
+    update_option('requestdesk_settings', $settings);
+
+    return $has_content;
 }
 
 // Load plugin files with error handling
