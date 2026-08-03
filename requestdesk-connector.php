@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.40.0
+ * Version: 2.40.1
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.40.0');
+define('REQUESTDESK_VERSION', '2.40.1');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -112,13 +112,12 @@ $plugin_files = array(
     'includes/class-requestdesk-stats-bar.php',
     'admin/stats-bar-settings-page.php',
     'includes/class-requestdesk-comparison-table.php',
-    'includes/class-requestdesk-partner.php',
     'includes/class-requestdesk-indexnow.php',
     'includes/class-requestdesk-audit-capture.php',
-    'includes/class-requestdesk-case-study.php',
-    'includes/class-requestdesk-case-study-wizard.php',
-    'includes/class-requestdesk-case-study-wizard-api.php',
     'includes/class-requestdesk-asset-hub.php'
+    // partner and case-study moved to $cc_only_files below. Leaving them here
+    // is what made the gate a no-op for them: require_once from this list runs
+    // first, so adding them to the gated list alone changes nothing.
 );
 
 // CC-only modules. These grew inside Content Cucumber's tree between 2.25.0
@@ -132,13 +131,32 @@ $plugin_files = array(
 // self-instantiates on require. Talk Commerce shares this plugin and should
 // not sprout a /go redirect or a Promote button it has no use for.
 //
-// To turn them on for another site, define REQUESTDESK_CC_FEATURES true in
-// wp-config.php, or add the host to requestdesk_is_cc_site() above.
+// To turn them on for a site: tick "Enable site-specific modules" in Settings
+// -> RequestDesk, or define REQUESTDESK_CC_FEATURES true in wp-config.php to
+// force it either way. (This used to say "add the host to
+// requestdesk_is_cc_site()". There are no hosts in here any more.)
 $cc_only_files = array(
     'includes/class-requestdesk-content-audit.php',
     'includes/class-requestdesk-promote.php',
     'includes/class-requestdesk-admin-columns.php',
-    'includes/class-requestdesk-qr-redirect.php'
+    'includes/class-requestdesk-qr-redirect.php',
+    // Partner and case-study belong here too. The comment at the top of this
+    // file has always named them as site-specific, and requestdesk_seed_site_
+    // modules_setting() infers the setting by looking for cc_case_study and
+    // cc_partner posts, so the whole gate is built around them. They were never
+    // in this list, so they loaded everywhere regardless.
+    //
+    // What that looked like: Talk Commerce went 2.15.0 -> 2.37.1 on 2026-08-03
+    // and came up serving an empty "Case Studies - Talk Commerce" archive at
+    // /our-work/case-studies/, because registering the post type registers its
+    // archive. Nothing was exposed, since that install has no cc_case_study
+    // posts, but a thin public URL appeared on a site that has no case studies
+    // and no use for the feature. Checking the four names above said the gate
+    // held; the gate did not cover what its own comment claimed.
+    'includes/class-requestdesk-partner.php',
+    'includes/class-requestdesk-case-study.php',
+    'includes/class-requestdesk-case-study-wizard.php',
+    'includes/class-requestdesk-case-study-wizard-api.php'
 );
 
 if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
