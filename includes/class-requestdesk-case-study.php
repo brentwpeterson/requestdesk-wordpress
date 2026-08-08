@@ -39,6 +39,7 @@ class RequestDesk_Case_Study {
         add_action('init', array($this, 'register_cpt'));
         add_action('init', array($this, 'register_taxonomies'));
         add_action('init', array($this, 'register_work_type_rewrites'), 20);
+        add_filter('term_link', array($this, 'work_type_term_link'), 10, 3);
         add_action('admin_init', array($this, 'maybe_run_data_migrations'));
         add_action('created_work_type', 'flush_rewrite_rules');
         add_action('delete_work_type', 'flush_rewrite_rules');
@@ -169,6 +170,44 @@ class RequestDesk_Case_Study {
             'index.php?post_type=cc_case_study&work_type=$matches[1]&paged=$matches[2]',
             'top'
         );
+    }
+
+    /**
+     * Point work_type term links at the pretty URL the rewrites already serve.
+     *
+     * register_taxonomy() above sets 'rewrite' => false so the taxonomy does not
+     * fight register_work_type_rewrites() over /our-work/. The side effect is
+     * that WordPress has no permastruct for these terms, so get_term_link()
+     * falls back to the raw query string — /?work_type=case-studies — even
+     * though /our-work/case-studies/ is the URL actually being served.
+     *
+     * Everything downstream of get_term_link() inherited that. Found 2026-08-08
+     * in wp-sitemap.xml, which was submitting /?work_type=case-studies to Google
+     * while the pretty URL appeared nowhere in the sitemap at all.
+     *
+     * Every current work_type term is covered, so no per-term guard is needed:
+     * register_work_type_rewrites() builds its pattern from get_terms(), and
+     * created_work_type / delete_work_type both flush, so the rules and the term
+     * list cannot drift. An earlier version of this method verified the slug
+     * against get_option('rewrite_rules') before rewriting the link, which was
+     * wrong twice over — the rules are added in memory at init and are not
+     * guaranteed to be in the persisted option, and the option stores the slug
+     * preg_quote()d ("case\-studies"), so a raw strpos never matched. The guard
+     * failed closed and every term silently kept its query-param link.
+     *
+     * @since 2.42.0
+     *
+     * @param string  $link     The term permalink.
+     * @param WP_Term $term     The term object.
+     * @param string  $taxonomy The taxonomy slug.
+     * @return string
+     */
+    public function work_type_term_link($link, $term, $taxonomy) {
+        if ($taxonomy !== 'work_type' || empty($term->slug)) {
+            return $link;
+        }
+
+        return home_url('/our-work/' . $term->slug . '/');
     }
 
     // =========================================================================
