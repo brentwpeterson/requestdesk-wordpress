@@ -147,6 +147,103 @@ class RequestDesk_Headless_API {
             'callback' => array($this, 'get_site'),
             'permission_callback' => array($this, 'verify_api_key')
         ));
+
+        // Video library. See RequestDesk_Video.
+        register_rest_route($this->namespace, '/headless/videos', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_videos'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'placement' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Filter by rd_video_placement term slug'
+                ),
+                'per_page' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'default' => 20,
+                    'minimum' => 1,
+                    'maximum' => 50
+                ),
+                'orderby' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'menu_order',
+                    'enum' => array('menu_order', 'date', 'title')
+                ),
+                'order' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'ASC',
+                    'enum' => array('ASC', 'DESC')
+                )
+            )
+        ));
+    }
+
+    /**
+     * Videos, optionally filtered to one placement.
+     *
+     * Returns an empty list rather than a 404 when the placement term does not
+     * exist. A page asking for a placement nobody has tagged yet is a normal
+     * state, not an error, and the Astro side renders nothing for an empty
+     * array. Erroring here would turn "no videos yet" into a broken page.
+     *
+     * Default order is menu_order ASC so the running order is editorial: drag
+     * to reorder in the admin list, no deploy. Date order is available but is
+     * rarely what a curated strip on a page wants.
+     */
+    public function get_videos($request) {
+        self::increment_request_count();
+        try {
+            if (!class_exists('RequestDesk_Video')) {
+                return new WP_Error(
+                    'videos_unavailable',
+                    'Video module is not enabled on this site.',
+                    array('status' => 501)
+                );
+            }
+
+            $placement = $request->get_param('placement');
+            $orderby   = $request->get_param('orderby') ?: 'menu_order';
+
+            $args = array(
+                'post_type'      => RequestDesk_Video::POST_TYPE,
+                'post_status'    => 'publish',
+                'posts_per_page' => $request->get_param('per_page') ?: 20,
+                'orderby'        => $orderby === 'menu_order' ? array('menu_order' => 'ASC', 'date' => 'DESC') : $orderby,
+                'order'          => $request->get_param('order') ?: 'ASC',
+                'no_found_rows'  => true,
+            );
+
+            if (!empty($placement)) {
+                $args['tax_query'] = array(array(
+                    'taxonomy' => RequestDesk_Video::TAXONOMY,
+                    'field'    => 'slug',
+                    'terms'    => sanitize_title($placement),
+                ));
+            }
+
+            $query  = new WP_Query($args);
+            $videos = array();
+            foreach ($query->posts as $post) {
+                $formatted = RequestDesk_Video::format_for_api($post);
+                // Drop rows with no id. A draft saved before the id was pasted
+                // must not reach the site as an empty player.
+                if ($formatted !== null) {
+                    $videos[] = $formatted;
+                }
+            }
+
+            return rest_ensure_response(array(
+                'videos'    => $videos,
+                'count'     => count($videos),
+                'placement' => $placement ?: null,
+            ));
+        } catch (Throwable $e) {
+            return new WP_Error('videos_failed', $e->getMessage(), array('status' => 500));
+        }
     }
 
     /**

@@ -5,6 +5,22 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.43.0] - 2026-08-20
+
+### Added
+- **`rd_video` post type and the `rd_video_placement` taxonomy.** A video library: a title, a YouTube id, an optional caption line, and the placements it belongs to. Headless only. `public => false` with `show_ui => true`, so it has an admin screen and no front-end URL, no archive, and no rewrite rules at all.
+- **`GET /requestdesk/v1/headless/videos`.** Takes `placement`, `per_page`, `orderby`, `order`. Default order is `menu_order ASC`, so the running order on a page is set by dragging rows in the admin rather than by editing code. Same API-key auth as the other headless routes.
+
+### Why
+Video ids were hardcoded in arrays inside individual Astro pages. Four pages on Talk Commerce held their own copy of the same iframe and the same ids, and they had already drifted apart: different heights, different `allow` lists, and only some marked `loading="lazy"`. Adding one video meant a code change and a ten minute container build.
+
+Placement is a taxonomy rather than a field on the page so the relationship points the right way. A page asks for a term and gets whatever currently carries it, so putting a video on a second page is a checkbox instead of a deploy.
+
+### Notes
+- Registered in the shared list, not `$cc_only_files`. The case-study incident in 2.37.1 was a CPT registering a public archive on a site with no content for it; this one registers no public URL of any kind, so an install that never adds a video gets an empty admin screen and nothing more.
+- Pasted URLs are normalized to the bare 11-character id on save (`watch?v=`, `youtu.be/`, `/embed/`, `/shorts/`, `/live/`). YouTube answers a malformed embed with a silently broken player rather than an error, so the id is cleaned on the way in rather than trusted.
+- The API drops any video with an empty id, so a draft saved before the id was pasted cannot reach a page as an empty player.
+
 ## [2.35.0] - 2026-08-01
 
 ### Changed
