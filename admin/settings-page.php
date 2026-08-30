@@ -574,3 +574,67 @@ curl -X POST \
     </script>
     <?php
 }
+
+/**
+ * SEO tab on the combined RequestDesk Settings screen.
+ *
+ * Site-wide SEO defaults live in the `requestdesk_seo_settings` option. The
+ * option existed before this screen did: class-requestdesk-seo-core.php
+ * registers it, but that class is not in the plugin's load list (the theme
+ * emits the meta tags on Content Cucumber), so there was never a place in
+ * wp-admin to set it. The cucumber-gp-child theme reads
+ * requestdesk_seo_settings[default_og_image] for every og:image /
+ * twitter:image / schema image fallback (theme 1.2.42), which is what makes
+ * this field worth a screen: changing the social card is an admin edit here,
+ * not a theme deploy.
+ *
+ * Saves merge into the existing option so any key the SEO core class also
+ * stores is preserved untouched.
+ *
+ * @since 2.44.0
+ */
+function requestdesk_seo_settings_tab() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $settings = get_option('requestdesk_seo_settings', array());
+    if (!is_array($settings)) {
+        $settings = array();
+    }
+
+    if (isset($_POST['requestdesk_save_seo_settings'])
+        && isset($_POST['requestdesk_seo_nonce'])
+        && wp_verify_nonce($_POST['requestdesk_seo_nonce'], 'requestdesk_seo_settings')) {
+        $settings['default_og_image'] = esc_url_raw(trim((string) ($_POST['default_og_image'] ?? '')));
+        update_option('requestdesk_seo_settings', $settings);
+        echo '<div class="notice notice-success"><p>SEO settings saved.</p></div>';
+    }
+
+    $og_image = isset($settings['default_og_image']) ? (string) $settings['default_og_image'] : '';
+    ?>
+    <form method="post" action="">
+        <?php wp_nonce_field('requestdesk_seo_settings', 'requestdesk_seo_nonce'); ?>
+        <h2>Social preview defaults</h2>
+        <table class="form-table" role="presentation">
+            <tr>
+                <th scope="row"><label for="default_og_image">Default OG image</label></th>
+                <td>
+                    <input type="url" id="default_og_image" name="default_og_image" class="regular-text code"
+                           value="<?php echo esc_attr($og_image); ?>"
+                           placeholder="https://example.com/wp-content/uploads/social-card.png">
+                    <p class="description">
+                        Used as the og:image / twitter:image for the homepage, archives, and any post or page without
+                        its own featured image. Paste the Media Library URL of a 1200&times;630 image.
+                        Leave blank to keep the theme fallback.
+                    </p>
+                    <?php if ($og_image !== '') : ?>
+                        <p><img src="<?php echo esc_url($og_image); ?>" alt="" style="max-width:360px;height:auto;border:1px solid #ccd0d4;"></p>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        </table>
+        <?php submit_button('Save SEO Settings', 'primary', 'requestdesk_save_seo_settings'); ?>
+    </form>
+    <?php
+}

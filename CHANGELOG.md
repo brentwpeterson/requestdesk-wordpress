@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.44.0] - 2026-08-30
+
+### Added
+- **SEO tab on the RequestDesk Settings screen** with a Default OG image field. The `requestdesk_seo_settings` option had no admin screen because `class-requestdesk-seo-core.php` is not in the load list; the cucumber-gp-child theme (1.2.42) now reads `default_og_image` from it for every social-preview fallback, so the field needed a home. Saves merge into the existing option.
+
 ## [2.43.0] - 2026-08-20
 
 ### Added

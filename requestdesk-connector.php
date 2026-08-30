@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.43.0
+ * Version: 2.44.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.43.0');
+define('REQUESTDESK_VERSION', '2.44.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -324,6 +324,7 @@ function requestdesk_combined_settings_page() {
         <nav class="nav-tab-wrapper">
             <a href="#general" class="nav-tab nav-tab-active" onclick="openTab(event, 'general')">General Settings</a>
             <a href="#aeo" class="nav-tab" onclick="openTab(event, 'aeo')">AEO Settings</a>
+            <a href="#seo" class="nav-tab" onclick="openTab(event, 'seo')">SEO</a>
             <a href="#homepage-hero" class="nav-tab" onclick="openTab(event, 'homepage-hero')">Homepage Hero</a>
             <a href="#stats-bar" class="nav-tab" onclick="openTab(event, 'stats-bar')">Stats Bar</a>
         </nav>
@@ -357,6 +358,15 @@ function requestdesk_combined_settings_page() {
             $aeo_content = preg_replace('/<\/div>\s*$/', '', $aeo_content);
 
             echo $aeo_content;
+            ?>
+        </div>
+
+        <!-- SEO Settings Tab (site-wide defaults read by the theme) -->
+        <div id="seo" class="tab-content" style="display: none;">
+            <?php
+            if (function_exists('requestdesk_seo_settings_tab')) {
+                requestdesk_seo_settings_tab();
+            }
             ?>
         </div>
 
