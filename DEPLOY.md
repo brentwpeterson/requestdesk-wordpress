@@ -30,6 +30,10 @@ into `wp-talk-commerce:/var/www/html/wp-content/plugins/requestdesk-connector/`,
 then prints the version it landed so you can confirm.
 
 - No flag is a dry run. It prints the exact commands and exits. Use it.
+- After any deploy: `./wp-infra/tc-status.sh` (from the workspace root) — containers,
+  plugin versions, file-permission scan, PHP fatals, and outside-in HTTP health in
+  one command, nonzero exit on any red. A deploy that prints success can still be
+  a 500 (2026-08-30); this is the check that would have said so.
 - SSH is `ssh -i ~/.ssh/lightsail-default.pem ubuntu@23.20.52.57`.
 - First-time install needs activating in wp-admin -> Plugins.
 - PHP changes sometimes need `docker restart wp-talk-commerce` on the box.
