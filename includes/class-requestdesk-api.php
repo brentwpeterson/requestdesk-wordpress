@@ -939,9 +939,14 @@ class RequestDesk_API {
                 return false;
             }
 
-            // Prepare file array
+            // Prepare file array. basename() must run on the URL PATH only:
+            // a signed CDN URL (e.g. a Canva export) carries a query string,
+            // and basename() on the full URL yields a "filename" ending in
+            // the signature, which media_handle_sideload rejects as an
+            // invalid file type — silently, returning false.
+            $url_path = parse_url($image_url, PHP_URL_PATH);
             $file_array = array(
-                'name' => basename($image_url),
+                'name' => basename($url_path ?: $image_url),
                 'tmp_name' => $temp_file
             );
 
