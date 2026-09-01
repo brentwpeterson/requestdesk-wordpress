@@ -851,6 +851,15 @@ class RequestDesk_API {
                 'author_failure_reason' => $author_failure_reason,
                 'post_date_set' => $post_date_set,
                 'post_date' => $post_date_actual,
+                // The status WordPress actually settled on, which is not always
+                // the one that was asked for: 'future' with a missing or past
+                // post_date is silently converted to 'publish'. Without this in
+                // the response a caller cannot tell a SCHEDULED post from a
+                // DRAFT or from one that just went live -- WP REST answers
+                // rest_forbidden for the first two and post-identity is a
+                // separate call. Two Talk Commerce posts published days early
+                // on 2026-09-01 before anyone could see which had happened.
+                'post_status' => get_post_status($post_id),
                 'language' => !empty($language) ? $language : null,
                 'translation_of' => $translation_of > 0 ? $translation_of : null
             ), 201);
