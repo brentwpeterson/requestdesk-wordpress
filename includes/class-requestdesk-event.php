@@ -147,9 +147,12 @@ class RequestDesk_Event {
     }
 
     /**
-     * public => false with show_ui => true, as for rd_video: a normal admin
-     * screen and no /rd_event/ URL to leak, index, or 404. 'editor' is on
-     * because the page body lives in post_content.
+     * A public post type: every event is a page at /events/<slug>/, rendered by
+     * the theme's normal single template, with an /events/ archive. A headless
+     * site (Talk Commerce) ignores the URLs and reads the API instead.
+     *
+     * Rewrite rules are flushed once per plugin version after registering, so
+     * the /events/ URLs work without anyone re-saving Settings > Permalinks.
      */
     public function register_cpt() {
         $labels = array(
@@ -169,16 +172,31 @@ class RequestDesk_Event {
 
         register_post_type(self::POST_TYPE, array(
             'labels'        => $labels,
-            'public'        => false,
+            'public'        => true,
             'show_ui'       => true,
             'show_in_menu'  => true,
-            'has_archive'   => false,
-            'rewrite'       => false,
-            'supports'      => array('title', 'editor', 'thumbnail'),
+            'has_archive'   => 'events',
+            // with_front false: a /blog/%postname%/ permalink structure must not
+            // turn this into /blog/events/.
+            'rewrite'       => array('slug' => 'events', 'with_front' => false),
+            'supports'      => array('title', 'editor', 'thumbnail', 'excerpt'),
             'menu_icon'     => 'dashicons-calendar-alt',
             'menu_position' => 27,
             'show_in_rest'  => true,
         ));
+
+        // Flush on wp_loaded, not here: flushing during init would rebuild the
+        // rules before other plugins have registered their post types and drop
+        // their URLs until the next flush.
+        add_action('wp_loaded', array(__CLASS__, 'maybe_flush_rewrites'));
+    }
+
+    public static function maybe_flush_rewrites() {
+        $version = REQUESTDESK_VERSION . '-events-public';
+        if (get_option('requestdesk_event_rewrite_version') !== $version) {
+            flush_rewrite_rules(false);
+            update_option('requestdesk_event_rewrite_version', $version);
+        }
     }
 
     public function add_meta_boxes() {
@@ -440,6 +458,7 @@ class RequestDesk_Event {
         $data = array(
             'id'           => $id,
             'slug'         => $post->post_name,
+            'permalink'    => get_permalink($post),
             'title'        => $post->post_title,
             'shortName'    => $short_name,
             'startDate'    => $start,
