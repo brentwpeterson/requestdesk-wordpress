@@ -123,7 +123,13 @@ class RequestDesk_Event {
             'hero_enabled' => array('section' => 'hero', 'type' => 'checkbox', 'label' => 'Homepage takeover',
                 'description' => 'Headline the homepage while this is the next upcoming event with this ticked.'),
             'hero_badge' => array('section' => 'hero', 'type' => 'text', 'label' => 'Badge', 'placeholder' => 'Live Interviews • Shoptalk Fall 2026'),
-            'hero_blurb' => array('section' => 'hero', 'type' => 'textarea', 'label' => 'Blurb'),
+            'hero_headline' => array('section' => 'hero', 'type' => 'text', 'label' => 'Headline',
+                'placeholder' => 'Brent and Isaac will be at Shoptalk Fall, September 29 - October 1',
+                'description' => 'Leave empty to use the short name and dates.'),
+            'hero_image' => array('section' => 'hero', 'type' => 'url', 'label' => 'Image',
+                'description' => 'Image for a homepage feature block. A site path or a full URL. Falls back to the featured image.'),
+            'hero_blurb' => array('section' => 'hero', 'type' => 'textarea', 'label' => 'Blurb',
+                'description' => 'A blank line starts a new paragraph.'),
             'hero_cta_text' => array('section' => 'hero', 'type' => 'text', 'label' => 'Button text', 'placeholder' => 'Book an Interview'),
             'hero_cta_url' => array('section' => 'hero', 'type' => 'url', 'label' => 'Button link',
                 'description' => 'Leave empty to link to the event page.'),
@@ -357,6 +363,12 @@ class RequestDesk_Event {
         $label = $upcoming ? 'Upcoming' : 'Past';
         if ($upcoming && self::get($post_id, 'hero_enabled') === '1') {
             $label .= ' · homepage';
+            // A theme's image-based homepage block passes over an event with no
+            // image, so say so where the editor will see it.
+            if (self::get($post_id, 'hero_image') === '' && !has_post_thumbnail($post_id)) {
+                echo esc_html($label) . ' <span style="color:#b32d2e;">(no image, skipped by image blocks)</span>';
+                return;
+            }
         }
         if (!$upcoming && self::get($post_id, 'recap_complete') !== '1') {
             $label .= ' · recap owed';
@@ -411,11 +423,15 @@ class RequestDesk_Event {
         $organizer_name = self::get($id, 'organizer_name');
         $hero = null;
         if (self::get($id, 'hero_enabled') === '1') {
+            $blurb = self::get($id, 'hero_blurb');
             $hero = array(
-                'badge'   => self::get($id, 'hero_badge'),
-                'blurb'   => self::get($id, 'hero_blurb'),
-                'ctaText' => self::get($id, 'hero_cta_text'),
-                'ctaUrl'  => self::get($id, 'hero_cta_url'),
+                'badge'      => self::get($id, 'hero_badge'),
+                'headline'   => self::get($id, 'hero_headline') ?: $short_name . ', ' . self::format_date_range($start, $end),
+                'image'      => self::get($id, 'hero_image') ?: (string) get_the_post_thumbnail_url($id, 'full'),
+                'blurb'      => $blurb,
+                'paragraphs' => array_values(array_filter(array_map('trim', preg_split('/\R\s*\R/', $blurb)), 'strlen')),
+                'ctaText'    => self::get($id, 'hero_cta_text'),
+                'ctaUrl'     => self::get($id, 'hero_cta_url'),
             );
         }
 
@@ -494,6 +510,62 @@ class RequestDesk_Event {
             add_filter('the_content', 'wptexturize', $priority);
         }
         return $rendered;
+    }
+
+    /**
+     * The next upcoming published event with "Homepage takeover" ticked, shaped
+     * as format_for_api() returns it, or null when none qualifies.
+     *
+     * For themes that render WordPress directly rather than reading the
+     * headless API. $today (Y-m-d, UTC) exists so the rule can
+     * be checked against another date without editing any event.
+     *
+     * $require_image skips takeover events with no image, for a layout that
+     * cannot render without one. Without it, one imageless event would hold
+     * the slot and hide the next event that does have an image.
+     */
+    public static function next_homepage_event($today = null, $require_image = false) {
+        $today = $today ?: gmdate('Y-m-d');
+        $query = new WP_Query(array(
+            'post_type'      => self::POST_TYPE,
+            'post_status'    => 'publish',
+            'posts_per_page' => -1,
+            'no_found_rows'  => true,
+        ));
+
+        $next = null;
+        foreach ($query->posts as $post) {
+            $event = self::format_for_api($post, false);
+            if ($event === null || $event['hero'] === null || $event['endDate'] < $today) {
+                continue;
+            }
+            if ($require_image && $event['hero']['image'] === '') {
+                continue;
+            }
+            if ($next === null || strcmp($event['startDate'], $next['startDate']) < 0) {
+                $next = $event;
+            }
+        }
+        return $next;
+    }
+
+    /** "September 15, 2026", "August 10-12, 2026", "September 29 - October 1, 2026". Matches the Astro side. */
+    public static function format_date_range($start, $end) {
+        $a = DateTime::createFromFormat('!Y-m-d', $start, new DateTimeZone('UTC'));
+        $b = DateTime::createFromFormat('!Y-m-d', $end ?: $start, new DateTimeZone('UTC'));
+        if (!$a || !$b) {
+            return '';
+        }
+        if ($start === $end || !$end) {
+            return $a->format('F j, Y');
+        }
+        if ($a->format('Y-m') === $b->format('Y-m')) {
+            return $a->format('F j') . '-' . $b->format('j, Y');
+        }
+        if ($a->format('Y') === $b->format('Y')) {
+            return $a->format('F j') . ' - ' . $b->format('F j, Y');
+        }
+        return $a->format('F j, Y') . ' - ' . $b->format('F j, Y');
     }
 
     /** Upcoming events soonest first, then past events most recent first. */

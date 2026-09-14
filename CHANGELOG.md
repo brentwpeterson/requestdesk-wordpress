@@ -22,6 +22,9 @@ Talk Commerce kept its events in a TypeScript array and one hand-built Astro pag
 - An event with no start date or city is left out of the API, so a half-filled draft cannot reach a page with no dates.
 - Registered in the shared list, not `$cc_only_files`, for the same reason as `rd_video`: no public URL of any kind.
 - `RequestDesk_Event::save_values()` applies the editor's sanitizing rules, so an importer seeding events goes through the same path as the meta box.
+- **For themes that render WordPress directly:** `RequestDesk_Event::next_homepage_event($today = null, $require_image = false)` returns the next upcoming takeover event, and `format_date_range()` formats dates the same way the Astro side does. contentcucumber.com's `event-feature` homepage section uses it (with `$require_image`) in place of the hand-written eTail Boston block that stayed up after the show.
+- Homepage takeover gained a headline and an image field; the API's `hero` now carries `headline` (short name and dates when empty), `image` (falls back to the featured image) and `paragraphs` (the blurb split on blank lines). The admin list flags a takeover event with no image, since image blocks pass over it.
+- The body comes back without `wptexturize`, so migrated copy keeps its straight quotes and hyphens.
 
 ## [2.44.0] - 2026-08-30
 
