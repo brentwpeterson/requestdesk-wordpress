@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.44.2
+ * Version: 2.45.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.44.2');
+define('REQUESTDESK_VERSION', '2.45.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -119,7 +119,9 @@ $plugin_files = array(
     // public URL and no archive (public => false), so an install that has no
     // videos gets an empty admin screen and nothing else. That is the exact
     // failure the case-study incident above was about, and it cannot happen here.
-    'includes/class-requestdesk-video.php'
+    'includes/class-requestdesk-video.php',
+    // Shared for the same reason as video: rd_event registers no public URL.
+    'includes/class-requestdesk-event.php'
     // partner and case-study moved to $cc_only_files below. Leaving them here
     // is what made the gate a no-op for them: require_once from this list runs
     // first, so adding them to the gated list alone changes nothing.
@@ -257,7 +259,8 @@ function requestdesk_init() {
         'RequestDesk_Audit_Capture',
         'RequestDesk_Promote',
         'RequestDesk_Admin_Columns',
-        'RequestDesk_Video'
+        'RequestDesk_Video',
+        'RequestDesk_Event'
     );
 
     foreach ($aeo_classes as $class_name) {

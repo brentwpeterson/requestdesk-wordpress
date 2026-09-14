@@ -180,6 +180,41 @@ class RequestDesk_Headless_API {
                 )
             )
         ));
+
+        // Events. See RequestDesk_Event.
+        register_rest_route($this->namespace, '/headless/events', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_events'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'when' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'all',
+                    'enum' => array('all', 'upcoming', 'past')
+                ),
+                'per_page' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'default' => 100,
+                    'minimum' => 1,
+                    'maximum' => 100
+                )
+            )
+        ));
+
+        register_rest_route($this->namespace, '/headless/events/(?P<slug>[a-zA-Z0-9-]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_event'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'slug' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'description' => 'Event slug'
+                )
+            )
+        ));
     }
 
     /**
@@ -243,6 +278,102 @@ class RequestDesk_Headless_API {
             ));
         } catch (Throwable $e) {
             return new WP_Error('videos_failed', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * Published events, upcoming soonest first, then past most recent first.
+     *
+     * The list leaves out each event's rendered body to stay small; the single
+     * route carries it. `upcoming` is computed per request from end_date, so
+     * `when=upcoming` is always today's answer rather than whatever was true at
+     * the last save.
+     */
+    public function get_events($request) {
+        self::increment_request_count();
+        try {
+            if (!class_exists('RequestDesk_Event')) {
+                return new WP_Error(
+                    'events_unavailable',
+                    'Event module is not enabled on this site.',
+                    array('status' => 501)
+                );
+            }
+
+            $when     = $request->get_param('when') ?: 'all';
+            $per_page = $request->get_param('per_page') ?: 100;
+
+            $query = new WP_Query(array(
+                'post_type'      => RequestDesk_Event::POST_TYPE,
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'no_found_rows'  => true,
+            ));
+
+            $events = array();
+            foreach ($query->posts as $post) {
+                $formatted = RequestDesk_Event::format_for_api($post, false);
+                if ($formatted === null) {
+                    continue;
+                }
+                if ($when === 'upcoming' && !$formatted['upcoming']) {
+                    continue;
+                }
+                if ($when === 'past' && $formatted['upcoming']) {
+                    continue;
+                }
+                $events[] = $formatted;
+            }
+
+            $events = array_slice(RequestDesk_Event::sort_for_api($events), 0, $per_page);
+
+            return rest_ensure_response(array(
+                'events' => $events,
+                'count'  => count($events),
+                'when'   => $when,
+            ));
+        } catch (Throwable $e) {
+            return new WP_Error('events_failed', $e->getMessage(), array('status' => 500));
+        }
+    }
+
+    /**
+     * One published event by slug, with its rendered body. An event missing its
+     * start date or city answers 404, the same as one that does not exist,
+     * because the list route leaves it out too.
+     */
+    public function get_event($request) {
+        self::increment_request_count();
+        try {
+            if (!class_exists('RequestDesk_Event')) {
+                return new WP_Error(
+                    'events_unavailable',
+                    'Event module is not enabled on this site.',
+                    array('status' => 501)
+                );
+            }
+
+            $slug  = sanitize_title($request->get_param('slug'));
+            $query = new WP_Query(array(
+                'post_type'      => RequestDesk_Event::POST_TYPE,
+                'post_status'    => 'publish',
+                'name'           => $slug,
+                'posts_per_page' => 1,
+                'no_found_rows'  => true,
+            ));
+
+            $formatted = empty($query->posts) ? null : RequestDesk_Event::format_for_api($query->posts[0], true);
+            if ($formatted === null) {
+                return new WP_Error(
+                    'event_not_found',
+                    'Event not found with slug: ' . $slug,
+                    array('status' => 404)
+                );
+            }
+
+            return rest_ensure_response(array('event' => $formatted));
+        } catch (Throwable $e) {
+            return new WP_Error('event_failed', $e->getMessage(), array('status' => 500));
         }
     }
 

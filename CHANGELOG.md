@@ -5,6 +5,21 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.45.0] - 2026-09-14
+
+### Added
+- **`rd_event` post type.** One conference or show: start and end dates, venue and address, who is recording, our role, organizer, speakers, the page lead and body, banner and background video, events-list copy for before and after, the form (booking while upcoming, always, or none), and an optional homepage takeover. Headless only, like `rd_video`: an admin screen with no front-end URL, archive or rewrite rules. The admin list shows dates and a derived status (upcoming, past, homepage, recap owed) and flags in red any event missing a start date or city.
+- **`GET /requestdesk/v1/headless/events`** (`when` = all, upcoming or past; `per_page` up to 100) and **`GET /requestdesk/v1/headless/events/<slug>`** (includes the rendered body). Upcoming events come back soonest first, then past events most recent first.
+
+### Why
+Talk Commerce kept its events in a TypeScript array and one hand-built Astro page per event, and computed the homepage headline from that array at build time. The headline changed only on a deploy, so eTail Boston stayed on the homepage after the show ended. Reading events from WordPress per request means an event added in wp-admin appears with no deploy and leaves the homepage the day after it ends.
+
+### Notes
+- Upcoming or past is never stored. It is derived from `end_date` on every read, in UTC, and the event counts as past from the day after its end date.
+- An event with no start date or city is left out of the API, so a half-filled draft cannot reach a page with no dates.
+- Registered in the shared list, not `$cc_only_files`, for the same reason as `rd_video`: no public URL of any kind.
+- `RequestDesk_Event::save_values()` applies the editor's sanitizing rules, so an importer seeding events goes through the same path as the meta box.
+
 ## [2.44.0] - 2026-08-30
 
 ### Added
