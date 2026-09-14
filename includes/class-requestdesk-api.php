@@ -174,6 +174,41 @@ class RequestDesk_API {
             )
         ));
 
+        // Create or update one event (rd_event) by slug. /publish only writes
+        // regular posts and cannot set a post type or the event fields.
+        register_rest_route($this->namespace, '/events', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'upsert_event'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'slug' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'description' => 'Event slug. An existing event with this slug is updated in place.'
+                ),
+                'title' => array(
+                    'required' => true,
+                    'type' => 'string'
+                ),
+                'content' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Page body (HTML). Omit to leave an existing body unchanged.'
+                ),
+                'status' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'draft',
+                    'enum' => array('draft', 'publish', 'pending', 'private')
+                ),
+                'meta' => array(
+                    'required' => false,
+                    'type' => 'object',
+                    'description' => 'Event fields keyed as in RequestDesk_Event::fields(). Only keys sent are written.'
+                )
+            )
+        ));
+
         // Pull categories endpoint
         register_rest_route($this->namespace, '/pull-categories', array(
             'methods' => 'GET',
@@ -987,6 +1022,87 @@ class RequestDesk_API {
 
             return false;
         }
+    }
+
+    /**
+     * Create or update one event by slug.
+     *
+     * Events live in the database, and a site's files and database reach
+     * production by different routes (Content Cucumber deploys files only), so
+     * an event built on a local copy never arrives on its own. This route is how
+     * an event gets onto a live site without wp-admin: the same API key as
+     * /publish, the same sanitizing as the editor (RequestDesk_Event::save_values),
+     * and only the meta keys sent are written, so an update can touch one field.
+     *
+     * The response carries the event as the headless API returns it, so a
+     * caller can confirm what the site will show rather than trusting "success".
+     */
+    public function upsert_event($request) {
+        if (!class_exists('RequestDesk_Event') || !post_type_exists(RequestDesk_Event::POST_TYPE)) {
+            return new WP_Error('events_unavailable', 'Event module is not enabled on this site.', array('status' => 501));
+        }
+
+        $slug  = sanitize_title((string) $request->get_param('slug'));
+        $title = sanitize_text_field((string) $request->get_param('title'));
+        if ($slug === '' || $title === '') {
+            return new WP_Error('invalid_event', 'slug and title are required.', array('status' => 400));
+        }
+
+        $meta = $request->get_param('meta');
+        if ($meta !== null && !is_array($meta)) {
+            return new WP_Error('invalid_meta', 'meta must be an object of event fields.', array('status' => 400));
+        }
+        $unknown = array_diff(array_keys((array) $meta), array_keys(RequestDesk_Event::fields()));
+        if (!empty($unknown)) {
+            return new WP_Error('unknown_meta', 'Unknown event fields: ' . implode(', ', $unknown), array('status' => 400));
+        }
+
+        // Statuses listed explicitly, not 'any': this request has no logged-in
+        // user, and WP_Query drops a non-public post from a by-name lookup unless
+        // its status was asked for by name. With 'any', updating a draft missed
+        // it and created a duplicate (caught testing on CC local).
+        $existing = get_posts(array(
+            'post_type'   => RequestDesk_Event::POST_TYPE,
+            'name'        => $slug,
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
+            'numberposts' => 1,
+        ));
+
+        $postarr = array(
+            'post_type'   => RequestDesk_Event::POST_TYPE,
+            'post_title'  => $title,
+            'post_name'   => $slug,
+            'post_status' => $request->get_param('status') ?: 'draft',
+        );
+        if ($request->get_param('content') !== null) {
+            $postarr['post_content'] = wp_kses_post((string) $request->get_param('content'));
+        }
+
+        if ($existing) {
+            $postarr['ID'] = $existing[0]->ID;
+            $post_id = wp_update_post(wp_slash($postarr), true);
+        } else {
+            $post_id = wp_insert_post(wp_slash($postarr), true);
+        }
+        if (is_wp_error($post_id)) {
+            return new WP_Error('event_save_failed', $post_id->get_error_message(), array('status' => 500));
+        }
+
+        if (!empty($meta)) {
+            RequestDesk_Event::save_values($post_id, $meta);
+        }
+
+        $post = get_post($post_id);
+        return rest_ensure_response(array(
+            'success'   => true,
+            'action'    => $existing ? 'updated' : 'created',
+            'post_id'   => $post_id,
+            'status'    => $post->post_status,
+            'permalink' => get_permalink($post),
+            // null when the event still lacks a start date or city; the site
+            // leaves such an event out, so say so instead of reporting success alone.
+            'event'     => RequestDesk_Event::format_for_api($post, true),
+        ));
     }
 
     /**
