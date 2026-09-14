@@ -33,7 +33,15 @@ class RequestDesk_Event {
     const NONCE_FIELD  = 'requestdesk_event_nonce';
 
     public function __construct() {
-        add_action('init', array($this, 'register_cpt'));
+        // requestdesk_init() builds this class from inside the 'init' action.
+        // A callback added to 'init' at that moment lands on the priority
+        // WordPress is already iterating and never runs, so the post type
+        // silently never registered. Register directly once init has started.
+        if (did_action('init')) {
+            $this->register_cpt();
+        } else {
+            add_action('init', array($this, 'register_cpt'));
+        }
         add_action('add_meta_boxes', array($this, 'add_meta_boxes'));
         add_action('save_post_' . self::POST_TYPE, array($this, 'save_meta'), 10, 2);
         add_filter('manage_' . self::POST_TYPE . '_posts_columns', array($this, 'admin_columns'));

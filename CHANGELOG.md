@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Why
 Talk Commerce kept its events in a TypeScript array and one hand-built Astro page per event, and computed the homepage headline from that array at build time. The headline changed only on a deploy, so eTail Boston stayed on the homepage after the show ended. Reading events from WordPress per request means an event added in wp-admin appears with no deploy and leaves the homepage the day after it ends.
 
+### Fixed
+- **`rd_video` and `rd_video_placement` never registered (since 2.43.0).** `requestdesk_init()` constructs the module classes inside the `init` action, and the video class hooked its registration onto `init` from there. A callback added at the priority WordPress is already running is skipped, so the post type and taxonomy silently did not exist: no Videos admin screen on any site, while `/headless/videos` answered with an empty list. Both `RequestDesk_Video` and `RequestDesk_Event` now register directly when `init` has already started. Found on Content Cucumber local, where `post_type_exists('rd_video')` returned false with the class loaded.
+
 ### Notes
 - Upcoming or past is never stored. It is derived from `end_date` on every read, in UTC, and the event counts as past from the day after its end date.
 - An event with no start date or city is left out of the API, so a half-filled draft cannot reach a page with no dates.
