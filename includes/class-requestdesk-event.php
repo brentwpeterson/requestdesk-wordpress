@@ -469,10 +469,31 @@ class RequestDesk_Event {
         );
 
         if ($include_content) {
-            $data['content'] = apply_filters('the_content', $post->post_content);
+            $data['content'] = self::render_content($post->post_content);
         }
 
         return $data;
+    }
+
+    /**
+     * the_content without wptexturize.
+     *
+     * The body is copy the consuming site already owns and edits in its own
+     * voice. wptexturize rewrote it on the way out: straight apostrophes became
+     * curly ones and "2:40 PM - 3:00 PM" gained an en dash, so migrated pages
+     * no longer matched their source word for word. Everything else in
+     * the_content (paragraphs, embeds, shortcodes) still runs.
+     */
+    private static function render_content($content) {
+        $priority = has_filter('the_content', 'wptexturize');
+        if ($priority !== false) {
+            remove_filter('the_content', 'wptexturize', $priority);
+        }
+        $rendered = apply_filters('the_content', $content);
+        if ($priority !== false) {
+            add_filter('the_content', 'wptexturize', $priority);
+        }
+        return $rendered;
     }
 
     /** Upcoming events soonest first, then past events most recent first. */
