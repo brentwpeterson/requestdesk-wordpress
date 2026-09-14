@@ -81,6 +81,8 @@ class RequestDesk_Event {
                 'description' => 'The paragraph under the headline. The main editor above holds the rest of the page.'),
             'banner_image' => array('section' => 'page', 'type' => 'url', 'label' => 'Banner image',
                 'description' => 'Full-width image above the headline. A site path such as /images/events/logo.png, or a full URL.'),
+            'banner_background' => array('section' => 'page', 'type' => 'color', 'label' => 'Banner background', 'placeholder' => '#0033FF',
+                'description' => 'Optional hex color for a band behind the banner, for a logo that needs one (a white logo). Leave empty to show the image on its own.'),
             'bg_video' => array('section' => 'page', 'type' => 'url', 'label' => 'Background video',
                 'description' => 'Looping header video, muted. Also plays behind the homepage takeover.'),
             'bg_poster' => array('section' => 'page', 'type' => 'url', 'label' => 'Background video poster'),
@@ -295,6 +297,8 @@ class RequestDesk_Event {
                 return '';
             case 'url':
                 return esc_url_raw(trim((string) $raw));
+            case 'color':
+                return (string) sanitize_hex_color(trim((string) $raw));
             case 'textarea':
                 return sanitize_textarea_field((string) $raw);
             case 'select':
@@ -433,6 +437,7 @@ class RequestDesk_Event {
             'headline'     => self::get($id, 'headline'),
             'lead'         => self::get($id, 'lead'),
             'bannerImage'  => self::get($id, 'banner_image'),
+            'bannerBackground' => self::get($id, 'banner_background'),
             'bgVideo'      => self::get($id, 'bg_video'),
             'bgPoster'     => self::get($id, 'bg_poster'),
             'cardUpcoming' => self::get($id, 'card_upcoming'),
