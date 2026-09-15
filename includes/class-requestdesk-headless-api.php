@@ -917,13 +917,17 @@ class RequestDesk_Headless_API {
         $settings = get_option('requestdesk_settings', array());
         $headless_settings = get_option('requestdesk_headless_settings', array());
 
-        // Use headless-specific API key if set, otherwise fall back to main API key
-        $api_key = $headless_settings['api_key'] ?? '';
-        if (empty($api_key)) {
-            $api_key = $settings['api_key'] ?? '';
-        }
+        // Accept the headless key or the main RequestDesk key. The main key already
+        // authorizes every write route (/publish, /events), so refusing it on these
+        // read-only routes protected nothing. It did break tooling that holds only
+        // the main key: on Talk Commerce, where a separate headless key is set,
+        // the post-event check could create events but not read them back.
+        $accepted_keys = array_values(array_filter(array(
+            (string) ($headless_settings['api_key'] ?? ''),
+            (string) ($settings['api_key'] ?? ''),
+        ), 'strlen'));
 
-        if (empty($api_key)) {
+        if (empty($accepted_keys)) {
             return new WP_Error(
                 'no_api_key',
                 'Headless API key not configured. Go to Settings > RequestDesk > Headless API to set one.',
@@ -947,14 +951,18 @@ class RequestDesk_Headless_API {
             $provided_key = $request->get_param('api_key');
         }
 
-        if (empty($provided_key) || !hash_equals($api_key, $provided_key)) {
-            return new WP_Error(
-                'invalid_api_key',
-                'Invalid API key',
-                array('status' => 401)
-            );
+        if (!empty($provided_key)) {
+            foreach ($accepted_keys as $accepted_key) {
+                if (hash_equals($accepted_key, (string) $provided_key)) {
+                    return true;
+                }
+            }
         }
 
-        return true;
+        return new WP_Error(
+            'invalid_api_key',
+            'Invalid API key',
+            array('status' => 401)
+        );
     }
 }
