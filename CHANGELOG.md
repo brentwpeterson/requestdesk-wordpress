@@ -5,6 +5,22 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.46.0] - 2026-09-16
+
+### Added
+- **Yoast SEO compatibility for schema.** With Yoast SEO (free or Premium) active, the connector no longer prints its own `application/ld+json` blocks next to Yoast's graph. The FAQPage goes into Yoast's `@graph` through `wpseo_schema_graph_pieces` as its own node (`<permalink>#requestdesk-faq`, `isPartOf` Yoast's WebPage), so the page carries one connected graph. Case study Article (site-module installs) is added the same way (`#requestdesk-case-study`), or its `about` and `review` are merged into Yoast's Article when Yoast prints one for that post type. The home-page ProfessionalService block is not printed on a Yoast site, since Yoast's Organization node is the site entity.
+- **Setting:** AEO Settings, Schema Markup Generation, "Yoast SEO Compatibility". Unchecked by default, which defers to Yoast. Checking it prints the old standalone blocks even with Yoast active.
+
+### Why
+Installing the connector on a Yoast site (Support for Stepdads, t2373) stacked a second, disconnected schema graph beside Yoast's on every post with FAQ data and on the home page.
+
+### Notes
+- Without Yoast nothing changes. On a local WordPress with no Yoast, 2.45.0 and 2.46.0 rendered byte-identical HTML for a post with FAQ data and for the home page.
+- A post that already has a Yoast FAQ block keeps only Yoast's FAQ (Yoast turns the WebPage node into FAQPage), so the page never carries two FAQPages.
+- Deferral applies only on a request where Yoast built its graph. If Yoast's JSON-LD is switched off (`wpseo_json_ld_output`), the connector prints its standalone blocks as before, so the FAQ is not lost.
+- Meta tags: the connector prints no title, description, canonical, robots, Open Graph or Twitter tags of its own (`RequestDesk_SEO_Core` is not in the load list), so there is nothing to duplicate Yoast's. Checked on the rendered page with Yoast active, one of each.
+- `RequestDesk_AEO_Core::__construct()` takes an optional `$register_hooks` (default true) so the graph builder can read FAQ data without adding a second `wp_head` callback mid-`wp_head`. `RequestDesk_Case_Study::build_schema()` is the shared schema builder.
+
 ## [2.45.0] - 2026-09-14
 
 ### Added

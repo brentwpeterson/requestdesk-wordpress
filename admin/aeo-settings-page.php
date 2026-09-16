@@ -29,6 +29,7 @@ function requestdesk_aeo_settings_page() {
             'auto_optimize_on_publish' => isset($_POST['auto_optimize_on_publish']),
             'auto_optimize_on_update' => isset($_POST['auto_optimize_on_update']),
             'generate_faq_schema' => isset($_POST['generate_faq_schema']),
+            'schema_standalone_with_yoast' => isset($_POST['schema_standalone_with_yoast']),
             'extract_qa_pairs' => isset($_POST['extract_qa_pairs']),
             'track_citations' => isset($_POST['track_citations']),
             'monitor_freshness' => isset($_POST['monitor_freshness']),
@@ -50,6 +51,7 @@ function requestdesk_aeo_settings_page() {
         'auto_optimize_on_publish' => true,
         'auto_optimize_on_update' => false,
         'generate_faq_schema' => true,
+        'schema_standalone_with_yoast' => false,
         'extract_qa_pairs' => true,
         'track_citations' => true,
         'monitor_freshness' => true,
@@ -264,6 +266,24 @@ function requestdesk_aeo_settings_page() {
                             </label>
                             <p class="description">
                                 Creates schema.org FAQ markup for extracted Q&A pairs. Helps AI engines understand your content structure.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Yoast SEO Compatibility</th>
+                        <td>
+                            <?php $yoast_active = class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::is_yoast_active(); ?>
+                            <label>
+                                <input type="checkbox" name="schema_standalone_with_yoast" value="1" <?php checked(!empty($settings['schema_standalone_with_yoast']), true); ?>>
+                                Print RequestDesk's own schema blocks even when Yoast SEO is active
+                            </label>
+                            <p class="description">
+                                Leave unchecked (recommended). With Yoast SEO active, RequestDesk adds its FAQPage to Yoast's schema graph so each page carries one connected graph, and skips the home-page ProfessionalService block because Yoast's Organization already describes the site.
+                                Check this only to go back to separate RequestDesk schema blocks next to Yoast's.
+                                Sites without Yoast are not affected by this setting.
+                            </p>
+                            <p class="description">
+                                Yoast SEO on this site: <strong><?php echo $yoast_active ? 'active' : 'not active'; ?></strong>
                             </p>
                         </td>
                     </tr>

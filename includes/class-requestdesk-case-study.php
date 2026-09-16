@@ -557,8 +557,26 @@ class RequestDesk_Case_Study {
     // =========================================================================
     public function output_schema() {
         if (!is_singular('cc_case_study')) return;
-        $post_id = get_queried_object_id();
 
+        // Yoast SEO active and its graph was built: the Article went into that
+        // graph (RequestDesk_Yoast_Schema). Without Yoast this is always false.
+        if (class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::should_skip_standalone()) {
+            return;
+        }
+
+        $schema = self::build_schema(get_queried_object_id());
+
+        echo "\n<script type=\"application/ld+json\">" . wp_json_encode($schema, JSON_UNESCAPED_SLASHES) . "</script>\n";
+    }
+
+    /**
+     * The case study Article schema for one post. Shared by the standalone
+     * wp_head output above and the Yoast graph integration.
+     *
+     * @param int $post_id
+     * @return array
+     */
+    public static function build_schema($post_id) {
         $client_name  = get_post_meta($post_id, '_cc_cs_client_name', true);
         $client_url   = get_post_meta($post_id, '_cc_cs_client_url', true);
         $aeo          = get_post_meta($post_id, '_cc_cs_aeo_summary', true);
@@ -618,7 +636,7 @@ class RequestDesk_Case_Study {
             $schema['review']['author'] = array_filter($schema['review']['author']);
         }
 
-        echo "\n<script type=\"application/ld+json\">" . wp_json_encode($schema, JSON_UNESCAPED_SLASHES) . "</script>\n";
+        return $schema;
     }
 
     // =========================================================================

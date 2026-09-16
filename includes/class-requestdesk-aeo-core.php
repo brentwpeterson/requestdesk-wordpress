@@ -12,7 +12,18 @@ class RequestDesk_AEO_Core {
     private $freshness_tracker;
     private $citation_tracker;
 
-    public function __construct() {
+    /**
+     * @param bool $register_hooks Pass false for a data-only instance. The
+     *        Yoast graph piece builds one while wp_head is running, and a
+     *        hooked instance created there would add a second wp_head
+     *        callback in the middle of wp_head. Default true keeps every
+     *        existing caller unchanged.
+     */
+    public function __construct($register_hooks = true) {
+        if (!$register_hooks) {
+            return;
+        }
+
         // Hook into WordPress actions
         add_action('wp_head', array($this, 'output_schema_markup'));
         add_action('save_post', array($this, 'handle_post_save'), 10, 2);
@@ -340,6 +351,13 @@ class RequestDesk_AEO_Core {
      * Output schema markup in head
      */
     public function output_schema_markup() {
+        // Yoast SEO active and it already built its graph on this request:
+        // the FAQPage went into that graph (RequestDesk_Yoast_Schema), so no
+        // standalone blocks here. Without Yoast this is always false.
+        if (class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::should_skip_standalone()) {
+            return;
+        }
+
         // CC-FULL-02: emit ProfessionalService + OfferCatalog on the home
         // page so AI engines have an explicit entity for what the site
         // sells. Additive and isolated: its own ld+json block, runs before
@@ -372,6 +390,21 @@ class RequestDesk_AEO_Core {
             );
             echo '</script>' . "\n";
         }
+    }
+
+    /**
+     * The stored FAQPage for a post with question names cleaned, exactly as
+     * output_schema_markup() prints it. Used by the Yoast graph integration.
+     *
+     * @param int $post_id
+     * @return array Empty array when the post has no FAQ data.
+     */
+    public function get_clean_faq_schema($post_id) {
+        $aeo_data = $this->get_aeo_data($post_id);
+        if (empty($aeo_data['faq_data'])) {
+            return array();
+        }
+        return $this->clean_faq_question_names($aeo_data['faq_data']);
     }
 
     /**
