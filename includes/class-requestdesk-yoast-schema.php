@@ -7,11 +7,9 @@
  * Organization, Article, BreadcrumbList ...). The connector used to print its
  * own standalone ld+json blocks next to it from wp_head: FAQPage on posts and
  * pages, ProfessionalService on the front page, Article on case studies. That
- * leaves a second, disconnected schema graph on the page, which is the thing
- * that blocked installing the connector on a Yoast site (t2373).
+ * leaves a second, disconnected schema graph on the page (t2373).
  *
- * When Yoast is active and the admin has not forced standalone output, the
- * connector defers to Yoast:
+ * With Yoast active the connector always works inside Yoast's single graph:
  *
  *   - FAQPage is added INTO Yoast's graph as its own node through the
  *     `wpseo_schema_graph_pieces` filter, @id "<permalink>#requestdesk-faq",
@@ -22,9 +20,19 @@
  *     @id "<permalink>#requestdesk-case-study", when Yoast is not already
  *     printing an Article for that post type. When Yoast IS printing one, the
  *     case study's `about` and `review` are merged into Yoast's Article.
- *   - The front-page ProfessionalService node is NOT added. Yoast's
- *     Organization / Person node is the site entity on a Yoast site, and a
- *     second organization entity is the disconnected-graph problem again.
+ *
+ * Who wins where both describe the same thing is a setting,
+ * requestdesk_aeo_settings[yoast_mode]:
+ *
+ *   'requestdesk' (default, 2.47.0) RequestDesk wins. The site's Organization
+ *       and WebSite nodes carry RequestDesk's name, description, logo and
+ *       social profiles; on site-module installs the Organization also carries
+ *       the ProfessionalService type and service catalog; the case study's
+ *       about / review replace Yoast's. Meta tags follow the same rule, see
+ *       RequestDesk_Yoast_Meta.
+ *   'yoast' Yoast wins. RequestDesk only adds nodes Yoast does not have
+ *       (the FAQ, the case study Article) and never changes Yoast's values.
+ *       This is the 2.46.0 behavior.
  *
  * Deferral only happens on a request where Yoast actually built its graph
  * (the pieces filter fired before the connector's wp_head output ran; Yoast
@@ -33,11 +41,7 @@
  * connector's standalone blocks are printed as before and nothing is lost.
  *
  * When Yoast is not active none of the filters here ever fire and every
- * should_defer() check returns false, so output is unchanged.
- *
- * Setting: requestdesk_aeo_settings[schema_standalone_with_yoast]. Unset or
- * false (the default) = defer to Yoast. True = print the old standalone blocks
- * even with Yoast active.
+ * should_skip_standalone() check returns false, so output is unchanged.
  *
  * @package RequestDesk
  * @since 2.46.0
@@ -65,7 +69,9 @@ class RequestDesk_Yoast_Schema {
         self::$registered = true;
 
         add_filter('wpseo_schema_graph_pieces', array(__CLASS__, 'add_graph_pieces'), 11, 2);
-        add_filter('wpseo_schema_article', array(__CLASS__, 'merge_case_study_into_article'), 11, 2);
+        add_filter('wpseo_schema_article', array(__CLASS__, 'merge_case_study_into_article'), 20, 2);
+        add_filter('wpseo_schema_organization', array(__CLASS__, 'apply_organization'), 20, 2);
+        add_filter('wpseo_schema_website', array(__CLASS__, 'apply_website'), 20, 2);
     }
 
     /**
@@ -80,26 +86,31 @@ class RequestDesk_Yoast_Schema {
     }
 
     /**
-     * Whether the admin forced standalone schema output while Yoast is active.
+     * Who wins when RequestDesk and Yoast both describe the same thing.
+     *
+     * @return string 'requestdesk' (default) or 'yoast'.
      */
-    public static function standalone_forced() {
+    public static function mode() {
         $settings = get_option('requestdesk_aeo_settings', array());
-        return is_array($settings) && !empty($settings['schema_standalone_with_yoast']);
+        if (is_array($settings) && isset($settings['yoast_mode']) && $settings['yoast_mode'] === 'yoast') {
+            return 'yoast';
+        }
+        return 'requestdesk';
     }
 
     /**
-     * Whether the connector should hand its schema to Yoast's graph.
+     * Whether RequestDesk's values replace Yoast's on this request.
      */
-    public static function defer_enabled() {
-        return self::is_yoast_active() && !self::standalone_forced();
+    public static function requestdesk_wins() {
+        return self::is_yoast_active() && self::mode() === 'requestdesk';
     }
 
     /**
      * Whether the connector's standalone wp_head ld+json output should be
-     * skipped on this request: deferral is on AND Yoast built its graph.
+     * skipped on this request: Yoast is active AND it built its graph.
      */
     public static function should_skip_standalone() {
-        return self::$graph_built && self::defer_enabled();
+        return self::$graph_built && self::is_yoast_active();
     }
 
     /**
@@ -114,13 +125,8 @@ class RequestDesk_Yoast_Schema {
             return $pieces;
         }
 
-        // Yoast is building a graph for this request. Record it even when
-        // standalone output is forced, so the flag reflects what happened.
+        // Yoast is building a graph for this request.
         self::$graph_built = true;
-
-        if (!self::defer_enabled()) {
-            return $pieces;
-        }
 
         if (!class_exists('Yoast\\WP\\SEO\\Generators\\Schema\\Abstract_Schema_Piece')) {
             // Yoast too old for the pieces API. Report loudly and leave the
@@ -221,27 +227,105 @@ class RequestDesk_Yoast_Schema {
 
     /**
      * wpseo_schema_article callback: when Yoast prints the Article for a case
-     * study, carry over the connector's about / review so nothing is lost.
+     * study, carry over the connector's about / review. RequestDesk wins
+     * replaces Yoast's values; Yoast wins only fills what Yoast left empty.
      *
      * @param array  $data    Yoast Article node.
      * @param object $context Yoast Meta_Tags_Context.
      * @return array
      */
     public static function merge_case_study_into_article($data, $context = null) {
-        if (!is_array($data) || !self::defer_enabled()) {
+        if (!is_array($data) || !self::is_yoast_active()) {
             return $data;
         }
         if (!class_exists('RequestDesk_Case_Study') || !is_singular('cc_case_study')) {
             return $data;
         }
 
+        $wins = self::requestdesk_wins();
         $schema = RequestDesk_Case_Study::build_schema(get_queried_object_id());
         foreach (array('about', 'review') as $key) {
-            if (!empty($schema[$key]) && !isset($data[$key])) {
+            if (!empty($schema[$key]) && ($wins || !isset($data[$key]))) {
                 $data[$key] = $schema[$key];
             }
         }
 
+        return $data;
+    }
+
+    /**
+     * wpseo_schema_organization callback: RequestDesk's site identity replaces
+     * Yoast's so a page describes the business one way.
+     *
+     * Name and description come from the WordPress site title and tagline (the
+     * same source as RequestDesk's standalone Organization schema). Social
+     * profiles are merged, RequestDesk's first. On site-module installs the
+     * node also carries ProfessionalService and the service catalog that
+     * used to print as a separate front-page block, so that block's content
+     * is no longer lost, and no second organization entity exists.
+     *
+     * @param array  $data    Yoast Organization node.
+     * @param object $context Yoast Meta_Tags_Context.
+     * @return array
+     */
+    public static function apply_organization($data, $context = null) {
+        if (!is_array($data) || !self::requestdesk_wins() || !class_exists('RequestDesk_Schema_Generator')) {
+            return $data;
+        }
+
+        $generator = new RequestDesk_Schema_Generator();
+        $org = $generator->generate_organization_schema();
+
+        if (!empty($org['name'])) {
+            $data['name'] = $org['name'];
+        }
+        if (!empty($org['description'])) {
+            $data['description'] = $org['description'];
+        }
+        if (!empty($org['sameAs'])) {
+            $existing = isset($data['sameAs']) ? (array) $data['sameAs'] : array();
+            $data['sameAs'] = array_values(array_unique(array_merge($org['sameAs'], $existing)));
+        }
+        if (empty($data['logo']) && !empty($org['logo'])) {
+            $data['logo'] = $org['logo'];
+        }
+
+        if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+            $service = $generator->generate_professional_service_schema();
+            $types = isset($data['@type']) ? (array) $data['@type'] : array('Organization');
+            if (!in_array('ProfessionalService', $types, true)) {
+                $types[] = 'ProfessionalService';
+            }
+            $data['@type'] = array_values($types);
+            foreach (array('knowsAbout', 'hasOfferCatalog') as $key) {
+                if (!empty($service[$key])) {
+                    $data[$key] = $service[$key];
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * wpseo_schema_website callback: RequestDesk's site name and tagline.
+     *
+     * @param array  $data    Yoast WebSite node.
+     * @param object $context Yoast Meta_Tags_Context.
+     * @return array
+     */
+    public static function apply_website($data, $context = null) {
+        if (!is_array($data) || !self::requestdesk_wins()) {
+            return $data;
+        }
+        $name = get_bloginfo('name');
+        $description = get_bloginfo('description');
+        if ($name !== '') {
+            $data['name'] = $name;
+        }
+        if ($description !== '') {
+            $data['description'] = $description;
+        }
         return $data;
     }
 

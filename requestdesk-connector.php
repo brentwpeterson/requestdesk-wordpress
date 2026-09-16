@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.46.0
+ * Version: 2.47.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.46.0');
+define('REQUESTDESK_VERSION', '2.47.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -95,6 +95,8 @@ $plugin_files = array(
     // Yoast SEO compatibility: hands the connector's JSON-LD to Yoast's graph
     // when Yoast is active. No Yoast dependency at load; see the class doc.
     'includes/class-requestdesk-yoast-schema.php',
+    // RequestDesk wins over Yoast for head meta tags when Yoast is active.
+    'includes/class-requestdesk-yoast-meta.php',
     'includes/class-requestdesk-content-analyzer.php',
     'includes/class-requestdesk-content-detector.php', // NEW: AI-First Schema Detection
     'includes/class-requestdesk-schema-generator.php',
@@ -189,6 +191,9 @@ foreach ($plugin_files as $file) {
 // Yoast SEO builds its graph, so this is inert everywhere else.
 if (class_exists('RequestDesk_Yoast_Schema')) {
     RequestDesk_Yoast_Schema::register();
+}
+if (class_exists('RequestDesk_Yoast_Meta')) {
+    RequestDesk_Yoast_Meta::register();
 }
 
 // Comparison table styles are now enqueued on-demand by

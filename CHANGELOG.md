@@ -5,6 +5,25 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.47.0] - 2026-09-16
+
+### Changed
+- **RequestDesk wins over Yoast SEO by default.** With Yoast active, each page still carries one set of meta tags and one schema graph (Yoast prints them), but RequestDesk's values replace Yoast's wherever RequestDesk has one:
+  - Meta (`RequestDesk_Yoast_Meta`, new): SEO title, meta description, canonical and og:url, robots noindex/nofollow, og:title, og:description, og:image, twitter title/description/image, from the `_requestdesk_*` post meta. Yoast-style `%%variables%%` in stored values go through `wpseo_replace_vars`. A single post with no description in RequestDesk or Yoast falls back to the excerpt. RequestDesk only adds a robots restriction and never lifts a noindex set elsewhere.
+  - Schema (`RequestDesk_Yoast_Schema`): the Organization and WebSite nodes take the WordPress site title and tagline, RequestDesk's social profiles are merged into sameAs, and the logo fills in when Yoast has none. On site-module installs the Organization also carries `ProfessionalService`, `knowsAbout` and the service `hasOfferCatalog` that used to print as a separate front-page block. The case study's `about` and `review` replace Yoast's on its Article.
+- **Setting:** AEO Settings, "When Yoast SEO Is Active": RequestDesk wins (default) or Yoast wins. Yoast wins is the 2.46.0 behavior: RequestDesk only adds its FAQ and case study nodes to Yoast's graph and changes none of Yoast's values.
+
+### Removed
+- The 2.46.0 "Yoast SEO Compatibility" checkbox (`schema_standalone_with_yoast`), which printed RequestDesk's standalone schema blocks beside Yoast's graph. That setup is the duplicate-entity problem, so it is no longer offered.
+
+### Why
+The point of running the connector on a Yoast site is for RequestDesk to own the SEO and identity. 2.46.0 did the opposite and deferred to Yoast. On contentcucumber.com an outside AEO review then found two Organization and two WebSite nodes on one `@id` and FAQPage declared twice, which left answer engines choosing between competing descriptions of the business.
+
+### Notes
+- Verified on a local copy of contentcucumber.com with Yoast free 28.5: `schema-identity-check.py` over 46 sitemap pages, zero duplicate `@id`, zero doubled singleton types, one Organization description. RequestDesk title, description, canonical, og:url, og:image and noindex each rendered once and won over Yoast. Switching to Yoast wins through the settings form restored Yoast's values. With Yoast deactivated the output matched 2.45.0.
+- Without Yoast nothing in this release runs.
+- Yoast Premium was not tested; the filters used are shared by free and Premium.
+
 ## [2.46.0] - 2026-09-16
 
 ### Added

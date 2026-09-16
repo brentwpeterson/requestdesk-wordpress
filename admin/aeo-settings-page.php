@@ -29,7 +29,7 @@ function requestdesk_aeo_settings_page() {
             'auto_optimize_on_publish' => isset($_POST['auto_optimize_on_publish']),
             'auto_optimize_on_update' => isset($_POST['auto_optimize_on_update']),
             'generate_faq_schema' => isset($_POST['generate_faq_schema']),
-            'schema_standalone_with_yoast' => isset($_POST['schema_standalone_with_yoast']),
+            'yoast_mode' => (isset($_POST['yoast_mode']) && $_POST['yoast_mode'] === 'yoast') ? 'yoast' : 'requestdesk',
             'extract_qa_pairs' => isset($_POST['extract_qa_pairs']),
             'track_citations' => isset($_POST['track_citations']),
             'monitor_freshness' => isset($_POST['monitor_freshness']),
@@ -51,7 +51,7 @@ function requestdesk_aeo_settings_page() {
         'auto_optimize_on_publish' => true,
         'auto_optimize_on_update' => false,
         'generate_faq_schema' => true,
-        'schema_standalone_with_yoast' => false,
+        'yoast_mode' => 'requestdesk',
         'extract_qa_pairs' => true,
         'track_citations' => true,
         'monitor_freshness' => true,
@@ -270,16 +270,24 @@ function requestdesk_aeo_settings_page() {
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row">Yoast SEO Compatibility</th>
+                        <th scope="row">When Yoast SEO Is Active</th>
                         <td>
-                            <?php $yoast_active = class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::is_yoast_active(); ?>
+                            <?php
+                            $yoast_active = class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::is_yoast_active();
+                            $yoast_mode = (isset($settings['yoast_mode']) && $settings['yoast_mode'] === 'yoast') ? 'yoast' : 'requestdesk';
+                            ?>
                             <label>
-                                <input type="checkbox" name="schema_standalone_with_yoast" value="1" <?php checked(!empty($settings['schema_standalone_with_yoast']), true); ?>>
-                                Print RequestDesk's own schema blocks even when Yoast SEO is active
+                                <input type="radio" name="yoast_mode" value="requestdesk" <?php checked($yoast_mode, 'requestdesk'); ?>>
+                                RequestDesk wins (recommended)
+                            </label><br>
+                            <label>
+                                <input type="radio" name="yoast_mode" value="yoast" <?php checked($yoast_mode, 'yoast'); ?>>
+                                Yoast wins
                             </label>
                             <p class="description">
-                                Leave unchecked (recommended). With Yoast SEO active, RequestDesk adds its FAQPage to Yoast's schema graph so each page carries one connected graph, and skips the home-page ProfessionalService block because Yoast's Organization already describes the site.
-                                Check this only to go back to separate RequestDesk schema blocks next to Yoast's.
+                                Either way each page carries one set of meta tags and one schema graph, and RequestDesk's FAQ sits inside that graph.
+                                RequestDesk wins: RequestDesk's SEO title, description, canonical, social tags and site identity (name, tagline, social profiles) replace Yoast's wherever RequestDesk has a value. Yoast fills in the rest.
+                                Yoast wins: Yoast's values stay and RequestDesk only adds what Yoast does not have.
                                 Sites without Yoast are not affected by this setting.
                             </p>
                             <p class="description">
