@@ -363,7 +363,11 @@ class RequestDesk_AEO_Core {
         // sells. Additive and isolated: its own ld+json block, runs before
         // (and independent of) the single/page FAQ logic below so it is
         // unaffected by the early return and cannot regress existing schema.
-        if (is_front_page()) {
+        //
+        // Site-module installs only. The catalog is Content Cucumber's own
+        // services, so on any other site it described the wrong business on
+        // the home page (found testing a plain install, 2026-09-17).
+        if (is_front_page() && function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
             if (!$this->schema_generator) {
                 $this->schema_generator = new RequestDesk_Schema_Generator();
             }

@@ -5,6 +5,14 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.47.2] - 2026-09-17
+
+### Fixed
+- **Home page described Content Cucumber on every site.** Without Yoast, the front page printed a ProfessionalService block whose `knowsAbout` and service catalog are Content Cucumber's own (Growth Marketing, HubSpot Implementation, Loop Marketing, Live Event Content). It now prints only on site-module installs, the same gate the Yoast integration already used. Other sites print no ProfessionalService block.
+
+### Notes
+- Found in the plain-install test (Twenty Twenty-Five, site modules off) before the Support for Stepdads install. Present since the block was added; not new in 2.47.
+
 ## [2.47.1] - 2026-09-17
 
 ### Fixed
