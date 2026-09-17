@@ -93,10 +93,10 @@ def api(method, path, body=None, key=KEY):
             return e.code, {"raw": txt[:300]}
 
 
-# 2. Auth.
-c, j = api("POST", "/test-connection", {})
+# 2. Auth. /test-connection is a GET route.
+c, j = api("GET", "/test-connection")
 check("test-connection with key", c == 200, f"{c} {str(j)[:120]}")
-c, j = api("POST", "/test-connection", {}, key="wrong-key")
+c, j = api("GET", "/test-connection", key="wrong-key")
 check("test-connection rejects wrong key", c in (401, 403), str(c))
 
 # 3. Publish.
@@ -114,7 +114,8 @@ c, j = api("POST", "/publish", {
     "categories": ["RDTEST Stepdad Resources"], "tags": ["rdtest-tag"],
     "featured_image": img, "author": 1})
 pid = j.get("post_id") if isinstance(j, dict) else None
-check("publish returns 200 + post_id", c == 200 and bool(pid), f"{c} {str(j)[:300]}")
+# A create returns 201; an update of an existing post returns 200.
+check("publish returns 201 + post_id", c in (200, 201) and bool(pid), f"{c} {str(j)[:300]}")
 if not pid:
     json.dump(state, open(STATE, "w"))
     print(f"{fails} failures")
