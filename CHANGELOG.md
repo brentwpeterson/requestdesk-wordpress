@@ -5,6 +5,14 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.47.1] - 2026-09-17
+
+### Fixed
+- **Settings page PHP warnings on a fresh install.** RequestDesk, Settings read `api_key`, `debug_mode` and `default_post_status` without checking they exist, so a site that had never saved the form logged eight "Undefined array key" warnings on every visit (and showed them on screen where `WP_DEBUG_DISPLAY` is on). Missing keys now read as empty, off and `draft`, the same defaults the plugin uses elsewhere.
+
+### Notes
+- Found while testing 2.47.0 on a plain WordPress install (Twenty Twenty-Five, Yoast SEO free 28.5, site modules off) before the Support for Stepdads install. The warnings predate 2.47.0; nothing else changed.
+
 ## [2.47.0] - 2026-09-16
 
 ### Changed

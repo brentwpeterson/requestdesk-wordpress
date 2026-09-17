@@ -278,7 +278,7 @@ function requestdesk_settings_page() {
                     <tr>
                         <th scope="row">RequestDesk API Key</th>
                         <td>
-                            <input type="password" id="requestdesk_api_key" name="api_key" value="<?php echo esc_attr($settings['api_key']); ?>" class="regular-text" placeholder="Enter your RequestDesk Agent API Key">
+                            <input type="password" id="requestdesk_api_key" name="api_key" value="<?php echo esc_attr($settings['api_key'] ?? ''); ?>" class="regular-text" placeholder="Enter your RequestDesk Agent API Key">
                             <button type="button" id="requestdesk_generate_key" class="button" style="margin-left:10px;">Generate New Key</button>
                             <button type="button" id="requestdesk_reveal_key" class="button" style="margin-left:4px;">Show</button>
                             <div id="requestdesk_generate_result" style="margin-top:10px;"></div>
@@ -288,7 +288,7 @@ function requestdesk_settings_page() {
                                 You can find your agent's API key in the RequestDesk dashboard under Agent Settings,
                                 or click <strong>Generate New Key</strong> to mint one for this site.
                             </p>
-                            <?php if (empty($settings['api_key']) && !$settings['debug_mode']): ?>
+                            <?php if (empty($settings['api_key']) && empty($settings['debug_mode'])): ?>
                             <div class="notice notice-warning inline">
                                 <p><strong>⚠️ Warning:</strong> No API key configured! Your WordPress site will reject all RequestDesk connections until you set an API key.</p>
                             </div>
@@ -354,14 +354,14 @@ function requestdesk_settings_page() {
                         <th scope="row">Debug Mode</th>
                         <td>
                             <label>
-                                <input type="checkbox" name="debug_mode" value="1" <?php checked($settings['debug_mode'], true); ?>>
+                                <input type="checkbox" name="debug_mode" value="1" <?php checked(!empty($settings['debug_mode']), true); ?>>
                                 Enable debug mode (bypasses API key validation)
                             </label>
                             <p class="description">
                                 <strong>⚠️ Security Risk:</strong> Debug mode disables API key validation and accepts ANY API key.<br>
                                 Only enable this for testing. <strong>NEVER enable in production!</strong>
                             </p>
-                            <?php if ($settings['debug_mode']): ?>
+                            <?php if (!empty($settings['debug_mode'])): ?>
                             <div class="notice notice-error inline">
                                 <p><strong>🚨 Security Warning:</strong> Debug mode is currently ENABLED! Your site accepts any API key. Disable this immediately for production use.</p>
                             </div>
@@ -372,10 +372,10 @@ function requestdesk_settings_page() {
                         <th scope="row">Default Post Status</th>
                         <td>
                             <select name="default_post_status">
-                                <option value="draft" <?php selected($settings['default_post_status'], 'draft'); ?>>Draft</option>
-                                <option value="pending" <?php selected($settings['default_post_status'], 'pending'); ?>>Pending Review</option>
-                                <option value="private" <?php selected($settings['default_post_status'], 'private'); ?>>Private</option>
-                                <option value="publish" <?php selected($settings['default_post_status'], 'publish'); ?>>Published</option>
+                                <option value="draft" <?php selected($settings['default_post_status'] ?? 'draft', 'draft'); ?>>Draft</option>
+                                <option value="pending" <?php selected($settings['default_post_status'] ?? 'draft', 'pending'); ?>>Pending Review</option>
+                                <option value="private" <?php selected($settings['default_post_status'] ?? 'draft', 'private'); ?>>Private</option>
+                                <option value="publish" <?php selected($settings['default_post_status'] ?? 'draft', 'publish'); ?>>Published</option>
                             </select>
                             <p class="description">Default status for posts created from RequestDesk</p>
                         </td>
