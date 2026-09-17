@@ -295,9 +295,56 @@ class RequestDesk_AEO_Core {
     }
 
     /**
-     * Get AEO data for a post
+     * Get AEO data for a post, creating the row when it does not exist.
+     *
+     * Only for write paths (the editor, publishing, rescans). A front-end
+     * request must use get_aeo_data_readonly(): this one INSERTs, and an
+     * insert on wp_head is a database write on every anonymous pageview.
      */
     public function get_aeo_data($post_id) {
+        global $wpdb;
+
+        $data = $this->get_aeo_data_readonly($post_id);
+        if ($data !== null) {
+            return $data;
+        }
+
+        $table_name = $wpdb->prefix . 'requestdesk_aeo_data';
+        $wpdb->insert(
+            $table_name,
+            array(
+                'post_id' => $post_id,
+                'content_type' => get_post_type($post_id),
+                'created_at' => current_time('mysql')
+            ),
+            array('%d', '%s', '%s')
+        );
+
+        $data = $this->get_aeo_data_readonly($post_id);
+
+        // The insert failed (table missing, duplicate key race). Hand back the
+        // empty shape rather than recursing forever, and say so in the log.
+        if ($data === null) {
+            error_log('[RequestDesk] get_aeo_data: could not create the AEO row for post ' . (int) $post_id);
+            return array(
+                'post_id' => $post_id,
+                'ai_questions' => array(),
+                'faq_data' => array(),
+                'citation_stats' => array(),
+            );
+        }
+
+        return $data;
+    }
+
+    /**
+     * Read a post's AEO row without creating one. Returns null when there is
+     * no row. Every front-end path uses this.
+     *
+     * @param int $post_id
+     * @return array|null
+     */
+    public function get_aeo_data_readonly($post_id) {
         global $wpdb;
 
         $table_name = $wpdb->prefix . 'requestdesk_aeo_data';
@@ -308,18 +355,7 @@ class RequestDesk_AEO_Core {
         ), ARRAY_A);
 
         if (!$data) {
-            // Create new record
-            $wpdb->insert(
-                $table_name,
-                array(
-                    'post_id' => $post_id,
-                    'content_type' => get_post_type($post_id),
-                    'created_at' => current_time('mysql')
-                ),
-                array('%d', '%s', '%s')
-            );
-
-            return $this->get_aeo_data($post_id);
+            return null;
         }
 
         // Decode JSON fields with null safety
@@ -384,7 +420,7 @@ class RequestDesk_AEO_Core {
         }
 
         $post_id = get_queried_object_id();
-        $aeo_data = $this->get_aeo_data($post_id);
+        $aeo_data = $this->get_aeo_data_readonly($post_id);
 
         if (!empty($aeo_data['faq_data'])) {
             echo '<script type="application/ld+json">';
@@ -404,7 +440,7 @@ class RequestDesk_AEO_Core {
      * @return array Empty array when the post has no FAQ data.
      */
     public function get_clean_faq_schema($post_id) {
-        $aeo_data = $this->get_aeo_data($post_id);
+        $aeo_data = $this->get_aeo_data_readonly($post_id);
         if (empty($aeo_data['faq_data'])) {
             return array();
         }
@@ -696,8 +732,16 @@ class RequestDesk_AEO_Core {
      * lets the AEO endpoints be driven programmatically without a browser login.
      */
     public function check_aeo_permissions($request) {
-        // Path 1: logged-in user with edit rights (wp-admin JS, meta box, etc.)
-        if (current_user_can('edit_posts')) {
+        // Path 1: logged-in user with edit rights. When the route names a
+        // post, the check is against THAT post: current_user_can('edit_posts')
+        // alone let a contributor write FAQ schema (and its links) onto anyone
+        // else's published page.
+        $post_id = (int) $request->get_param('post_id');
+        if ($post_id > 0) {
+            if (current_user_can('edit_post', $post_id)) {
+                return true;
+            }
+        } elseif (current_user_can('edit_posts')) {
             return true;
         }
 
@@ -708,7 +752,7 @@ class RequestDesk_AEO_Core {
 
         return new WP_Error(
             'aeo_forbidden',
-            'A logged-in editor session or a valid RequestDesk API key is required',
+            'Permission to edit this content, or a valid RequestDesk API key, is required',
             array('status' => 401)
         );
     }

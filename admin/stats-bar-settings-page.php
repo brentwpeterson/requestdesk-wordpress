@@ -50,11 +50,8 @@ function requestdesk_stats_bar_settings_page() {
     // Load current settings with defaults
     $settings = get_option('requestdesk_stats_bar_settings', array());
     $defaults = array(
-        'stats' => array(
-            array('value' => '60,000 +', 'label' => 'Projects Delivered', 'icon' => ''),
-            array('value' => '55 Million +', 'label' => 'Words Written', 'icon' => ''),
-            array('value' => '4.9/5', 'label' => 'Average Project Rating', 'icon' => ''),
-        ),
+        // Empty by design; see RequestDesk_Stats_Bar::get_settings().
+        'stats' => array(),
         'bg_color'    => '#000000',
         'value_color' => '#FF8C00',
         'label_color' => '#ffffff',

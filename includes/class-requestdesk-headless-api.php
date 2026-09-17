@@ -32,6 +32,14 @@ class RequestDesk_Headless_API {
      * Register REST API routes for headless CMS
      */
     public function register_routes() {
+        // The "Enable Headless API" switch. It used to be written by the
+        // settings page and read by nothing, so an admin could untick it, see
+        // "saved", and leave all eight routes serving content.
+        $headless_settings = get_option('requestdesk_headless_settings', array());
+        if (isset($headless_settings['enabled']) && !$headless_settings['enabled']) {
+            return;
+        }
+
         // List posts
         register_rest_route($this->namespace, '/headless/posts', array(
             'methods' => 'GET',

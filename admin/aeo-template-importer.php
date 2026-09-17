@@ -2651,6 +2651,10 @@ function requestdesk_build_leadmagnet_page_content($csv_data) {
     $hero_cta_text = esc_html($csv_data['hero_cta_text'] ?? 'Download Now');
     $hero_cta_url = esc_url($csv_data['hero_cta_url'] ?? '#');
     $hubspot_form_id = sanitize_text_field($csv_data['hubspot_form_id'] ?? '');
+    // Read the portal from the CSV like the contact-page builder does. It used
+    // to be hardcoded to Content Cucumber's portal, so an imported lead magnet
+    // on a client site submitted into Content Cucumber's HubSpot.
+    $hubspot_portal_id = sanitize_text_field($csv_data['hubspot_portal_id'] ?? '');
 
     // Hero outer section (full-width breakout)
     $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm001","tagName":"section","styles":{"paddingTop":"5rem","paddingBottom":"5rem","backgroundColor":"#0a0a0a","width":"100vw","position":"relative","left":"50%","right":"50%","marginLeft":"-50vw","marginRight":"-50vw"},"css":".gb-element-lm001{padding-top:5rem;padding-bottom:5rem;background-color:#0a0a0a;width:100vw;position:relative;left:50%;right:50%;margin-left:-50vw;margin-right:-50vw}"} -->
@@ -2704,11 +2708,11 @@ function requestdesk_build_leadmagnet_page_content($csv_data) {
     $content .= '<!-- wp:generateblocks/element {"uniqueId":"lm004","tagName":"div","styles":{"borderRadius":"0.75rem","boxShadow":"0 10px 40px rgba(0,0,0,0.3)","aspectRatio":"808/661"},"css":".gb-element-lm004{border-radius:0.75rem;box-shadow:0 10px 40px rgba(0,0,0,0.3);aspect-ratio:808/661}"} -->
 <div class="gb-element gb-element-lm004">';
 
-    if (!empty($hubspot_form_id)) {
+    if (!empty($hubspot_form_id) && !empty($hubspot_portal_id)) {
         // HubSpot form embed via wp:html block (v2 embed format)
         $content .= '<!-- wp:html -->
-<script src="https://js.hsforms.net/forms/embed/39487190.js" defer></script>
-<div class="hs-form-frame" data-region="na1" data-form-id="' . $hubspot_form_id . '" data-portal-id="39487190"></div>
+<script src="https://js.hsforms.net/forms/embed/' . esc_attr($hubspot_portal_id) . '.js" defer></script>' /* hardcode-ok: HubSpot's own embed CDN; the portal id comes from the CSV */ . '
+<div class="hs-form-frame" data-region="na1" data-form-id="' . $hubspot_form_id . '" data-portal-id="' . esc_attr($hubspot_portal_id) . '"></div>
 <!-- /wp:html -->';
     } else {
         // Placeholder when no HubSpot form ID is provided

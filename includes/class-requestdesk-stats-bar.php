@@ -29,11 +29,10 @@ class RequestDesk_Stats_Bar {
      */
     private function get_settings($atts = array()) {
         $defaults = array(
-            'stats' => array(
-                array('value' => '60,000 +', 'label' => 'Projects Delivered', 'icon' => ''),
-                array('value' => '55 Million +', 'label' => 'Words Written', 'icon' => ''),
-                array('value' => '4.9/5', 'label' => 'Average Project Rating', 'icon' => ''),
-            ),
+            // Empty by design: these are claims about the site owner's business.
+            // They used to default to Content Cucumber's numbers, which a client
+            // publishing [requestdesk_stats_bar] would have stated as their own.
+            'stats' => array(),
             'bg_color'    => '#000000',
             'value_color' => '#FF8C00',
             'label_color' => '#ffffff',
@@ -44,11 +43,8 @@ class RequestDesk_Stats_Bar {
         $saved = get_option('requestdesk_stats_bar_settings', array());
         $settings = wp_parse_args($saved, $defaults);
 
-        // wp_parse_args is shallow - if saved has an empty stats key,
-        // it won't be replaced by the default. Explicitly fall back.
-        if (empty($settings['stats'])) {
-            $settings['stats'] = $defaults['stats'];
-        }
+        // No stats configured means the bar renders nothing. There is no
+        // fallback set to fall back to, on purpose.
 
         // Shortcode attributes override saved settings
         if (!empty($atts['bg_color'])) {

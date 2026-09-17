@@ -69,8 +69,9 @@ function requestdesk_homepage_hero_settings_page() {
         'headline'              => 'Humans<br>Writing<br>Content',
         'form_heading'          => "Let's write your success story!",
         'seo_text'              => 'Humans in the loop. We believe AI should enhance human creativity, not replace it. Our approach: AI-powered content creation with human editors reviewing every piece. Executing with precision. Complete brand consistency across all platforms.',
-        'hubspot_portal_id'     => '39487190',
-        'hubspot_form_id'       => '3c945309-67c6-4812-ab65-c7280682e005',
+        // Empty by design; see RequestDesk_Homepage_Hero::get_settings().
+        'hubspot_portal_id'     => '',
+        'hubspot_form_id'       => '',
         'hubspot_region'        => 'na1',
         'terminal_enabled'      => true,
         'terminal_sequences'    => array(
@@ -135,13 +136,13 @@ function requestdesk_homepage_hero_settings_page() {
                 <tr>
                     <th scope="row">Portal ID</th>
                     <td>
-                        <input type="text" name="hubspot_portal_id" value="<?php echo esc_attr($settings['hubspot_portal_id']); ?>" class="regular-text" placeholder="39487190">
+                        <input type="text" name="hubspot_portal_id" value="<?php echo esc_attr($settings['hubspot_portal_id']); ?>" class="regular-text" placeholder="e.g. 1234567">
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">Form ID</th>
                     <td>
-                        <input type="text" name="hubspot_form_id" value="<?php echo esc_attr($settings['hubspot_form_id']); ?>" class="regular-text" placeholder="3c945309-67c6-4812-ab65-c7280682e005">
+                        <input type="text" name="hubspot_form_id" value="<?php echo esc_attr($settings['hubspot_form_id']); ?>" class="regular-text" placeholder="e.g. 00000000-0000-0000-0000-000000000000">
                     </td>
                 </tr>
                 <tr>

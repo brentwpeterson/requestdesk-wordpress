@@ -37,8 +37,11 @@ class RequestDesk_Homepage_Hero {
             'headline'              => 'Humans<br>Writing<br>Content',
             'form_heading'          => "Let's write your success story!",
             'seo_text'              => 'Humans in the loop. We believe AI should enhance human creativity, not replace it. Our approach: AI-powered content creation with human editors reviewing every piece. Executing with precision. Complete brand consistency across all platforms.',
-            'hubspot_portal_id'     => '39487190',
-            'hubspot_form_id'       => '3c945309-67c6-4812-ab65-c7280682e005',
+            // Empty by design: these are the site owner's HubSpot ids, set in
+            // RequestDesk > Settings. They used to default to Content Cucumber's
+            // portal, which sent a client's leads into Content Cucumber's CRM.
+            'hubspot_portal_id'     => '',
+            'hubspot_form_id'       => '',
             'hubspot_region'        => 'na1',
             'terminal_enabled'      => true,
             'terminal_sequences'    => array(

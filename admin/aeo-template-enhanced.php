@@ -150,11 +150,12 @@ EOD;
     <!-- wp:column {"width":"50%"} -->
     <div class="wp-block-column" style="flex-basis:50%">
       <!-- wp:html -->
-      <script src="https://js.hsforms.net/forms/embed/developer/39487190.js" defer></script>
+      <!-- Replace both ids with this site's own HubSpot portal and form. -->
+      <script src="https://js.hsforms.net/forms/embed/developer/HUBSPOT_PORTAL_ID.js" defer></script> <!-- /* hardcode-ok: HubSpot's own embed CDN; portal and form ids are placeholders to replace */ -->
       <div class="hs-form-html"
            data-region="na1"
-           data-form-id="3c945309-67c6-4812-ab65-c7280682e005"
-           data-portal-id="39487190"
+           data-form-id="HUBSPOT_FORM_ID"
+           data-portal-id="HUBSPOT_PORTAL_ID"
            style="--hsf-background__background-color: #000; --hsf-button__background-color: #116530;">
       </div>
       <!-- /wp:html -->

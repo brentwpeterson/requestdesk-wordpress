@@ -5,6 +5,29 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.48.0] - 2026-09-17
+
+Client-install hardening. Everything here came out of the technical deficiency audit in `docs/audits/2026-09-17-technical-deficiency-audit.md`, which read 2.47.3 against the question "what happens when this runs on a site that is not Content Cucumber".
+
+### Security
+- **Audit Capture is now a site-module module.** It registered `cc-audit/v1/request` with no key, no nonce and no rate limit on every install, and every call created a published post and sent mail to the site's admin. It also put an "Audit Requests" menu and a shortcode headed "Your Content Cucumber audit" on client sites. It now loads only where site modules are on.
+- **AEO endpoints check the post, not the role.** `check_aeo_permissions()` asked for `edit_posts`, so a Contributor could write FAQ schema, including its links, onto anyone's published page. A route that names a post now requires `edit_post` on that post.
+- **"Enable Headless API" works.** The switch was written by the settings page and read by nothing: unticking it saved, said so, and left all eight routes serving. `register_routes()` now returns early when it is off.
+- **Deleting the plugin removes it.** New `uninstall.php` drops the three tables, deletes the nineteen options (four hold API keys) and clears the scheduled events. Deactivation now clears all four hooks, not one. Content (posts and the SEO values an editor typed) is deliberately left alone.
+
+### Fixed for client sites
+- **Content Cucumber's HubSpot portal and form no longer ship as defaults.** They were written into the site's options at activation and hardcoded in the hero shortcode, the hero settings page, the enhanced-homepage template and the lead-magnet importer, so a client using any of those sent their own leads into Content Cucumber's CRM. All five now default to empty, the hero renders no form until the ids are set, and the lead-magnet importer reads the portal from its CSV like the contact-page importer already did.
+- **Content Cucumber's business numbers no longer ship as defaults.** "60,000 + Projects Delivered", "55 Million + Words Written" and "4.9/5" were seeded as the client's stats and re-injected whenever the setting was empty. The stats bar now starts empty and renders nothing until the site owner fills it in.
+- **`rd_event` no longer claims `/events/` on every install.** Public registration and the archive now happen only on site-module installs; elsewhere the post type is admin-only, so activating the plugin adds no URL. The loader comment claiming it registered no public URL has been corrected.
+- **A Yoast client site keeps its own identity.** With no mode chosen, non-site-module installs now default to "Yoast wins" instead of "RequestDesk wins", which had been replacing the site's configured Yoast Organization name and description with the WordPress site title and tagline. Content Cucumber still defaults to RequestDesk wins, and the setting still offers all three choices.
+
+### Performance
+- **No database write on an anonymous pageview.** `get_aeo_data()` inserted a row when none existed and was called from `wp_head`, so viewing a post wrote to the database. Front-end paths now use a new read-only `get_aeo_data_readonly()`; the insert stays on the write paths. The plugin already documented this hazard in `class-requestdesk-frontend-qa.php` without fixing the emitter it described.
+
+### Notes
+- Known and deferred: the per-post SEO override values `RequestDesk_Yoast_Meta` reads are written only by four files the plugin has never loaded (`seo-core`, `seo-meta-boxes`, `yoast-importer`, `yoast-import-page`). Until those are loaded and tested, "RequestDesk wins" affects site identity and the FAQ, not per-post titles and descriptions. See finding B4 in the audit.
+- The pre-release test pass and the weekly audit are written down in `docs/TESTING.md`; the harness lives in `tests/`.
+
 ## [2.47.3] - 2026-09-17
 
 ### Added

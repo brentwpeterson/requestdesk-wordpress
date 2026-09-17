@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.47.3
+ * Version: 2.48.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.47.3');
+define('REQUESTDESK_VERSION', '2.48.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -118,14 +118,17 @@ $plugin_files = array(
     'admin/stats-bar-settings-page.php',
     'includes/class-requestdesk-comparison-table.php',
     'includes/class-requestdesk-indexnow.php',
-    'includes/class-requestdesk-audit-capture.php',
     'includes/class-requestdesk-asset-hub.php',
     // Shared, not CC-gated. Unlike partner and case-study this registers no
     // public URL and no archive (public => false), so an install that has no
     // videos gets an empty admin screen and nothing else. That is the exact
     // failure the case-study incident above was about, and it cannot happen here.
     'includes/class-requestdesk-video.php',
-    // Shared for the same reason as video: rd_event registers no public URL.
+    // Shared like video, but rd_event DOES have a public side: it registers
+    // /events/<slug>/ and an /events/ archive. Since 2026-09-17 that public
+    // registration happens only on site-module installs (see
+    // RequestDesk_Event::register_post_type); elsewhere the post type is
+    // admin-only, so a client site gains no URL by activating the plugin.
     'includes/class-requestdesk-event.php'
     // partner and case-study moved to $cc_only_files below. Leaving them here
     // is what made the gate a no-op for them: require_once from this list runs
@@ -152,6 +155,13 @@ $cc_only_files = array(
     'includes/class-requestdesk-promote.php',
     'includes/class-requestdesk-admin-columns.php',
     'includes/class-requestdesk-qr-redirect.php',
+    // Audit capture is Content Cucumber's lead form for its own audits: a
+    // cc_audit_request post type, an "Audit Requests" admin menu, and a
+    // shortcode whose default heading reads "Your Content Cucumber audit".
+    // It also registers cc-audit/v1/request with permission_callback
+    // __return_true, so on a client install anyone on the internet could
+    // create published posts and make the site send mail. Gated 2026-09-17.
+    'includes/class-requestdesk-audit-capture.php',
     // Partner and case-study belong here too. The comment at the top of this
     // file has always named them as site-specific, and requestdesk_seed_site_
     // modules_setting() infers the setting by looking for cc_case_study and
@@ -270,7 +280,6 @@ function requestdesk_init() {
         'RequestDesk_Citation_Tracker',
         'RequestDesk_Frontend_QA',
         'RequestDesk_IndexNow',
-        'RequestDesk_Audit_Capture',
         'RequestDesk_Promote',
         'RequestDesk_Admin_Columns',
         'RequestDesk_Video',
@@ -578,12 +587,16 @@ function requestdesk_activate() {
     ));
 
     // Set default Homepage Hero options
+    // The HubSpot portal and form start EMPTY. They used to be seeded with
+    // Content Cucumber's own portal 39487190 and form 3c945309-..., so a client
+    // who placed [requestdesk_homepage_hero] sent their leads into Content
+    // Cucumber's CRM. The hero renders no form until an admin fills these in.
     add_option('requestdesk_homepage_hero_settings', array(
         'headline'              => 'Humans<br>Writing<br>Content',
         'form_heading'          => "Let's write your success story!",
         'seo_text'              => 'Humans in the loop. We believe AI should enhance human creativity, not replace it. Our approach: AI-powered content creation with human editors reviewing every piece. Executing with precision. Complete brand consistency across all platforms.',
-        'hubspot_portal_id'     => '39487190',
-        'hubspot_form_id'       => '3c945309-67c6-4812-ab65-c7280682e005',
+        'hubspot_portal_id'     => '',
+        'hubspot_form_id'       => '',
         'hubspot_region'        => 'na1',
         'terminal_enabled'      => true,
         'terminal_sequences'    => array(
@@ -612,12 +625,11 @@ function requestdesk_activate() {
     ));
 
     // Set default Stats Bar options
+    // Stats start EMPTY. These used to seed Content Cucumber's own numbers
+    // (60,000+ projects, 55 million words, 4.9/5), which a client publishing
+    // [requestdesk_stats_bar] would have stated as facts about their business.
     add_option('requestdesk_stats_bar_settings', array(
-        'stats' => array(
-            array('value' => '60,000 +', 'label' => 'Projects Delivered', 'icon' => ''),
-            array('value' => '55 Million +', 'label' => 'Words Written', 'icon' => ''),
-            array('value' => '4.9/5', 'label' => 'Average Project Rating', 'icon' => ''),
-        ),
+        'stats' => array(),
         'bg_color'    => '#000000',
         'value_color' => '#FF8C00',
         'label_color' => '#ffffff',
@@ -643,7 +655,16 @@ if (function_exists('register_deactivation_hook')) {
 }
 
 function requestdesk_deactivate() {
-    wp_clear_scheduled_hook('requestdesk_sync_headless_counts');
+    // Every hook this plugin schedules. Missing one leaves WP-Cron firing a
+    // hook with no listener, daily, forever after deactivation.
+    foreach (array(
+        'requestdesk_sync_headless_counts',
+        'requestdesk_freshness_monitor',
+        'requestdesk_citation_monitor',
+        'requestdesk_process_aeo_optimization',
+    ) as $hook) {
+        wp_clear_scheduled_hook($hook);
+    }
     flush_rewrite_rules();
 }
 

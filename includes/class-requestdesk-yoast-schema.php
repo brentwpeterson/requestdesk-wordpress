@@ -97,10 +97,22 @@ class RequestDesk_Yoast_Schema {
      */
     public static function mode() {
         $settings = get_option('requestdesk_aeo_settings', array());
-        if (is_array($settings) && isset($settings['yoast_mode']) && in_array($settings['yoast_mode'], array('yoast', 'off'), true)) {
+        if (is_array($settings) && isset($settings['yoast_mode'])
+            && in_array($settings['yoast_mode'], array('requestdesk', 'yoast', 'off'), true)) {
             return $settings['yoast_mode'];
         }
-        return 'requestdesk';
+
+        // Nothing chosen yet. Site-module installs (Content Cucumber) keep
+        // RequestDesk first. Everywhere else the safe default is Yoast wins:
+        // RequestDesk still adds its FAQ to the graph, and it does not touch a
+        // site owner's configured Yoast title, description or company details.
+        // Before 2.48.0 the unset default was 'requestdesk' on every site,
+        // which silently replaced a client's Yoast Organization name and
+        // description with the WordPress site title and tagline.
+        if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+            return 'requestdesk';
+        }
+        return 'yoast';
     }
 
     /**

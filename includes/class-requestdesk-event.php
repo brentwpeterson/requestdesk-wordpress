@@ -170,15 +170,22 @@ class RequestDesk_Event {
             'all_items'          => 'All Events',
         );
 
+        // Public only where the events pages are actually used. On any other
+        // install, activating the plugin used to publish an empty /events/
+        // archive and take the "events" permalink slug, which is the same
+        // regression the loader documents for cc_case_study on Talk Commerce.
+        // Admin-only elsewhere: the screens still work, no URL appears.
+        $public = function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site();
+
         register_post_type(self::POST_TYPE, array(
             'labels'        => $labels,
-            'public'        => true,
+            'public'        => $public,
             'show_ui'       => true,
             'show_in_menu'  => true,
-            'has_archive'   => 'events',
+            'has_archive'   => $public ? 'events' : false,
             // with_front false: a /blog/%postname%/ permalink structure must not
             // turn this into /blog/events/.
-            'rewrite'       => array('slug' => 'events', 'with_front' => false),
+            'rewrite'       => $public ? array('slug' => 'events', 'with_front' => false) : false,
             'supports'      => array('title', 'editor', 'thumbnail', 'excerpt'),
             'menu_icon'     => 'dashicons-calendar-alt',
             'menu_position' => 27,
@@ -192,7 +199,8 @@ class RequestDesk_Event {
     }
 
     public static function maybe_flush_rewrites() {
-        $version = REQUESTDESK_VERSION . '-events-public';
+        $version = REQUESTDESK_VERSION . '-events-'
+            . ((function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) ? 'public' : 'admin');
         if (get_option('requestdesk_event_rewrite_version') !== $version) {
             flush_rewrite_rules(false);
             update_option('requestdesk_event_rewrite_version', $version);

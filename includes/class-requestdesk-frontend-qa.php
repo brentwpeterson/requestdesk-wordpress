@@ -145,7 +145,7 @@ class RequestDesk_Frontend_QA {
 
         // Get AEO data
         $aeo_core = new RequestDesk_AEO_Core();
-        $aeo_data = $aeo_core->get_aeo_data($post_id);
+        $aeo_data = $aeo_core->get_aeo_data_readonly($post_id);
         $qa_pairs = $aeo_data['ai_questions'] ?? array();
 
         // Get settings
@@ -373,7 +373,7 @@ class RequestDesk_Frontend_QA {
 
         // Get AEO data
         $aeo_core = new RequestDesk_AEO_Core();
-        $aeo_data = $aeo_core->get_aeo_data($post_id);
+        $aeo_data = $aeo_core->get_aeo_data_readonly($post_id);
         $qa_pairs = $aeo_data['ai_questions'] ?? array();
 
         if (empty($qa_pairs)) {
@@ -455,7 +455,7 @@ class RequestDesk_Frontend_QA {
         }
 
         $aeo_core = new RequestDesk_AEO_Core();
-        $aeo_data = $aeo_core->get_aeo_data($post_id);
+        $aeo_data = $aeo_core->get_aeo_data_readonly($post_id);
 
         return $aeo_data['ai_questions'] ?? array();
     }
