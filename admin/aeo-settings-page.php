@@ -29,7 +29,7 @@ function requestdesk_aeo_settings_page() {
             'auto_optimize_on_publish' => isset($_POST['auto_optimize_on_publish']),
             'auto_optimize_on_update' => isset($_POST['auto_optimize_on_update']),
             'generate_faq_schema' => isset($_POST['generate_faq_schema']),
-            'yoast_mode' => (isset($_POST['yoast_mode']) && $_POST['yoast_mode'] === 'yoast') ? 'yoast' : 'requestdesk',
+            'yoast_mode' => (isset($_POST['yoast_mode']) && in_array($_POST['yoast_mode'], array('yoast', 'off'), true)) ? $_POST['yoast_mode'] : 'requestdesk',
             'extract_qa_pairs' => isset($_POST['extract_qa_pairs']),
             'track_citations' => isset($_POST['track_citations']),
             'monitor_freshness' => isset($_POST['monitor_freshness']),
@@ -274,7 +274,7 @@ function requestdesk_aeo_settings_page() {
                         <td>
                             <?php
                             $yoast_active = class_exists('RequestDesk_Yoast_Schema') && RequestDesk_Yoast_Schema::is_yoast_active();
-                            $yoast_mode = (isset($settings['yoast_mode']) && $settings['yoast_mode'] === 'yoast') ? 'yoast' : 'requestdesk';
+                            $yoast_mode = (isset($settings['yoast_mode']) && in_array($settings['yoast_mode'], array('yoast', 'off'), true)) ? $settings['yoast_mode'] : 'requestdesk';
                             ?>
                             <label>
                                 <input type="radio" name="yoast_mode" value="requestdesk" <?php checked($yoast_mode, 'requestdesk'); ?>>
@@ -283,11 +283,16 @@ function requestdesk_aeo_settings_page() {
                             <label>
                                 <input type="radio" name="yoast_mode" value="yoast" <?php checked($yoast_mode, 'yoast'); ?>>
                                 Yoast wins
+                            </label><br>
+                            <label>
+                                <input type="radio" name="yoast_mode" value="off" <?php checked($yoast_mode, 'off'); ?>>
+                                RequestDesk SEO off (keep Yoast exactly as it is)
                             </label>
                             <p class="description">
                                 Either way each page carries one set of meta tags and one schema graph, and RequestDesk's FAQ sits inside that graph.
                                 RequestDesk wins: RequestDesk's SEO title, description, canonical, social tags and site identity (name, tagline, social profiles) replace Yoast's wherever RequestDesk has a value. Yoast fills in the rest.
                                 Yoast wins: Yoast's values stay and RequestDesk only adds what Yoast does not have.
+                                RequestDesk SEO off: RequestDesk adds nothing to page head output (no FAQ schema, no meta tags, no site identity). Publishing and the API keep working.
                                 Sites without Yoast are not affected by this setting.
                             </p>
                             <p class="description">

@@ -5,6 +5,17 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.47.3] - 2026-09-17
+
+### Added
+- **RequestDesk SEO off, for clients who keep Yoast.** AEO Settings, "When Yoast SEO Is Active" has a third choice. With it selected RequestDesk adds nothing to the page head on a Yoast site: no FAQ or case study node in Yoast's graph, no changed titles, descriptions, canonicals or social tags, no site identity, and no standalone schema blocks. Publishing, the REST API and stored FAQ data keep working, so switching back restores the output without re-entering anything.
+
+### Fixed
+- **PHP deprecation notices on every publish.** `/publish` passed optional fields that were left out (`featured_image`, `slug`, `excerpt`, dates) to WordPress sanitizers as null, which logs "Passing null ... is deprecated" on PHP 8.1+. Those fields are now read as strings.
+
+### Notes
+- Found and built during the pre-install test pass for Support for Stepdads (plain WordPress, Twenty Twenty-Five, Yoast SEO free 28.5, site modules off).
+
 ## [2.47.2] - 2026-09-17
 
 ### Fixed

@@ -33,6 +33,11 @@
  *   'yoast' Yoast wins. RequestDesk only adds nodes Yoast does not have
  *       (the FAQ, the case study Article) and never changes Yoast's values.
  *       This is the 2.46.0 behavior.
+ *   'off' (2.47.3) RequestDesk SEO off. For a client keeping Yoast as it is:
+ *       RequestDesk adds nothing to the head. No FAQ or case study node in
+ *       Yoast's graph, no changed values, no meta tags and no standalone
+ *       schema blocks, even on a request where Yoast printed no graph.
+ *       Publishing, the API and stored FAQ data are unaffected.
  *
  * Deferral only happens on a request where Yoast actually built its graph
  * (the pieces filter fired before the connector's wp_head output ran; Yoast
@@ -88,14 +93,21 @@ class RequestDesk_Yoast_Schema {
     /**
      * Who wins when RequestDesk and Yoast both describe the same thing.
      *
-     * @return string 'requestdesk' (default) or 'yoast'.
+     * @return string 'requestdesk' (default), 'yoast' or 'off'.
      */
     public static function mode() {
         $settings = get_option('requestdesk_aeo_settings', array());
-        if (is_array($settings) && isset($settings['yoast_mode']) && $settings['yoast_mode'] === 'yoast') {
-            return 'yoast';
+        if (is_array($settings) && isset($settings['yoast_mode']) && in_array($settings['yoast_mode'], array('yoast', 'off'), true)) {
+            return $settings['yoast_mode'];
         }
         return 'requestdesk';
+    }
+
+    /**
+     * Whether RequestDesk's SEO output is switched off on this Yoast site.
+     */
+    public static function seo_off() {
+        return self::is_yoast_active() && self::mode() === 'off';
     }
 
     /**
@@ -110,6 +122,9 @@ class RequestDesk_Yoast_Schema {
      * skipped on this request: Yoast is active AND it built its graph.
      */
     public static function should_skip_standalone() {
+        if (self::seo_off()) {
+            return true;
+        }
         return self::$graph_built && self::is_yoast_active();
     }
 
@@ -127,6 +142,10 @@ class RequestDesk_Yoast_Schema {
 
         // Yoast is building a graph for this request.
         self::$graph_built = true;
+
+        if (self::seo_off()) {
+            return $pieces;
+        }
 
         if (!class_exists('Yoast\\WP\\SEO\\Generators\\Schema\\Abstract_Schema_Piece')) {
             // Yoast too old for the pieces API. Report loudly and leave the
@@ -235,7 +254,7 @@ class RequestDesk_Yoast_Schema {
      * @return array
      */
     public static function merge_case_study_into_article($data, $context = null) {
-        if (!is_array($data) || !self::is_yoast_active()) {
+        if (!is_array($data) || !self::is_yoast_active() || self::seo_off()) {
             return $data;
         }
         if (!class_exists('RequestDesk_Case_Study') || !is_singular('cc_case_study')) {

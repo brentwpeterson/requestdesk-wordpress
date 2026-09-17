@@ -652,28 +652,36 @@ class RequestDesk_API {
      */
     public function publish_content($request) {
         try {
-            $title = sanitize_text_field($request->get_param('title'));
-            $content = wp_kses_post($request->get_param('content'));
-            $status = sanitize_text_field($request->get_param('status')) ?: 'draft';
-            $ticket_id = sanitize_text_field($request->get_param('ticket_id'));
-            $agent_id = sanitize_text_field($request->get_param('agent_id'));
-            $featured_image = esc_url_raw($request->get_param('featured_image'));
-            $excerpt = sanitize_textarea_field($request->get_param('excerpt'));
+            // Optional fields arrive as null when the caller leaves them out.
+            // WordPress's sanitizers expect strings, and on PHP 8.1+ a null logs
+            // a deprecation notice on every publish, so read them as strings.
+            $str = function ($name) use ($request) {
+                $value = $request->get_param($name);
+                return is_scalar($value) ? (string) $value : '';
+            };
+
+            $title = sanitize_text_field($str('title'));
+            $content = wp_kses_post($str('content'));
+            $status = sanitize_text_field($str('status')) ?: 'draft';
+            $ticket_id = sanitize_text_field($str('ticket_id'));
+            $agent_id = sanitize_text_field($str('agent_id'));
+            $featured_image = esc_url_raw($str('featured_image'));
+            $excerpt = sanitize_textarea_field($str('excerpt'));
             $categories = $request->get_param('categories') ?: array();
             $tags = $request->get_param('tags') ?: array();
-            $post_id = sanitize_text_field($request->get_param('post_id'));
+            $post_id = sanitize_text_field($str('post_id'));
 
             $is_update = !empty($post_id);
 
             $author = absint($request->get_param('author'));
-            $slug = sanitize_title($request->get_param('slug'));
+            $slug = sanitize_title($str('slug'));
             // Accept post_date, date, or date_gmt as the publish-date input (first non-empty wins).
-            $post_date = sanitize_text_field($request->get_param('post_date'));
+            $post_date = sanitize_text_field($str('post_date'));
             if (empty($post_date)) {
-                $post_date = sanitize_text_field($request->get_param('date'));
+                $post_date = sanitize_text_field($str('date'));
             }
             if (empty($post_date)) {
-                $post_date = sanitize_text_field($request->get_param('date_gmt'));
+                $post_date = sanitize_text_field($str('date_gmt'));
             }
 
             // Track author resolution so we can echo the result in the response and log silent failures.
