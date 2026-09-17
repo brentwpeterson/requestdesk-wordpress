@@ -226,8 +226,60 @@ function requestdesk_add_cron_schedules($schedules) {
     return $schedules;
 }
 
+/**
+ * One-time cleanup of Content Cucumber's values on sites that are not Content
+ * Cucumber.
+ *
+ * Until 2.48.0 the activation routine seeded Content Cucumber's HubSpot portal
+ * and form, and Content Cucumber's business stats, into every install. Fixing
+ * the defaults only helps a fresh install; a site that activated an earlier
+ * build already has those values in its database, and its hero form still
+ * submits into Content Cucumber's CRM.
+ *
+ * Only EXACT matches to the seeded values are cleared, so anything the site
+ * owner typed is left alone. Runs once per site.
+ */
+function requestdesk_clear_seeded_cc_defaults() {
+    if (get_option('requestdesk_cc_defaults_cleared')) {
+        return;
+    }
+    update_option('requestdesk_cc_defaults_cleared', REQUESTDESK_VERSION, false);
+
+    if (function_exists('requestdesk_is_cc_site') && requestdesk_is_cc_site()) {
+        return;
+    }
+
+    $hero = get_option('requestdesk_homepage_hero_settings', array());
+    if (is_array($hero)) {
+        $changed = false;
+        if (isset($hero['hubspot_portal_id']) && $hero['hubspot_portal_id'] === '39487190') {
+            $hero['hubspot_portal_id'] = '';
+            $changed = true;
+        }
+        if (isset($hero['hubspot_form_id']) && $hero['hubspot_form_id'] === '3c945309-67c6-4812-ab65-c7280682e005') {
+            $hero['hubspot_form_id'] = '';
+            $changed = true;
+        }
+        if ($changed) {
+            update_option('requestdesk_homepage_hero_settings', $hero);
+            error_log('[RequestDesk] Cleared Content Cucumber\'s HubSpot portal/form from this site\'s hero settings. Set your own in RequestDesk > Homepage Hero.');
+        }
+    }
+
+    $stats = get_option('requestdesk_stats_bar_settings', array());
+    if (is_array($stats) && !empty($stats['stats']) && is_array($stats['stats'])) {
+        $values = wp_list_pluck($stats['stats'], 'value');
+        if ($values === array('60,000 +', '55 Million +', '4.9/5')) {
+            $stats['stats'] = array();
+            update_option('requestdesk_stats_bar_settings', $stats);
+            error_log('[RequestDesk] Cleared Content Cucumber\'s stats from this site\'s stats bar. Set your own in RequestDesk > Stats Bar.');
+        }
+    }
+}
+
 // Initialize the plugin with safety checks
 if (function_exists('add_action')) {
+    add_action('init', 'requestdesk_clear_seeded_cc_defaults', 1);
     add_action('init', 'requestdesk_init');
 } else {
     // Fallback initialization if add_action isn't available

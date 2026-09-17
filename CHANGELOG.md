@@ -21,6 +21,9 @@ Client-install hardening. Everything here came out of the technical deficiency a
 - **`rd_event` no longer claims `/events/` on every install.** Public registration and the archive now happen only on site-module installs; elsewhere the post type is admin-only, so activating the plugin adds no URL. The loader comment claiming it registered no public URL has been corrected.
 - **A Yoast client site keeps its own identity.** With no mode chosen, non-site-module installs now default to "Yoast wins" instead of "RequestDesk wins", which had been replacing the site's configured Yoast Organization name and description with the WordPress site title and tagline. Content Cucumber still defaults to RequestDesk wins, and the setting still offers all three choices.
 
+### Migration
+- **Sites that already have Content Cucumber's values get them cleared once.** Changing the defaults only helps a fresh install, and every site that activated an earlier build carries the seeded HubSpot portal, form and stats in its database. On first load after the update, a non-site-module install clears those three values when they still match the seeded ones exactly, leaving anything the site owner typed untouched, and logs what it cleared.
+
 ### Performance
 - **No database write on an anonymous pageview.** `get_aeo_data()` inserted a row when none existed and was called from `wp_head`, so viewing a post wrote to the database. Front-end paths now use a new read-only `get_aeo_data_readonly()`; the insert stays on the write paths. The plugin already documented this hazard in `class-requestdesk-frontend-qa.php` without fixing the emitter it described.
 
