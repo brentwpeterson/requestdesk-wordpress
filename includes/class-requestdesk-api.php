@@ -13,6 +13,54 @@ class RequestDesk_API {
     private $namespace = 'requestdesk/v1';
 
     /**
+     * Hosts whose <iframe> players survive a Connector publish.
+     *
+     * wp_kses_post() strips every iframe, and because Connector requests run
+     * with no logged-in user WordPress strips them AGAIN on save (kses_init
+     * adds wp_filter_post_kses when the user lacks unfiltered_html). That is
+     * why audio-only Talk Commerce episode posts shipped with no Transistor
+     * player (Brent, 2026-09-18). Only these hosts are allowed; any other
+     * iframe is removed before kses runs.
+     */
+    private static $embed_hosts = array(
+        'share.transistor.fm',        // hardcode-ok: public podcast player host, filterable via requestdesk_embed_hosts
+        'www.youtube.com',            // hardcode-ok: public video player host, filterable via requestdesk_embed_hosts
+        'youtube.com',                // hardcode-ok: public video player host, filterable via requestdesk_embed_hosts
+        'www.youtube-nocookie.com',   // hardcode-ok: public video player host, filterable via requestdesk_embed_hosts
+        'player.vimeo.com',           // hardcode-ok: public video player host, filterable via requestdesk_embed_hosts
+    );
+
+    /**
+     * wp_kses_allowed_html filter: allow <iframe> in the 'post' context while a
+     * Connector publish is running. Added and removed around publish_content.
+     */
+    public static function allow_embed_iframes($tags, $context) {
+        if ($context === 'post') {
+            $tags['iframe'] = array(
+                'src' => true, 'width' => true, 'height' => true, 'title' => true,
+                'frameborder' => true, 'scrolling' => true, 'seamless' => true,
+                'loading' => true, 'allow' => true, 'allowfullscreen' => true,
+                'style' => true, 'referrerpolicy' => true,
+            );
+        }
+        return $tags;
+    }
+
+    /**
+     * Remove any iframe whose src host is not in $embed_hosts.
+     */
+    private static function strip_foreign_iframes($html) {
+        return preg_replace_callback('#<iframe\b[^>]*>.*?</iframe>#is', function ($m) {
+            if (!preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $m[0], $src)) {
+                return '';
+            }
+            $host = strtolower((string) wp_parse_url($src[1], PHP_URL_HOST));
+            $hosts = (array) apply_filters('requestdesk_embed_hosts', self::$embed_hosts);
+            return in_array($host, $hosts, true) ? $m[0] : '';
+        }, $html);
+    }
+
+    /**
      * Register REST API routes
      */
     public function register_routes() {
@@ -661,7 +709,10 @@ class RequestDesk_API {
             };
 
             $title = sanitize_text_field($str('title'));
-            $content = wp_kses_post($str('content'));
+            // Allowlisted player iframes (Transistor, YouTube, Vimeo) must survive
+            // both this kses pass and the one wp_insert_post runs on save.
+            add_filter('wp_kses_allowed_html', array(__CLASS__, 'allow_embed_iframes'), 10, 2);
+            $content = wp_kses_post(self::strip_foreign_iframes($str('content')));
             $status = sanitize_text_field($str('status')) ?: 'draft';
             $ticket_id = sanitize_text_field($str('ticket_id'));
             $agent_id = sanitize_text_field($str('agent_id'));
@@ -915,6 +966,8 @@ class RequestDesk_API {
                 'Failed to publish content: ' . $e->getMessage(),
                 array('status' => 500)
             );
+        } finally {
+            remove_filter('wp_kses_allowed_html', array(__CLASS__, 'allow_embed_iframes'), 10);
         }
     }
 

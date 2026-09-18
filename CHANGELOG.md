@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.48.1] - 2026-09-18
+
+### Fixed
+- **Podcast player embeds survive a Connector publish.** `publish_content` ran the body through `wp_kses_post()`, and because Connector requests have no logged-in user, WordPress ran kses again on save. Both passes stripped every `<iframe>`, so audio-only Talk Commerce episode posts went live with no Transistor player (#455 Jason Greenwood). Iframes whose src host is `share.transistor.fm`, YouTube or Vimeo are now allowed for the duration of the publish; any other iframe is removed before kses runs.
+
 ## [2.48.0] - 2026-09-17
 
 Client-install hardening. Everything here came out of the technical deficiency audit in `docs/audits/2026-09-17-technical-deficiency-audit.md`, which read 2.47.3 against the question "what happens when this runs on a site that is not Content Cucumber".
