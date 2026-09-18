@@ -89,7 +89,7 @@ temporary users, restore the site's settings option, and restore `wp-config.php`
 
 ## The weekly audit
 
-`brent-start` Monday step, lane background. Two halves:
+`brent-start` Monday step (ledger 6.96), lane background. Three parts:
 
 1. **Re-run the pass above** against the current release on the test bed.
 2. **Re-run the deficiency audit.** A read-only agent reads the code for
@@ -98,6 +98,39 @@ temporary users, restore the site's settings option, and restore `wp-config.php`
    `docs/audits/YYYY-MM-DD-technical-deficiency-audit.md`. Compare against the
    previous file: what got fixed, what is new, what has been open longest.
    The audit prompt that produced the first one is in that file's header.
+
+3. **Run the live-site audit** against contentcucumber.com, mobile and desktop:
+
+   ```bash
+   .claude/local/live-technical-audit.py https://contentcucumber.com
+   ```
+
+   Read-only HTTP, about 4 minutes, and it prints one findings table with no report file.
+   Every page is fetched twice, with a mobile Chrome user agent and a desktop one.
+   Each row is tagged `both`, `mobile`, `desktop` or `site`, so a mobile-only
+   problem stands out. The checks cover status, redirects, canonicals, noindex
+   pages in the sitemap, meta descriptions, h1s, alt text, mixed content, JSON-LD,
+   origin vs cached speed, page weight, and the mobile viewport tag. On top of that:
+
+   - **Mobile vs desktop parity.** Google indexes the mobile page, so a URL whose
+     canonical, robots meta, title, h1 count, JSON-LD or meta description differs
+     between the two is HIGH, and a mobile page missing a third of the desktop
+     page's internal links is MED.
+   - **PageSpeed, both strategies,** on home, blog, pricing and one post, through
+     `cc-audit-psi.sh`. The script prints a score table and turns each failing
+     page and device into a single finding line. It runs after the page checks
+     finish, because running both at once slowed the site down and skewed both
+     results. A single PageSpeed run on mobile swings widely: /pricing/ scored
+     47, 63 and 28 across three runs on 2026-09-18. Read the trend across weeks,
+     not one number.
+   - **Site-wide:** security headers, exposed endpoints (xmlrpc, REST user list,
+     author enumeration, debug.log, config backups, readme.html, the headless
+     route), 404 handling, feed noindex. These catch WordPress core updates
+     putting `readme.html` and `license.txt` back.
+
+   `--device mobile|desktop` runs one side only. `--no-psi` skips PageSpeed. The
+   script works on any live WordPress site, not only Content Cucumber. Compare
+   against last week's run and report what's new.
 
 Findings become items on the `requestdesk-connector-hardening` project.
 Nothing is marked done by an agent; Brent closes items.
