@@ -123,6 +123,11 @@ temporary users, restore the site's settings option, and restore `wp-config.php`
      results. A single PageSpeed run on mobile swings widely: /pricing/ scored
      47, 63 and 28 across three runs on 2026-09-18. Read the trend across weeks,
      not one number.
+   - **The trend.** RequestDesk runs a `pagespeed_tracking` job daily at 16:00
+     UTC: the same four pages, mobile and desktop, median of 3 runs each, stored
+     in `pagespeed_snapshots`. The audit reads `/api/pagespeed-snapshots/report`
+     and prints this week against last week above the findings table. That line
+     is the one to act on. If it cannot be read, the audit prints why.
    - **Site-wide:** security headers, exposed endpoints (xmlrpc, REST user list,
      author enumeration, debug.log, config backups, readme.html, the headless
      route), 404 handling, feed noindex. These catch WordPress core updates
