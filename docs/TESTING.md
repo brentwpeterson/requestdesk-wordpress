@@ -137,6 +137,16 @@ temporary users, restore the site's settings option, and restore `wp-config.php`
    script works on any live WordPress site, not only Content Cucumber. Compare
    against last week's run and report what's new.
 
+   **After shipping a speed fix,** don't wait for tomorrow's job:
+
+   ```bash
+   .claude/local/live-technical-audit.py https://contentcucumber.com --remeasure
+   ```
+
+   That queues a fresh measurement; the worker runs it within 5 minutes and the
+   new reading replaces today's stored one. A normal run afterwards prints the
+   updated trend.
+
 Findings become items on the `requestdesk-connector-hardening` project.
 Nothing is marked done by an agent; Brent closes items.
 
