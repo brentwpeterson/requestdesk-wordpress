@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.48.2] - 2026-09-21
+
+### Fixed
+- **Scheduling works: `status=future` no longer publishes immediately.** Sending `status=future` with a future `post_date` to `/publish` set the post live that instant and answered `success`, with `post_date` echoed back as the current time rather than the time asked for. `wp_update_post()` carries a guard -- "Drafts shouldn't be assigned a date unless explicitly done so by the user" -- that fires when the row being updated is a draft whose `post_date_gmt` is still `0000-00-00 00:00:00`, which is every draft this connector creates. With `edit_date` absent it replaced the supplied date with `current_time('mysql')` and blanked `post_date_gmt`; core then read a date inside the next minute and demoted `future` to `publish`. The publish handler now sends `edit_date` whenever an explicit date is supplied, so the date sticks and the post stays scheduled. Content Cucumber post 23206 went live about twelve hours early this way on 2026-09-20, and two Talk Commerce posts did the same on 2026-09-01. Reproduced and verified on LocalWP against 2.48.0.
+
 ## [2.48.1] - 2026-09-18
 
 ### Fixed

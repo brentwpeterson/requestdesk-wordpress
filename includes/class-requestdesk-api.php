@@ -756,10 +756,24 @@ class RequestDesk_API {
                 $post_data['post_name'] = $slug;
             }
 
-            // Set original publication date if provided
+            // Set original publication date if provided.
+            //
+            // edit_date is not optional here. wp_update_post() carries a guard --
+            // "Drafts shouldn't be assigned a date unless explicitly done so by
+            // the user" -- that fires when the EXISTING row is a draft whose
+            // post_date_gmt is still 0000-00-00 00:00:00, which is every draft
+            // this connector creates. With edit_date empty it overwrites the date
+            // just set with current_time('mysql') and blanks post_date_gmt. Core
+            // then reads a post_date_gmt inside the next minute and demotes
+            // 'future' to 'publish' (wp_insert_post), so a post scheduled through
+            // this endpoint went live the moment it was scheduled and reported
+            // success: CC post 23206 published ~12h early on 2026-09-20, and two
+            // Talk Commerce posts did the same on 2026-09-01. edit_date tells core
+            // the date is deliberate; core reads it nowhere else.
             if (!empty($post_date)) {
                 $post_data['post_date'] = $post_date;
                 $post_data['post_date_gmt'] = get_gmt_from_date($post_date);
+                $post_data['edit_date'] = true;
             }
 
             // Set author if provided and valid. Log silent failures so they stop being silent.
