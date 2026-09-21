@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.49.0] - 2026-09-21
+
+### Fixed
+- **RequestDesk SEO meta is stored on publish, and wins over Yoast on the headless API.** `RequestDesk_Yoast_Meta` has made the `_requestdesk_*` values beat Yoast in Yoast's own printed tags since 2.47.0, but two pieces were missing, so on a headless site nothing RequestDesk sent ever reached a reader. First, `/publish` never registered `meta_title`, `meta_description` or `focus_keyphrase` as route args -- the REST controller strips unregistered args, so a caller sending them got `"success": true` and no stored value, with nothing in the response to say otherwise. They are now registered (aliases `seo_title` / `seo_description`), written to `_requestdesk_seo_title`, `_requestdesk_seo_description` and `_requestdesk_focus_keyphrase`, read back, and reported as `seo_meta_set` in the publish response. A field left out of an update leaves the stored value alone, the same asymmetry `content` and `tags` already have. Second, `get_seo_data()` in the headless API checked Yoast, then RankMath, then AIOSEO, and never looked at the `_requestdesk_*` namespace at all, so even a stored value lost to Yoast or to the title-plus-site-name fallback. It now reads RequestDesk first for title, description, keyphrase, canonical, and the OG and Twitter fields, applying the same one-way robots rule as the Yoast filter path -- RequestDesk can add a noindex and never lifts one. Talk Commerce post 8803 went live on 2026-09-21 with a 94-character SEO title and its 300-character excerpt as the meta description because of this.
+
 ## [2.48.2] - 2026-09-21
 
 ### Fixed

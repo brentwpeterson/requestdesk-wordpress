@@ -835,6 +835,29 @@ class RequestDesk_Headless_API {
     }
 
     /**
+     * Read one _requestdesk_* SEO value.
+     *
+     * Values imported from Yoast by RequestDesk_Yoast_Importer can still carry
+     * Yoast-style %%variables%%, so run them through Yoast's replacement when
+     * Yoast is present. With Yoast gone, a stored %%variable%% would render
+     * literally, so drop it rather than ship the token to the front end.
+     */
+    private function seo_meta_value($post_id, $meta_key) {
+        $value = (string) get_post_meta($post_id, $meta_key, true);
+        if ($value === '') {
+            return '';
+        }
+        if (strpos($value, '%%') !== false) {
+            if (function_exists('wpseo_replace_vars')) {
+                $value = wpseo_replace_vars($value, get_post($post_id));
+            } else {
+                $value = trim(preg_replace('/%%[^%]+%%/', '', $value));
+            }
+        }
+        return $value;
+    }
+
+    /**
      * Get SEO data from various SEO plugins or post meta
      */
     private function get_seo_data($post) {
@@ -844,6 +867,15 @@ class RequestDesk_Headless_API {
         // Default title and description
         $title = $post->post_title . ' | ' . get_bloginfo('name');
         $description = get_the_excerpt($post);
+
+        // RequestDesk's own values, which WIN over every SEO plugin below.
+        // This mirrors RequestDesk_Yoast_Meta, which already makes these
+        // values beat Yoast in the tags Yoast prints on a rendered site. A
+        // headless front end never runs those filters, so the precedence has
+        // to be applied here too or the two paths disagree about the same post.
+        $rd_title = $this->seo_meta_value($post_id, '_requestdesk_seo_title');
+        $rd_desc = $this->seo_meta_value($post_id, '_requestdesk_seo_description');
+        $rd_keyphrase = $this->seo_meta_value($post_id, '_requestdesk_focus_keyphrase');
 
         // Check for Yoast SEO
         $yoast_title = get_post_meta($post_id, '_yoast_wpseo_title', true);
@@ -859,8 +891,10 @@ class RequestDesk_Headless_API {
         $aioseo_title = get_post_meta($post_id, '_aioseo_title', true);
         $aioseo_desc = get_post_meta($post_id, '_aioseo_description', true);
 
-        // Use first available title/description
-        if (!empty($yoast_title)) {
+        // Use first available title/description. RequestDesk first.
+        if (!empty($rd_title)) {
+            $title = $rd_title;
+        } elseif (!empty($yoast_title)) {
             $title = $yoast_title;
         } elseif (!empty($rankmath_title)) {
             $title = $rankmath_title;
@@ -868,7 +902,9 @@ class RequestDesk_Headless_API {
             $title = $aioseo_title;
         }
 
-        if (!empty($yoast_desc)) {
+        if (!empty($rd_desc)) {
+            $description = $rd_desc;
+        } elseif (!empty($yoast_desc)) {
             $description = $yoast_desc;
         } elseif (!empty($rankmath_desc)) {
             $description = $rankmath_desc;
@@ -877,31 +913,39 @@ class RequestDesk_Headless_API {
         }
 
         // Keyphrase
-        $keyphrase = $yoast_keyphrase ?: $rankmath_keyphrase ?: '';
+        $keyphrase = $rd_keyphrase ?: $yoast_keyphrase ?: $rankmath_keyphrase ?: '';
 
         // OG data (check various sources)
-        $og_title = get_post_meta($post_id, '_yoast_wpseo_opengraph-title', true)
+        $og_title = $this->seo_meta_value($post_id, '_requestdesk_og_title')
+            ?: get_post_meta($post_id, '_yoast_wpseo_opengraph-title', true)
             ?: get_post_meta($post_id, 'rank_math_facebook_title', true)
             ?: $title;
 
-        $og_description = get_post_meta($post_id, '_yoast_wpseo_opengraph-description', true)
+        $og_description = $this->seo_meta_value($post_id, '_requestdesk_og_description')
+            ?: get_post_meta($post_id, '_yoast_wpseo_opengraph-description', true)
             ?: get_post_meta($post_id, 'rank_math_facebook_description', true)
             ?: $description;
 
-        $og_image = get_post_meta($post_id, '_yoast_wpseo_opengraph-image', true)
+        $og_image = get_post_meta($post_id, '_requestdesk_og_image', true)
+            ?: get_post_meta($post_id, '_yoast_wpseo_opengraph-image', true)
             ?: get_post_meta($post_id, 'rank_math_facebook_image', true)
             ?: get_the_post_thumbnail_url($post_id, 'full');
 
         // Canonical URL
-        $canonical = get_post_meta($post_id, '_yoast_wpseo_canonical', true)
+        $canonical = get_post_meta($post_id, '_requestdesk_canonical_url', true)
+            ?: get_post_meta($post_id, '_yoast_wpseo_canonical', true)
             ?: get_post_meta($post_id, 'rank_math_canonical_url', true)
             ?: $permalink;
 
         // Robots meta
+        // RequestDesk can ADD a noindex, and never lifts one another plugin
+        // set -- the same one-way rule RequestDesk_Yoast_Meta applies.
         $robots = 'index, follow';
         $noindex = get_post_meta($post_id, '_yoast_wpseo_meta-robots-noindex', true)
             ?: get_post_meta($post_id, 'rank_math_robots', true);
-        if ($noindex === '1' || strpos($noindex, 'noindex') !== false) {
+        $rd_noindex = get_post_meta($post_id, '_requestdesk_noindex', true);
+        if ($noindex === '1' || strpos((string) $noindex, 'noindex') !== false
+            || $rd_noindex === '1' || $rd_noindex === 'on') {
             $robots = 'noindex, follow';
         }
 

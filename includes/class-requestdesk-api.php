@@ -218,6 +218,37 @@ class RequestDesk_API {
                     'required' => false,
                     'type' => 'string',
                     'description' => 'URL slug to assign to the post'
+                ),
+                // SEO meta. Stored in the _requestdesk_* namespace, which
+                // RequestDesk_Yoast_Meta makes win over Yoast on a rendered
+                // site and get_seo_data() serves to the headless front end.
+                // Unregistered args are stripped by the REST controller, which
+                // is why callers sending these before 2.49.0 got a silent
+                // success and no stored value.
+                'meta_title' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'SEO title. Accepted alias: seo_title.'
+                ),
+                'seo_title' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Alias for meta_title'
+                ),
+                'meta_description' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'SEO meta description. Accepted alias: seo_description.'
+                ),
+                'seo_description' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Alias for meta_description'
+                ),
+                'focus_keyphrase' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Focus keyphrase for the post'
                 )
             )
         ));
@@ -722,6 +753,17 @@ class RequestDesk_API {
             $tags = $request->get_param('tags') ?: array();
             $post_id = sanitize_text_field($str('post_id'));
 
+            // SEO meta (first non-empty alias wins, same pattern as post_date).
+            $meta_title = sanitize_text_field($str('meta_title'));
+            if ($meta_title === '') {
+                $meta_title = sanitize_text_field($str('seo_title'));
+            }
+            $meta_description = sanitize_textarea_field($str('meta_description'));
+            if ($meta_description === '') {
+                $meta_description = sanitize_textarea_field($str('seo_description'));
+            }
+            $focus_keyphrase = sanitize_text_field($str('focus_keyphrase'));
+
             $is_update = !empty($post_id);
 
             $author = absint($request->get_param('author'));
@@ -913,6 +955,30 @@ class RequestDesk_API {
                 update_post_meta($post_id, '_requestdesk_agent_id', $agent_id);
             }
 
+            // SEO meta. Written only when a value was supplied, so an update
+            // that omits a field leaves the stored value alone -- the same
+            // asymmetry content and tags already have. Clearing a field is a
+            // deliberate act in wp-admin, never a side effect of a re-publish.
+            $seo_meta_set = array();
+            $seo_meta_map = array(
+                '_requestdesk_seo_title' => $meta_title,
+                '_requestdesk_seo_description' => $meta_description,
+                '_requestdesk_focus_keyphrase' => $focus_keyphrase,
+            );
+            foreach ($seo_meta_map as $meta_key => $meta_value) {
+                if ($meta_value === '') {
+                    continue;
+                }
+                update_post_meta($post_id, $meta_key, $meta_value);
+                // Read back: the response is the only witness the caller gets,
+                // and a meta write can be filtered away by another plugin.
+                if ((string) get_post_meta($post_id, $meta_key, true) === (string) $meta_value) {
+                    $seo_meta_set[] = $meta_key;
+                } else {
+                    error_log("[RequestDesk] publish_content: {$meta_key} did not persist on post {$post_id}");
+                }
+            }
+
             // Verify post_author actually persisted. Some Magento-style replication, plugin
             // hooks, or default-author filters can override it after wp_insert_post.
             // If it did not stick, force-update once and re-check.
@@ -952,6 +1018,7 @@ class RequestDesk_API {
                 'post_url' => get_permalink($post_id),
                 'edit_url' => get_edit_post_link($post_id, 'raw'),
                 'featured_image_set' => !empty($featured_image),
+                'seo_meta_set' => $seo_meta_set,
                 'categories_set' => count($category_ids ?? []),
                 'tags_set' => count($tag_names ?? []),
                 'author_set' => $author_set,
