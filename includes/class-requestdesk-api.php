@@ -338,6 +338,40 @@ class RequestDesk_API {
             )
         ));
 
+        // Change only the author of one or more existing posts/pages. Unlike
+        // /publish, this never rewrites title, content, status or categories,
+        // never runs save_post hooks, and does not touch post_modified.
+        register_rest_route($this->namespace, '/post-author', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'set_post_author'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'post_id' => array('required' => false, 'type' => 'integer', 'description' => 'Post or page ID'),
+                'post_ids' => array('required' => false, 'type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Several post or page IDs'),
+                'author' => array('required' => true, 'type' => 'string', 'description' => 'User ID, login, email, or exact display name'),
+                'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false),
+            )
+        ));
+
+        // Set alt text on images inside one post/page without rewriting the
+        // rest of its content. Updates the <img> HTML, the GenerateBlocks media
+        // block attributes that mirror it, and an empty media-library alt.
+        register_rest_route($this->namespace, '/image-alt', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'set_image_alt'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'post_id' => array('required' => true, 'type' => 'integer'),
+                'images' => array(
+                    'required' => true,
+                    'type' => 'array',
+                    'description' => 'List of {src, alt}. alt "" marks an image decorative.',
+                    'items' => array('type' => 'object'),
+                ),
+                'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false),
+            )
+        ));
+
     }
 
     /**
@@ -362,6 +396,214 @@ class RequestDesk_API {
             'status' => $post->post_status,
             'title' => get_the_title($post),
             'link' => get_permalink($post),
+        ), 200);
+    }
+
+    /**
+     * Resolve a user from an ID, login, email or exact display name.
+     */
+    private function resolve_author($value) {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+        if (ctype_digit($value)) {
+            $user = get_userdata((int) $value);
+            if ($user) {
+                return $user;
+            }
+        }
+        foreach (array('login', 'email', 'slug') as $field) {
+            $user = get_user_by($field, $value);
+            if ($user) {
+                return $user;
+            }
+        }
+        $matches = get_users(array('search' => $value, 'search_columns' => array('display_name'), 'number' => 2));
+        $matches = array_values(array_filter($matches, function ($u) use ($value) {
+            return strcasecmp($u->display_name, $value) === 0;
+        }));
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    /**
+     * POST /post-author: set post_author only, verified by reading it back.
+     */
+    public function set_post_author($request) {
+        global $wpdb;
+
+        $ids = array();
+        if ($request->get_param('post_id')) {
+            $ids[] = (int) $request->get_param('post_id');
+        }
+        foreach ((array) $request->get_param('post_ids') as $id) {
+            $ids[] = (int) $id;
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (empty($ids)) {
+            return new WP_Error('missing_post', 'Pass post_id or post_ids.', array('status' => 400));
+        }
+
+        $author_param = (string) $request->get_param('author');
+        $user = $this->resolve_author($author_param);
+        if (!$user) {
+            return new WP_Error('author_not_found', 'No single user matches author "' . $author_param . '".', array('status' => 404));
+        }
+        if (!user_can($user, 'edit_posts')) {
+            return new WP_Error('author_cannot_write', 'User ' . $user->user_login . ' cannot author posts.', array('status' => 400));
+        }
+
+        $dry_run = (bool) $request->get_param('dry_run');
+        $results = array();
+        $failed = 0;
+        foreach ($ids as $id) {
+            $post = get_post($id);
+            if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+                $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'not a post or page');
+                $failed++;
+                continue;
+            }
+            $before = (int) $post->post_author;
+            if (!$dry_run && $before !== (int) $user->ID) {
+                $wpdb->update($wpdb->posts, array('post_author' => (int) $user->ID), array('ID' => $id), array('%d'), array('%d'));
+                clean_post_cache($id);
+            }
+            $after = $dry_run ? $before : (int) get_post_field('post_author', $id, 'raw');
+            $ok = $dry_run || $after === (int) $user->ID;
+            if (!$ok) {
+                $failed++;
+            }
+            $results[] = array(
+                'post_id' => $id,
+                'title' => get_the_title($id),
+                'author_before' => $before,
+                'author_after' => $after,
+                'changed' => !$dry_run && $before !== $after,
+                'ok' => $ok,
+            );
+        }
+
+        return new WP_REST_Response(array(
+            'success' => $failed === 0,
+            'dry_run' => $dry_run,
+            'author' => array('id' => (int) $user->ID, 'login' => $user->user_login, 'display_name' => $user->display_name),
+            'results' => $results,
+        ), $failed === 0 ? 200 : 207);
+    }
+
+    /**
+     * Normalize an image URL for matching: no scheme, no query, no entities.
+     */
+    private function normalize_img_src($src) {
+        $src = html_entity_decode(trim((string) $src), ENT_QUOTES);
+        $src = preg_replace('#^https?:#i', '', $src);
+        $src = strtok($src, '?#');
+        // Site images match on path alone, so a caller can pass the production
+        // URL and still match a staging copy whose host was search-replaced.
+        $wp = strpos((string) $src, '/wp-content/');
+        return $wp !== false ? substr($src, $wp) : $src;
+    }
+
+    /**
+     * POST /image-alt: set alt on matching images in one post's content.
+     */
+    public function set_image_alt($request) {
+        global $wpdb;
+
+        $post_id = (int) $request->get_param('post_id');
+        $post = get_post($post_id);
+        if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+            return new WP_Error('post_not_found', 'No post or page with ID ' . $post_id . '.', array('status' => 404));
+        }
+        if (!class_exists('WP_HTML_Tag_Processor')) {
+            return new WP_Error('unsupported', 'WordPress 6.2 or later is required.', array('status' => 500));
+        }
+
+        $wanted = array();
+        foreach ((array) $request->get_param('images') as $img) {
+            if (!is_array($img) || empty($img['src']) || !array_key_exists('alt', $img)) {
+                return new WP_Error('bad_image', 'Each image needs src and alt.', array('status' => 400));
+            }
+            $wanted[$this->normalize_img_src($img['src'])] = sanitize_text_field((string) $img['alt']);
+        }
+        if (empty($wanted)) {
+            return new WP_Error('no_images', 'Pass at least one image.', array('status' => 400));
+        }
+
+        $dry_run = (bool) $request->get_param('dry_run');
+        $content = $post->post_content;
+        $matched = array();
+        $attachment_ids = array();
+
+        // 1) GenerateBlocks media blocks keep src/alt in htmlAttributes too;
+        //    update them so the editor does not flag the block as invalid.
+        $content = preg_replace_callback('#<!-- wp:generateblocks/media (\{.*?\}) (/)?-->#s', function ($m) use ($wanted, &$matched, &$attachment_ids) {
+            $attrs = json_decode($m[1], true);
+            $src = isset($attrs['htmlAttributes']['src']) ? $this->normalize_img_src($attrs['htmlAttributes']['src']) : '';
+            if ($src === '' || !array_key_exists($src, $wanted)) {
+                return $m[0];
+            }
+            $attrs['htmlAttributes']['alt'] = $wanted[$src];
+            if (!empty($attrs['mediaId'])) {
+                $attachment_ids[(int) $attrs['mediaId']] = array($src, $wanted[$src]);
+            }
+            $matched[$src] = true;
+            return '<!-- wp:generateblocks/media ' . serialize_block_attributes($attrs) . ' ' . (isset($m[2]) ? $m[2] : '') . '-->';
+        }, $content);
+
+        // 2) The <img> tags themselves.
+        $processor = new WP_HTML_Tag_Processor($content);
+        $changes = array();
+        while ($processor->next_tag('img')) {
+            $src = $this->normalize_img_src($processor->get_attribute('src'));
+            if (!array_key_exists($src, $wanted)) {
+                continue;
+            }
+            $old = $processor->get_attribute('alt');
+            $processor->set_attribute('alt', $wanted[$src]);
+            $class = (string) $processor->get_attribute('class');
+            if (preg_match('/\bwp-image-(\d+)\b/', $class, $cm)) {
+                $attachment_ids[(int) $cm[1]] = array($src, $wanted[$src]);
+            }
+            $matched[$src] = true;
+            $changes[] = array('src' => $src, 'alt_before' => $old, 'alt_after' => $wanted[$src]);
+        }
+        $content = $processor->get_updated_html();
+
+        $not_found = array_values(array_diff(array_keys($wanted), array_keys($matched)));
+
+        // 3) Media-library alt, only when empty and only when the attachment
+        //    really is this image (imported blocks can carry foreign mediaIds).
+        $library = array();
+        foreach ($attachment_ids as $aid => $pair) {
+            $url = wp_get_attachment_url($aid);
+            if (!$url || basename($this->normalize_img_src($url)) !== basename(preg_replace('/-\d+x\d+(?=\.\w+$)/', '', $pair[0])) && basename($this->normalize_img_src($url)) !== basename($pair[0])) {
+                continue;
+            }
+            if (trim((string) get_post_meta($aid, '_wp_attachment_image_alt', true)) === '') {
+                $library[] = $aid;
+                if (!$dry_run) {
+                    update_post_meta($aid, '_wp_attachment_image_alt', $pair[1]);
+                }
+            }
+        }
+
+        $changed = $content !== $post->post_content;
+        if (!$dry_run && $changed) {
+            wp_save_post_revision($post_id);
+            $wpdb->update($wpdb->posts, array('post_content' => $content), array('ID' => $post_id), array('%s'), array('%d'));
+            clean_post_cache($post_id);
+        }
+
+        return new WP_REST_Response(array(
+            'success' => empty($not_found),
+            'dry_run' => $dry_run,
+            'post_id' => $post_id,
+            'content_changed' => $changed,
+            'img_tags_updated' => count($changes),
+            'changes' => $changes,
+            'media_library_alt_set' => $library,
+            'not_found' => $not_found,
         ), 200);
     }
 

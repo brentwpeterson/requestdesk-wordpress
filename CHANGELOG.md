@@ -5,6 +5,12 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.50.0] - 2026-09-24
+
+### Added
+- **`POST /requestdesk/v1/post-author`** sets only the author of one post/page (`post_id`) or many (`post_ids`). `author` accepts a user ID, login, email, slug, or an exact display name; the user must be able to edit posts. It writes `post_author` directly, so title, content, status, categories and `post_modified` are untouched and no save hooks run (unlike `/publish`, which rewrites the whole post). Each post is read back and reported as `author_before` / `author_after` / `ok`; `dry_run` reports without writing. Built to reassign 37 Content Cucumber posts whose author was a deleted user, which left an empty author link that failed accessibility `link-name` checks.
+- **`POST /requestdesk/v1/image-alt`** sets alt text on images inside one post/page: `{post_id, images: [{src, alt}], dry_run}`. It edits the matching `<img>` tags with `WP_HTML_Tag_Processor`, updates `htmlAttributes.alt` on GenerateBlocks media blocks so the editor does not flag them invalid, and fills an empty media-library alt when the attachment really is that image. The rest of the content is untouched; a revision is saved first. Site images (`/wp-content/...`) match on path, so a production URL also matches a staging copy with a search-replaced host. Unmatched sources come back in `not_found`. `alt: ""` marks an image decorative.
+
 ## [2.49.0] - 2026-09-21
 
 ### Fixed
