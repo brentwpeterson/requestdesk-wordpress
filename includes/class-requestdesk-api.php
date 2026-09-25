@@ -107,6 +107,17 @@ class RequestDesk_API {
                     'type' => 'boolean',
                     'default' => true,
                     'description' => 'Include full post content'
+                ),
+                'ids' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Comma-separated post IDs. Returns exactly those posts (up to 100), ignoring offset and modified_since. Used by the RequestDesk sync to re-fetch posts its collection is missing.'
+                ),
+                'ids_only' => array(
+                    'required' => false,
+                    'type' => 'boolean',
+                    'default' => false,
+                    'description' => 'Return only id, published_date and modified_date per post. Cheap enough to list every published post in a few calls, so the caller can diff the site against its collection.'
                 )
             )
         ));
@@ -657,6 +668,16 @@ class RequestDesk_API {
             $modified_since = $request->get_param('modified_since');
             $include_content = $request->get_param('include_content') === true || $request->get_param('include_content') === 'true';
             $post_status = $request->get_param('status') ?: 'publish';
+            $ids_only = $request->get_param('ids_only') === true || $request->get_param('ids_only') === 'true';
+            $ids_param = $request->get_param('ids');
+            $id_list = array();
+            if (!empty($ids_param)) {
+                $id_list = array_values(array_filter(array_map('intval', explode(',', $ids_param))));
+                $id_list = array_slice(array_unique($id_list), 0, 100);
+            }
+            if ($ids_only) {
+                $include_content = false;
+            }
 
             // Allow comma-separated statuses (e.g., "publish,pending,draft,future")
             $status_array = array_map('trim', explode(',', $post_status));
@@ -672,8 +693,14 @@ class RequestDesk_API {
                 'post_status' => count($status_array) === 1 ? $status_array[0] : $status_array,
                 'posts_per_page' => $per_page,
                 'offset' => $offset,
-                'orderby' => 'modified',
-                'order' => 'DESC',
+                // Newest-modified first, with the post ID as a tie-breaker.
+                // Many posts share one post_modified value (bulk edits,
+                // migrations), and MySQL returns tied rows in no fixed order,
+                // so an offset walk over `modified` alone skipped some posts
+                // and returned others twice. 2026-09-25: a 758-post pull
+                // yielded 753 distinct posts; the missed ones were never
+                // embedded in the RequestDesk collection.
+                'orderby' => array('modified' => 'DESC', 'ID' => 'DESC'),
                 'no_found_rows' => false // We need total count
             );
 
@@ -688,6 +715,15 @@ class RequestDesk_API {
                 );
             }
 
+            // Explicit IDs win over paging and the date filter: the caller
+            // already knows which posts it wants and is asking for exactly those.
+            if (!empty($id_list)) {
+                $args['post__in'] = $id_list;
+                $args['posts_per_page'] = count($id_list);
+                $args['offset'] = 0;
+                unset($args['date_query']);
+            }
+
             $query = new WP_Query($args);
             $posts = array();
 
@@ -695,6 +731,15 @@ class RequestDesk_API {
                 // Debug date processing
                 $published_timestamp = strtotime($post->post_date);
                 $modified_timestamp = strtotime($post->post_modified);
+
+                if ($ids_only) {
+                    $posts[] = array(
+                        'id' => $post->ID,
+                        'published_date' => $published_timestamp ? date('c', $published_timestamp) : null,
+                        'modified_date' => $modified_timestamp ? date('c', $modified_timestamp) : null,
+                    );
+                    continue;
+                }
 
                 // Get featured image URLs in different sizes (with safety checks)
                 $featured_image_id = null;
@@ -787,8 +832,14 @@ class RequestDesk_API {
                 'post_status' => 'publish',
                 'posts_per_page' => $per_page,
                 'offset' => $offset,
-                'orderby' => 'modified',
-                'order' => 'DESC',
+                // Newest-modified first, with the post ID as a tie-breaker.
+                // Many posts share one post_modified value (bulk edits,
+                // migrations), and MySQL returns tied rows in no fixed order,
+                // so an offset walk over `modified` alone skipped some posts
+                // and returned others twice. 2026-09-25: a 758-post pull
+                // yielded 753 distinct posts; the missed ones were never
+                // embedded in the RequestDesk collection.
+                'orderby' => array('modified' => 'DESC', 'ID' => 'DESC'),
                 'no_found_rows' => false // We need total count
             );
 

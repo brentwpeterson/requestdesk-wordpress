@@ -5,6 +5,14 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.50.1] - 2026-09-25
+
+### Fixed
+- **`/pull-posts` and `/pull-pages` page in a stable order.** Both ordered by `modified DESC` alone and walked the result with an offset. Many posts share one `post_modified` value, and MySQL returns tied rows in no fixed order, so each page query could shuffle the ties across a page boundary: one post falls off the end of a page and never appears, another appears on two pages. On Talk Commerce a 758-post pull returned 758 rows but only 753 distinct posts, and which five were missing changed from run to run. The RequestDesk `wordpress_rag_sync` job alerted for an hour on a post it could never fetch, then passed when the shuffle happened to include it. The order is now `modified DESC, ID DESC`, so every offset walk sees every post exactly once.
+
+### Added
+- **`/pull-posts` takes `ids` and `ids_only`.** `ids_only=true` returns just `id`, `published_date` and `modified_date` per post, cheap enough to list a whole site in a handful of calls. `ids=1007,154` returns exactly those posts (up to 100), ignoring `offset` and `modified_since`. Together they let the RequestDesk sync diff the site against its collection and re-fetch only what is missing, instead of alerting and waiting for the next full pass to happen to include the post.
+
 ## [2.50.0] - 2026-09-24
 
 ### Added
