@@ -20,6 +20,12 @@
  * proceeds on the regex-only result -- approving a comment must never depend
  * on an external API call succeeding.
  *
+ * Same pass also catches a domain-shaped author name ("spam-domain.example" typed
+ * into the Name field) -- spammers set it deliberately so it reads like
+ * anchor text next to every comment they get approved, link or no link.
+ * A name shaped like a real domain (label + dot + a recognized TLD) is
+ * replaced with a neutral placeholder. See maybe_strip_domain_name().
+ *
  * Off by default. Toggle: RequestDesk > Settings > Plugin Settings > Strip
  * links from approved comments (requestdesk_settings[strip_comment_links]).
  *
@@ -35,6 +41,29 @@ class RequestDesk_Comment_Link_Stripper {
 
     /** Guards against re-entering wp_update_comment() from inside our own hook. */
     private static $updating = false;
+
+    /**
+     * Stand-in for a comment author name that turned out to be a domain.
+     * Filterable so a site can use its own wording without touching code:
+     *     add_filter('requestdesk_stripped_author_placeholder', fn() => 'Guest');
+     */
+    const AUTHOR_PLACEHOLDER = 'Reader';
+
+    /**
+     * Common TLDs a spam name is actually built from. Not exhaustive -- there
+     * are 1500+ real TLDs -- but a bounded, recognizable list is what keeps
+     * this from flagging an ordinary name typed without a space after a
+     * period ("Mr.Anderson"). Extend via the requestdesk_domain_like_tlds
+     * filter rather than editing this list.
+     */
+    const COMMON_TLDS = array(
+        'com', 'net', 'org', 'io', 'co', 'biz', 'info', 'xyz', 'online',
+        'site', 'store', 'shop', 'club', 'top', 'vip', 'pro', 'me', 'tv',
+        'cc', 'ai', 'app', 'dev', 'tech', 'agency', 'company', 'solutions',
+        'services', 'us', 'uk', 'ca', 'de', 'cn', 'ru', 'in', 'eu', 'asia',
+        'live', 'blog', 'news', 'email', 'cloud', 'digital', 'media',
+        'group', 'world', 'work',
+    );
 
     public function __construct() {
         add_action('transition_comment_status', array($this, 'maybe_strip_links'), 10, 3);
@@ -78,27 +107,74 @@ class RequestDesk_Comment_Link_Stripper {
         $original = (string) $comment->comment_content;
         $regex_pass = self::strip_links($original);
         $final = self::maybe_apply_claude_pass($regex_pass);
+        $content_changed = ($final !== $original);
 
-        if ($final === $original) {
+        $original_author = (string) $comment->comment_author;
+        $final_author = self::maybe_strip_domain_name($original_author);
+        $author_changed = ($final_author !== $original_author);
+
+        if (!$content_changed && !$author_changed) {
             return;
         }
 
+        $update = array('comment_ID' => $comment->comment_ID);
+        if ($content_changed) {
+            $update['comment_content'] = $final;
+        }
+        if ($author_changed) {
+            $update['comment_author'] = $final_author;
+        }
+
         self::$updating = true;
-        wp_update_comment(array(
-            'comment_ID'      => $comment->comment_ID,
-            'comment_content' => $final,
-        ));
+        wp_update_comment($update);
         self::$updating = false;
 
         // Kept so a moderator can see what was removed, not to restore it --
-        // restoring the link is exactly what this feature exists to prevent.
-        update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_original', $original);
+        // restoring the link (or the domain-as-name) is exactly what this
+        // feature exists to prevent.
+        if ($content_changed) {
+            update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_original', $original);
+            update_comment_meta(
+                $comment->comment_ID,
+                '_requestdesk_links_stripped_method',
+                ($final !== $regex_pass) ? 'regex+claude' : 'regex'
+            );
+        }
+        if ($author_changed) {
+            update_comment_meta($comment->comment_ID, '_requestdesk_author_name_original', $original_author);
+        }
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_at', current_time('mysql'));
-        update_comment_meta(
-            $comment->comment_ID,
-            '_requestdesk_links_stripped_method',
-            ($final !== $regex_pass) ? 'regex+claude' : 'regex'
-        );
+    }
+
+    /**
+     * Swap a domain-shaped author name for a neutral placeholder. Only the
+     * whole name is replaced, not just the matched substring -- a name a
+     * spam tool generated ("Best spam-domain.example Deals") is not a real name
+     * with an embedded typo, it's manufactured text, so a partial edit would
+     * leave an equally awkward result.
+     */
+    private static function maybe_strip_domain_name($author) {
+        if ($author === '' || !self::looks_like_domain($author)) {
+            return $author;
+        }
+
+        return (string) apply_filters('requestdesk_stripped_author_placeholder', self::AUTHOR_PLACEHOLDER);
+    }
+
+    /**
+     * True when $text contains a label + dot + recognized TLD with no
+     * whitespace around the dot -- "spam-domain.example", not "Mr. Anderson"
+     * (space after the period keeps an ordinary sentence/name out of this).
+     */
+    private static function looks_like_domain($text) {
+        $tlds = apply_filters('requestdesk_domain_like_tlds', self::COMMON_TLDS);
+        if (!is_array($tlds) || empty($tlds)) {
+            return false;
+        }
+
+        $pattern = '/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:' . implode('|', array_map('preg_quote', $tlds)) . ')\b/i';
+
+        return (bool) preg_match($pattern, $text);
     }
 
     /**

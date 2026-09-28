@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.53.0] - 2026-09-28
+
+### Added
+- **Comment link-stripper also catches a domain used as the author name.** Spammers commonly type their own domain into a comment's Name field ("spam-domain.example") so it reads like a link-shaped mention next to every comment they get approved, with or without an actual link in the body. Same toggle, same `transition_comment_status` hook: if `comment_author` contains a label + dot + a recognized TLD (a bounded list, filterable via `requestdesk_domain_like_tlds`) with no whitespace around the dot, it's replaced with a neutral placeholder ("Reader", filterable via `requestdesk_stripped_author_placeholder`). Requiring a recognized TLD (rather than "any word after a dot") is deliberate -- it's what keeps this from flagging an ordinary name typed without a space after a period, like "Mr.Anderson". Original name saved to comment meta `_requestdesk_author_name_original` before replacing.
+
 ## [2.52.0] - 2026-09-28
 
 ### Added

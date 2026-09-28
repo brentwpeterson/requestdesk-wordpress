@@ -397,6 +397,12 @@ function requestdesk_settings_page() {
                                     real <code>&lt;a&gt;</code> links are stripped.
                                 <?php endif; ?>
                             </p>
+                            <p class="description">
+                                Also replaces a domain-shaped author name (someone who typed
+                                <code>spam-domain.example</code> into the Name field instead of a real name) with a
+                                neutral placeholder &mdash; a common way spammers get a link-shaped mention past
+                                moderation even without an actual link in the comment body.
+                            </p>
                         </td>
                     </tr>
                     <tr>
