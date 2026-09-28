@@ -26,11 +26,13 @@
  * A name shaped like a real domain (label + dot + a recognized TLD) is
  * replaced with a neutral placeholder. See maybe_strip_domain_name(). When the
  * name is replaced, the comment's Website field (comment_author_url) is
- * cleared too -- otherwise the placeholder name stays hyperlinked to the same
- * spam destination the name itself pointed at, which is how this was found:
- * "Reader" still redirected to the spammer's site. A genuine commenter's real
- * website link is never touched -- only cleared when the name itself was
- * flagged as domain-shaped.
+ * repointed too -- otherwise the placeholder name stays hyperlinked to the
+ * same spam destination the name itself pointed at, which is how this was
+ * found: "Reader" still redirected to the spammer's site. It now points at
+ * RequestDesk's own explainer post for this feature instead of going dead,
+ * filterable via requestdesk_author_placeholder_link. A genuine commenter's
+ * real website link is never touched -- only repointed when the name itself
+ * was flagged as domain-shaped.
  *
  * Off by default. Toggle: RequestDesk > Settings > Plugin Settings > Strip
  * links from approved comments (requestdesk_settings[strip_comment_links]).
@@ -54,6 +56,20 @@ class RequestDesk_Comment_Link_Stripper {
      *     add_filter('requestdesk_stripped_author_placeholder', fn() => 'Guest');
      */
     const AUTHOR_PLACEHOLDER = 'Reader';
+
+    /**
+     * Where the placeholder name links to instead of going dead. Points at
+     * RequestDesk's own post explaining this exact feature -- transparent
+     * (a moderator or reader who clicks "Reader" finds out why the name
+     * changed) rather than promotional by stealth. hardcode-ok: this is
+     * RequestDesk's own vendor URL for a RequestDesk-branded feature this
+     * connector plugin ships, the same category the vendor-URL gate already
+     * carves out an exception for -- but still filterable, same as the QR
+     * Redirect default and the author placeholder above, so an install that
+     * doesn't want an outbound link here at all can set this to ''.
+     *     add_filter('requestdesk_author_placeholder_link', fn() => '');
+     */
+    const EXPLAINER_URL = 'https://requestdesk.ai/blog/requestdesks-wordpress-module-strips-spam-links-from-comments#comment-link-stripper'; // hardcode-ok: RequestDesk's own explainer post for this RequestDesk-branded feature
 
     /**
      * Common TLDs a spam name is actually built from. Not exhaustive -- there
@@ -123,11 +139,14 @@ class RequestDesk_Comment_Link_Stripper {
         // their Website field to that same domain -- confirmed on the exact
         // comment that surfaced this gap: replacing the name to "Reader" but
         // leaving comment_author_url alone meant clicking "Reader" still
-        // redirected to the spam site. Only clear it when the name itself
-        // was flagged, so a genuine commenter's real website link (a normal,
-        // expected part of blog commenting) is never touched.
+        // redirected to the spam site. Repointed to the explainer post
+        // instead of just cleared, so the link goes somewhere useful rather
+        // than dead. Only touched when the name itself was flagged, so a
+        // genuine commenter's real website link (a normal, expected part of
+        // blog commenting) is never touched.
         $original_url = (string) $comment->comment_author_url;
-        $url_changed = ($author_changed && $original_url !== '');
+        $explainer_url = (string) apply_filters('requestdesk_author_placeholder_link', self::EXPLAINER_URL);
+        $url_changed = ($author_changed && $explainer_url !== $original_url);
 
         if (!$content_changed && !$author_changed) {
             return;
@@ -141,7 +160,7 @@ class RequestDesk_Comment_Link_Stripper {
             $update['comment_author'] = $final_author;
         }
         if ($url_changed) {
-            $update['comment_author_url'] = '';
+            $update['comment_author_url'] = $explainer_url;
         }
 
         self::$updating = true;

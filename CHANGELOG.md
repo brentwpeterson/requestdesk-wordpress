@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.54.0] - 2026-09-28
+
+### Added
+- **The "Reader" placeholder now links to RequestDesk's own explainer post instead of going dead.** When a domain-shaped author name is replaced, `comment_author_url` is repointed to `https://requestdesk.ai/blog/requestdesks-wordpress-module-strips-spam-links-from-comments#comment-link-stripper` rather than cleared to empty -- a moderator or reader curious why a name reads "Reader" can click through and find out. Filterable via `requestdesk_author_placeholder_link` (return an empty string to go back to just clearing it, or point it anywhere else). A genuine commenter's real website link is still never touched.
+
 ## [2.53.1] - 2026-09-28
 
 ### Fixed
