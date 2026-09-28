@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.51.0] - 2026-09-28
+
+### Added
+- **Strip links from comments on approval.** New off-by-default toggle at RequestDesk > Settings > Plugin Settings > "Strip links from comments when approved". Hooks `transition_comment_status`, so it catches every path a comment reaches "approved" through -- a manual click in wp-admin, a bulk action, the REST API, or a plugin like Akismet auto-approving a returning commenter -- not just the individual Approve button. Any `<a>...</a>` phrase (tag and its anchor text both) is removed from the comment content; bare, un-linked URLs are left alone. The original content is kept in comment meta (`_requestdesk_links_stripped_original`) so a moderator can see what was removed. Pingbacks and trackbacks are exempt, since their content is itself the link back to the source post. See `includes/class-requestdesk-comment-link-stripper.php`.
+
 ## [2.50.1] - 2026-09-25
 
 ### Fixed

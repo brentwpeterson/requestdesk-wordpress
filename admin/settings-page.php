@@ -56,6 +56,9 @@ function requestdesk_settings_page() {
             // Promote-to-Live: the live target this Local site pushes single posts to.
             'promote_target_url' => untrailingslashit(esc_url_raw($_POST['promote_target_url'] ?? '')),
             'promote_api_key' => sanitize_text_field($_POST['promote_api_key'] ?? ''),
+            // Strips <a>...</a> phrases out of a comment's content the moment
+            // it transitions to approved. See class-requestdesk-comment-link-stripper.php.
+            'strip_comment_links' => isset($_POST['strip_comment_links']),
         );
 
         update_option('requestdesk_settings', $settings);
@@ -366,6 +369,21 @@ function requestdesk_settings_page() {
                                 <p><strong>🚨 Security Warning:</strong> Debug mode is currently ENABLED! Your site accepts any API key. Disable this immediately for production use.</p>
                             </div>
                             <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Comment Moderation</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="strip_comment_links" value="1" <?php checked(!empty($settings['strip_comment_links'])); ?>>
+                                Strip links from comments when approved
+                            </label>
+                            <p class="description">
+                                When a comment transitions to Approved &mdash; a manual click, a bulk action, the
+                                REST API, or a plugin like Akismet auto-approving a returning commenter &mdash; any
+                                <code>&lt;a&gt;...&lt;/a&gt;</code> phrase in it is removed, tag and anchor text both.
+                                The rest of the comment is left as written. Off by default.
+                            </p>
                         </td>
                     </tr>
                     <tr>
