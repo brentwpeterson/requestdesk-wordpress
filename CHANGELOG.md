@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.56.0] - 2026-09-28
+
+### Added
+- **Comment moderation REST endpoints**, so a RequestDesk agent (and eventually the MCP tools built on top of it) can list, read, update, and approve comments without wp-admin. `GET /requestdesk/v1/comments` (filter by `status`/`post_id`/`search`, paginated), `GET /requestdesk/v1/comments/{id}`, `POST /requestdesk/v1/comments/{id}` (update `content`/`author`/`author_url` -- only the fields actually passed), `POST /requestdesk/v1/comments/{id}/approve`. Same API-key auth as every other endpoint in this file. Approving goes through `wp_set_comment_status()`, which fires `transition_comment_status` exactly like a wp-admin click -- `RequestDesk_Comment_Link_Stripper` runs automatically if the site has it enabled, no special-casing needed. Every response reads the comment back after the write rather than trusting the request parameters, same discipline as `/post-author` and `/image-alt`.
+
 ## [2.55.0] - 2026-09-28
 
 ### Changed

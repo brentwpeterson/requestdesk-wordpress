@@ -383,6 +383,58 @@ class RequestDesk_API {
             )
         ));
 
+        // Comment moderation: list, get, update, approve. Approving goes
+        // through wp_set_comment_status(), which fires transition_comment_status
+        // exactly like a wp-admin click -- RequestDesk_Comment_Link_Stripper
+        // (if enabled) runs automatically as part of that call, same as any
+        // other approval path. This endpoint does not special-case it.
+        register_rest_route($this->namespace, '/comments', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'list_comments'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'status' => array('required' => false, 'type' => 'string', 'default' => 'hold', 'description' => 'hold|approve|spam|trash|all'),
+                'post_id' => array('required' => false, 'type' => 'integer'),
+                'search' => array('required' => false, 'type' => 'string'),
+                'per_page' => array('required' => false, 'type' => 'integer', 'default' => 20),
+                'page' => array('required' => false, 'type' => 'integer', 'default' => 1),
+            )
+        ));
+
+        register_rest_route($this->namespace, '/comments/(?P<id>\d+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_comment'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array('id' => array('required' => true, 'type' => 'integer')),
+        ));
+
+        // Updates comment_content and/or comment_author/comment_author_url --
+        // whichever params are actually passed. Built for a translation pass
+        // (fetch content, translate, write it back) but general-purpose.
+        // Runs through wp_update_comment(), so if the comment is ALREADY
+        // approved and this call doesn't change comment_approved, the link
+        // stripper's own hook does not re-fire (see its re-entrancy guard) --
+        // this endpoint does not strip links itself. Approve after updating,
+        // not before, if both are wanted on one comment.
+        register_rest_route($this->namespace, '/comments/(?P<id>\d+)', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'update_comment'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'id' => array('required' => true, 'type' => 'integer'),
+                'content' => array('required' => false, 'type' => 'string'),
+                'author' => array('required' => false, 'type' => 'string'),
+                'author_url' => array('required' => false, 'type' => 'string'),
+            ),
+        ));
+
+        register_rest_route($this->namespace, '/comments/(?P<id>\d+)/approve', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'approve_comment'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array('id' => array('required' => true, 'type' => 'integer')),
+        ));
+
     }
 
     /**
@@ -407,6 +459,163 @@ class RequestDesk_API {
             'status' => $post->post_status,
             'title' => get_the_title($post),
             'link' => get_permalink($post),
+        ), 200);
+    }
+
+    /**
+     * Shape a WP_Comment (or comment ID) into the response format all four
+     * comment endpoints share, including whatever
+     * RequestDesk_Comment_Link_Stripper recorded about it, if anything.
+     */
+    private function format_comment_for_api($comment) {
+        $comment = get_comment($comment);
+        if (!$comment) {
+            return null;
+        }
+
+        return array(
+            'id' => (int) $comment->comment_ID,
+            'post_id' => (int) $comment->comment_post_ID,
+            'post_title' => get_the_title($comment->comment_post_ID),
+            'status' => wp_get_comment_status($comment),
+            'author' => $comment->comment_author,
+            'author_email' => $comment->comment_author_email,
+            'author_url' => $comment->comment_author_url,
+            'author_ip' => $comment->comment_author_IP,
+            'content' => $comment->comment_content,
+            'date_gmt' => $comment->comment_date_gmt,
+            'link' => get_comment_link($comment),
+            'link_stripper' => array(
+                'links_stripped_original' => get_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_original', true) ?: null,
+                'links_stripped_method' => get_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_method', true) ?: null,
+                'author_name_original' => get_comment_meta($comment->comment_ID, '_requestdesk_author_name_original', true) ?: null,
+                'author_url_original' => get_comment_meta($comment->comment_ID, '_requestdesk_author_url_original', true) ?: null,
+            ),
+        );
+    }
+
+    /**
+     * GET /comments: list comments for moderation. Defaults to status=hold
+     * (the pending queue); pass status=all for everything.
+     */
+    public function list_comments($request) {
+        $status = (string) $request->get_param('status');
+        $per_page = min(100, max(1, (int) $request->get_param('per_page')));
+
+        $args = array(
+            'number' => $per_page,
+            'offset' => max(0, ((int) $request->get_param('page') - 1) * $per_page),
+            'orderby' => 'comment_date_gmt',
+            'order' => 'DESC',
+        );
+
+        if ($status !== 'all') {
+            $args['status'] = $status;
+        }
+        $post_id = (int) $request->get_param('post_id');
+        if ($post_id) {
+            $args['post_id'] = $post_id;
+        }
+        $search = (string) $request->get_param('search');
+        if ($search !== '') {
+            $args['search'] = $search;
+        }
+
+        $comments = get_comments($args);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'count' => count($comments),
+            'comments' => array_values(array_filter(array_map(array($this, 'format_comment_for_api'), $comments))),
+        ), 200);
+    }
+
+    /**
+     * GET /comments/{id}
+     */
+    public function get_comment($request) {
+        $formatted = $this->format_comment_for_api((int) $request->get_param('id'));
+        if (!$formatted) {
+            return new WP_Error('comment_not_found', 'No comment with that ID.', array('status' => 404));
+        }
+
+        return new WP_REST_Response(array('success' => true, 'comment' => $formatted), 200);
+    }
+
+    /**
+     * POST /comments/{id}: update content and/or author fields. Only the
+     * params actually passed are changed -- same "leave everything else
+     * alone" convention as /post-author. This does NOT run the link
+     * stripper itself; it only fires on a transition into approved. Update
+     * BEFORE approving (e.g. to translate a comment) if both are wanted.
+     */
+    public function update_comment($request) {
+        $id = (int) $request->get_param('id');
+        $comment = get_comment($id);
+        if (!$comment) {
+            return new WP_Error('comment_not_found', 'No comment with that ID.', array('status' => 404));
+        }
+
+        $update = array('comment_ID' => $id);
+        $changed_fields = array();
+
+        if ($request->has_param('content')) {
+            $update['comment_content'] = (string) $request->get_param('content');
+            $changed_fields[] = 'content';
+        }
+        if ($request->has_param('author')) {
+            $update['comment_author'] = (string) $request->get_param('author');
+            $changed_fields[] = 'author';
+        }
+        if ($request->has_param('author_url')) {
+            $update['comment_author_url'] = (string) $request->get_param('author_url');
+            $changed_fields[] = 'author_url';
+        }
+
+        if (empty($changed_fields)) {
+            return new WP_Error('nothing_to_update', 'Pass at least one of content, author, author_url.', array('status' => 400));
+        }
+
+        wp_update_comment($update);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'changed_fields' => $changed_fields,
+            'comment' => $this->format_comment_for_api($id),
+        ), 200);
+    }
+
+    /**
+     * POST /comments/{id}/approve: wp_set_comment_status() to 'approve',
+     * which fires transition_comment_status exactly like a wp-admin click
+     * -- RequestDesk_Comment_Link_Stripper runs automatically if the site
+     * has it enabled, same as any other approval path. The comment is read
+     * back AFTER approval, not before, so the caller sees whatever the
+     * stripper actually did rather than the pre-approval state -- the
+     * response is proof, the request parameters are not.
+     */
+    public function approve_comment($request) {
+        $id = (int) $request->get_param('id');
+        $comment = get_comment($id);
+        if (!$comment) {
+            return new WP_Error('comment_not_found', 'No comment with that ID.', array('status' => 404));
+        }
+
+        $status_before = wp_get_comment_status($comment);
+        $result = wp_set_comment_status($id, 'approve', true);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if ($result === false) {
+            return new WP_Error('approve_failed', 'wp_set_comment_status() returned false.', array('status' => 500));
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'status_before' => $status_before,
+            'status_after' => wp_get_comment_status($id),
+            'comment' => $this->format_comment_for_api($id),
         ), 200);
     }
 
