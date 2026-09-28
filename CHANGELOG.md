@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.53.1] - 2026-09-28
+
+### Fixed
+- **A stripped author name stayed hyperlinked to the spam site.** Replacing a domain-shaped author name ("spam-domain.example") with the "Reader" placeholder only changed the display text -- `comment_author_url` (the Website field) was never touched, so clicking the placeholder name still redirected to the original spam destination. Found live: clicking "Reader" on an approved comment redirected to the spammer's site. `comment_author_url` is now cleared in the same update whenever the author name is replaced, on the reasoning that a spammer who sets their name to a domain also sets their Website field to that same domain (confirmed on the comment that surfaced this). A genuine commenter's real website link is untouched -- only cleared when the name itself was flagged as domain-shaped. Original URL saved to comment meta `_requestdesk_author_url_original` before clearing.
+
 ## [2.53.0] - 2026-09-28
 
 ### Added

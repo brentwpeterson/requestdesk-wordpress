@@ -401,7 +401,10 @@ function requestdesk_settings_page() {
                                 Also replaces a domain-shaped author name (someone who typed
                                 <code>spam-domain.example</code> into the Name field instead of a real name) with a
                                 neutral placeholder &mdash; a common way spammers get a link-shaped mention past
-                                moderation even without an actual link in the comment body.
+                                moderation even without an actual link in the comment body. When that happens, the
+                                comment's Website field is cleared too, so the placeholder name doesn't stay
+                                hyperlinked to the same destination. A real commenter's own website link is never
+                                touched &mdash; only cleared when the name itself was flagged as spam.
                             </p>
                         </td>
                     </tr>

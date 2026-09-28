@@ -24,7 +24,13 @@
  * into the Name field) -- spammers set it deliberately so it reads like
  * anchor text next to every comment they get approved, link or no link.
  * A name shaped like a real domain (label + dot + a recognized TLD) is
- * replaced with a neutral placeholder. See maybe_strip_domain_name().
+ * replaced with a neutral placeholder. See maybe_strip_domain_name(). When the
+ * name is replaced, the comment's Website field (comment_author_url) is
+ * cleared too -- otherwise the placeholder name stays hyperlinked to the same
+ * spam destination the name itself pointed at, which is how this was found:
+ * "Reader" still redirected to the spammer's site. A genuine commenter's real
+ * website link is never touched -- only cleared when the name itself was
+ * flagged as domain-shaped.
  *
  * Off by default. Toggle: RequestDesk > Settings > Plugin Settings > Strip
  * links from approved comments (requestdesk_settings[strip_comment_links]).
@@ -113,6 +119,16 @@ class RequestDesk_Comment_Link_Stripper {
         $final_author = self::maybe_strip_domain_name($original_author);
         $author_changed = ($final_author !== $original_author);
 
+        // A spammer who sets their NAME to a domain overwhelmingly also sets
+        // their Website field to that same domain -- confirmed on the exact
+        // comment that surfaced this gap: replacing the name to "Reader" but
+        // leaving comment_author_url alone meant clicking "Reader" still
+        // redirected to the spam site. Only clear it when the name itself
+        // was flagged, so a genuine commenter's real website link (a normal,
+        // expected part of blog commenting) is never touched.
+        $original_url = (string) $comment->comment_author_url;
+        $url_changed = ($author_changed && $original_url !== '');
+
         if (!$content_changed && !$author_changed) {
             return;
         }
@@ -124,14 +140,17 @@ class RequestDesk_Comment_Link_Stripper {
         if ($author_changed) {
             $update['comment_author'] = $final_author;
         }
+        if ($url_changed) {
+            $update['comment_author_url'] = '';
+        }
 
         self::$updating = true;
         wp_update_comment($update);
         self::$updating = false;
 
         // Kept so a moderator can see what was removed, not to restore it --
-        // restoring the link (or the domain-as-name) is exactly what this
-        // feature exists to prevent.
+        // restoring the link (or the domain-as-name, or the author URL) is
+        // exactly what this feature exists to prevent.
         if ($content_changed) {
             update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_original', $original);
             update_comment_meta(
@@ -142,6 +161,9 @@ class RequestDesk_Comment_Link_Stripper {
         }
         if ($author_changed) {
             update_comment_meta($comment->comment_ID, '_requestdesk_author_name_original', $original_author);
+        }
+        if ($url_changed) {
+            update_comment_meta($comment->comment_ID, '_requestdesk_author_url_original', $original_url);
         }
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_at', current_time('mysql'));
     }
