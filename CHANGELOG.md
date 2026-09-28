@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.57.0] - 2026-09-28
+
+### Fixed
+- **Every surviving comment link now opens in a new tab.** Found live: an approved comment's author link opened in the same window, so one click took a visitor off the site entirely with no way back except the browser's back button. `target="_blank" rel="noopener noreferrer"` is now forced onto the comment author link (via the `get_comment_author_link` filter -- applies to every comment on display, including ones approved before this feature existed) and onto any allowlisted content link `strip_links()` keeps. Existing `rel` values (WordPress's own `ugc external nofollow`) are preserved, not clobbered; an already-present `target`/`rel` is never duplicated.
+
 ## [2.56.0] - 2026-09-28
 
 ### Added

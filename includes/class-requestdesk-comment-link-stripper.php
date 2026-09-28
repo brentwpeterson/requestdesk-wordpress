@@ -117,6 +117,49 @@ class RequestDesk_Comment_Link_Stripper {
 
     public function __construct() {
         add_action('transition_comment_status', array($this, 'maybe_strip_links'), 10, 3);
+
+        // A link that survives (the author link, or an allowlisted content
+        // link) must never navigate a reader away from the page in the same
+        // tab -- found live: an author link opened in the same window, so
+        // one click took a visitor off the site entirely with no way back
+        // except the browser's back button. Applies to every comment, not
+        // just ones this feature has touched, so it also covers a comment
+        // approved before this fix existed.
+        if (self::is_enabled()) {
+            add_filter('get_comment_author_link', array($this, 'force_new_tab_on_author_link'));
+        }
+    }
+
+    /**
+     * Force target="_blank" rel="noopener noreferrer" onto the comment
+     * author's link. Runs on every comment display, not just ones this
+     * class has stripped -- a comment approved before this fix existed (or
+     * before the site had this feature enabled at all) still gets it.
+     */
+    public function force_new_tab_on_author_link($link_html) {
+        return self::add_new_tab_attrs($link_html);
+    }
+
+    /**
+     * Add target="_blank" rel="noopener noreferrer" to an <a> tag's HTML,
+     * without duplicating either attribute if already present. Shared by
+     * the author-link filter above and the content-link survivor path in
+     * strip_link_tag_unless_allowed() below.
+     */
+    private static function add_new_tab_attrs($tag_html) {
+        if (strpos($tag_html, 'target=') === false) {
+            $tag_html = preg_replace('/<a\b/i', '<a target="_blank"', $tag_html, 1);
+        }
+        if (strpos($tag_html, 'rel=') === false) {
+            $tag_html = preg_replace('/<a\b/i', '<a rel="noopener noreferrer"', $tag_html, 1);
+        } elseif (!preg_match('/rel=(["\'])[^"\']*noopener/i', $tag_html)) {
+            // A rel attribute exists (e.g. WordPress's own "external nofollow
+            // ugc") but doesn't carry noopener -- append rather than clobber
+            // it, so existing rel values (and their SEO/security meaning)
+            // are preserved.
+            $tag_html = preg_replace('/rel=(["\'])([^"\']*)\1/i', 'rel=$1$2 noopener noreferrer$1', $tag_html, 1);
+        }
+        return $tag_html;
     }
 
     public static function is_enabled() {
@@ -359,13 +402,18 @@ class RequestDesk_Comment_Link_Stripper {
         return self::tidy_whitespace($stripped);
     }
 
-    /** preg_replace_callback handler: keep an `<a>` tag as-is if its href is allowed, else drop the whole phrase. */
+    /**
+     * preg_replace_callback handler: keep an `<a>` tag as-is (plus force
+     * target="_blank" rel="noopener noreferrer" -- a surviving link must
+     * still never navigate the reader away in the same tab) if its href is
+     * allowed, else drop the whole phrase.
+     */
     private static function strip_link_tag_unless_allowed($matches) {
         $tag = $matches[0];
 
         if (preg_match('/href\s*=\s*(["\'])(.*?)\1/is', $tag, $href_match)
             && self::is_allowed_link_host(self::url_host($href_match[2]))) {
-            return $tag;
+            return self::add_new_tab_attrs($tag);
         }
 
         return '';
