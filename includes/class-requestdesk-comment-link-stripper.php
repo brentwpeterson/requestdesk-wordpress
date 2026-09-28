@@ -11,6 +11,15 @@
  * or what approved it (a manual click, a bulk action, the REST API, or a
  * plugin like Akismet auto-approving a previously-legit commenter).
  *
+ * Two passes. A regex strips real `<a href>` tags first -- free, instant,
+ * always runs. If a Claude API key is configured (RequestDesk > Settings),
+ * a second pass hands the regex-stripped text to Claude to catch link-shaped
+ * text the regex can't: bare URLs, spelled-out or obfuscated domains ("example
+ * dot com"). See RequestDesk_Claude_Integration::strip_remaining_links(). No
+ * key configured, or the API call fails/times out/misbehaves, and moderation
+ * proceeds on the regex-only result -- approving a comment must never depend
+ * on an external API call succeeding.
+ *
  * Off by default. Toggle: RequestDesk > Settings > Plugin Settings > Strip
  * links from approved comments (requestdesk_settings[strip_comment_links]).
  *
@@ -67,16 +76,17 @@ class RequestDesk_Comment_Link_Stripper {
         }
 
         $original = (string) $comment->comment_content;
-        $stripped = self::strip_links($original);
+        $regex_pass = self::strip_links($original);
+        $final = self::maybe_apply_claude_pass($regex_pass);
 
-        if ($stripped === $original) {
+        if ($final === $original) {
             return;
         }
 
         self::$updating = true;
         wp_update_comment(array(
             'comment_ID'      => $comment->comment_ID,
-            'comment_content' => $stripped,
+            'comment_content' => $final,
         ));
         self::$updating = false;
 
@@ -84,6 +94,56 @@ class RequestDesk_Comment_Link_Stripper {
         // restoring the link is exactly what this feature exists to prevent.
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_original', $original);
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_at', current_time('mysql'));
+        update_comment_meta(
+            $comment->comment_ID,
+            '_requestdesk_links_stripped_method',
+            ($final !== $regex_pass) ? 'regex+claude' : 'regex'
+        );
+    }
+
+    /**
+     * Second pass: hand the regex-stripped content to Claude to catch
+     * link-shaped text the regex can't (bare URLs, spelled-out/obfuscated
+     * domains). Runs whether or not the regex pass changed anything, since
+     * that's exactly the gap it exists to fill -- a comment that is PURE
+     * bare-URL spam never touches an <a> tag at all.
+     *
+     * Never blocks or breaks moderation: no API key configured, a failed
+     * request, a timeout, or a response that comes back suspiciously LONGER
+     * than what went in (a light edit only removes text, so it should never
+     * grow) all fall back to the regex-only result. Failures are logged, not
+     * surfaced to the moderator -- the comment still gets approved either way.
+     */
+    private static function maybe_apply_claude_pass($content) {
+        if ($content === '' || !class_exists('RequestDesk_Claude_Integration')) {
+            return $content;
+        }
+
+        $claude = new RequestDesk_Claude_Integration();
+        if (!$claude->is_available()) {
+            return $content;
+        }
+
+        $result = $claude->strip_remaining_links($content);
+
+        if (is_wp_error($result)) {
+            if (function_exists('error_log')) {
+                error_log('RequestDesk: Claude link-strip pass skipped on comment approval -- ' . $result->get_error_message());
+            }
+            return $content;
+        }
+
+        if (strlen($result) > strlen($content) + 10) {
+            if (function_exists('error_log')) {
+                error_log('RequestDesk: Claude link-strip pass rejected on comment approval -- output longer than input, keeping regex-only result.');
+            }
+            return $content;
+        }
+
+        // Claude's own light edit can leave the same kind of double-space gap
+        // the regex pass guards against (removing "example dot com" out of the
+        // middle of a sentence, for instance) -- tidy it the same way.
+        return self::tidy_whitespace($result);
     }
 
     /**
@@ -102,14 +162,21 @@ class RequestDesk_Comment_Link_Stripper {
             return $content;
         }
 
-        // Collapse whitespace the removed phrase left behind so "Great post
-        // <a ...>check this</a> thanks" doesn't become "Great post  thanks",
-        // and so a link removed at the end of a line doesn't leave a trailing
-        // space dangling before the linebreak.
-        $stripped = preg_replace('/[ \t]{2,}/', ' ', $stripped);
-        $stripped = preg_replace('/[ \t]+(?=\n)/', '', $stripped);
-        $stripped = preg_replace('/\n{3,}/', "\n\n", $stripped);
+        return self::tidy_whitespace($stripped);
+    }
 
-        return trim($stripped);
+    /**
+     * Collapse whitespace a removed link phrase left behind, so "Great post
+     * <a ...>check this</a> thanks" doesn't become "Great post  thanks" (or,
+     * from the Claude pass, "visit example dot com for more" doesn't become
+     * "visit  for more"). Also drops a trailing space a removed link leaves
+     * dangling before a linebreak.
+     */
+    private static function tidy_whitespace($content) {
+        $tidied = preg_replace('/[ \t]{2,}/', ' ', $content);
+        $tidied = preg_replace('/[ \t]+(?=\n)/', '', $tidied);
+        $tidied = preg_replace('/\n{3,}/', "\n\n", $tidied);
+
+        return trim($tidied);
     }
 }

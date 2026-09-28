@@ -300,6 +300,46 @@ Focus on actionable insights for content updates and improvements.";
     }
 
     /**
+     * Catch link-shaped text a plain-HTML regex can't reach -- bare URLs,
+     * spelled-out or obfuscated domains ("example dot com", "example[.]com"),
+     * anything a spammer typed as plain text instead of an <a> tag.
+     *
+     * A LIGHT EDIT ONLY: removes link-shaped text, changes nothing else.
+     * Used by RequestDesk_Comment_Link_Stripper as a second pass after its
+     * own regex has already stripped real <a href> tags. Returns the edited
+     * text, or a WP_Error the caller falls back from -- moderation must never
+     * block on this call failing.
+     */
+    public function strip_remaining_links($content) {
+        $prompt = "You are cleaning a WordPress comment a human moderator already approved for its content. An automated pass already removed every <a href> link. Your ONLY job is to find and remove any remaining link-shaped text this comment still contains -- a bare web address typed as plain text (an http/https or www-prefixed link), a spelled-out or obfuscated domain (\"example dot com\", \"example[.]com\"), or any other text whose sole purpose is to point somewhere else.
+
+Rules:
+- Remove ONLY link-shaped text. Do not paraphrase, reword, summarize, or correct anything else.
+- Every other word must be identical to the input, in the same order.
+- If there is nothing link-shaped to remove, return the comment completely unchanged.
+- Return ONLY the edited comment text. No preamble, no explanation, no surrounding quotes, no markdown.
+
+Comment:
+{$content}";
+
+        $result = $this->make_request($prompt, 1024);
+
+        if (is_wp_error($result)) {
+            return $result;
+        }
+
+        $cleaned = trim($result);
+        // Claude sometimes wraps output in quotes despite the instruction not to.
+        $cleaned = trim($cleaned, "\"'`");
+
+        if ($cleaned === '') {
+            return new WP_Error('requestdesk_empty_response', 'Claude returned an empty comment');
+        }
+
+        return $cleaned;
+    }
+
+    /**
      * Test Claude API connection
      */
     public function test_connection() {

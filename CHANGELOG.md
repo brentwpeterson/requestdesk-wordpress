@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.52.0] - 2026-09-28
+
+### Added
+- **Claude AI catches the links the comment-strip regex can't.** `RequestDesk_Comment_Link_Stripper` now runs a second pass after its regex: if a Claude API key is configured (RequestDesk > Settings), the regex-stripped comment is handed to `RequestDesk_Claude_Integration::strip_remaining_links()`, which removes bare URLs and spelled-out/obfuscated domains ("example dot com") that were never wrapped in an `<a>` tag and so were never in the regex's reach. It's a light edit only -- link-shaped text removed, every other word left exactly as written -- and never blocks moderation: no key configured, a failed/timed-out request, or a response that comes back longer than what went in (a light edit should only shrink) all fall back to the regex-only result, logged but not surfaced to the moderator. Comment meta `_requestdesk_links_stripped_method` records which pass(es) actually changed the content (`regex` or `regex+claude`).
+
 ## [2.51.0] - 2026-09-28
 
 ### Added

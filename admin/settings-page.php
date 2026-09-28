@@ -384,6 +384,19 @@ function requestdesk_settings_page() {
                                 <code>&lt;a&gt;...&lt;/a&gt;</code> phrase in it is removed, tag and anchor text both.
                                 The rest of the comment is left as written. Off by default.
                             </p>
+                            <p class="description">
+                                <?php if (!empty($settings['claude_api_key'])) : ?>
+                                    <strong>Claude AI key detected:</strong> bare URLs and spelled-out/obfuscated
+                                    domains (<code>example dot com</code>) that aren't wrapped in an
+                                    <code>&lt;a&gt;</code> tag are also caught, via a second Claude pass that only
+                                    removes link-shaped text and touches nothing else. If that call fails or times
+                                    out, the comment still gets approved with just the regex pass applied.
+                                <?php else : ?>
+                                    Add a Claude AI API key above to also catch bare URLs and spelled-out/obfuscated
+                                    domains that aren't wrapped in an <code>&lt;a&gt;</code> tag. Without a key, only
+                                    real <code>&lt;a&gt;</code> links are stripped.
+                                <?php endif; ?>
+                            </p>
                         </td>
                     </tr>
                     <tr>
