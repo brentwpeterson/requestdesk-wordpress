@@ -5,6 +5,15 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.55.0] - 2026-09-28
+
+### Changed
+- **Comment link-stripper now allowlists instead of blanket-stripping only spam.** Found live: a comment from "Hava Durumu Uşak" -- an ordinary-looking name that doesn't match the domain-shaped-name check at all -- had its Website field pointing at an unrelated `.com.tr` domain with no `target="_blank"`, so one click took a visitor off the site entirely. The old logic only ever touched `comment_author_url` when the paired author NAME was flagged as spam-shaped, so a spam link with a normal-looking name sailed through untouched.
+- Every link surface -- the `<a href>` regex pass, the Claude second pass, and the Website field -- is now checked against an allowlist (`DEFAULT_ALLOWED_LINK_DOMAINS`: contentcucumber.com, talk-commerce.com, requestdesk.ai, plus subdomains, suffix-matched so `contentcucumber.com.evil.example` doesn't sneak through) instead of stripped unconditionally or left alone unconditionally. The Website field is checked independent of whether the author's name looked spammy. Policy is deliberately "our own properties survive, nothing else does," not "spam gets removed, real links survive" -- a link's legitimacy doesn't change what it costs the site to host it. Filterable via `requestdesk_link_strip_allowlist`.
+- Fixed an early-return bug this surfaced: the guard that skips a no-op `wp_update_comment()` call didn't account for a URL-only change, so a comment needing only its Website field fixed (content fine, name fine) would have silently done nothing.
+
+Verified with 38 test cases across 5 suites, including a live repro of the exact bug shape (ordinary name + non-allowlisted URL + clean content) and an anti-bypass case for the domain-suffix matching.
+
 ## [2.54.0] - 2026-09-28
 
 ### Added

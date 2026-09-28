@@ -24,15 +24,24 @@
  * into the Name field) -- spammers set it deliberately so it reads like
  * anchor text next to every comment they get approved, link or no link.
  * A name shaped like a real domain (label + dot + a recognized TLD) is
- * replaced with a neutral placeholder. See maybe_strip_domain_name(). When the
- * name is replaced, the comment's Website field (comment_author_url) is
- * repointed too -- otherwise the placeholder name stays hyperlinked to the
- * same spam destination the name itself pointed at, which is how this was
- * found: "Reader" still redirected to the spammer's site. It now points at
- * RequestDesk's own explainer post for this feature instead of going dead,
- * filterable via requestdesk_author_placeholder_link. A genuine commenter's
- * real website link is never touched -- only repointed when the name itself
- * was flagged as domain-shaped.
+ * replaced with a neutral placeholder. See maybe_strip_domain_name().
+ *
+ * Every link surface -- a real `<a href>` tag, the Claude second pass, and
+ * the comment's Website field (comment_author_url) -- is checked against an
+ * allowlist (see DEFAULT_ALLOWED_LINK_DOMAINS) rather than stripped
+ * unconditionally. A link that resolves to one of RequestDesk's own domains
+ * survives; anything else doesn't, INCLUDING a link that looks like a
+ * perfectly legitimate personal site with no spam markers at all. The policy
+ * is "everything gets stripped except our own properties," deliberately not
+ * "spam gets stripped, real links survive" -- an outbound link's legitimacy
+ * doesn't change what it costs the site to host it. The Website field is
+ * checked on its own, independent of whether the author's NAME looked spammy
+ * -- found live: a comment from "Hava Durumu Uşak" (an ordinary-looking
+ * name) had its Website field pointing at an unrelated .com.tr domain with
+ * no target="_blank", so one click took a visitor off the site. When a
+ * Website field gets repointed, it goes to RequestDesk's own explainer post
+ * for this feature rather than going dead, filterable via
+ * requestdesk_author_placeholder_link.
  *
  * Off by default. Toggle: RequestDesk > Settings > Plugin Settings > Strip
  * links from approved comments (requestdesk_settings[strip_comment_links]).
@@ -87,6 +96,25 @@ class RequestDesk_Comment_Link_Stripper {
         'group', 'world', 'work',
     );
 
+    /**
+     * The only destinations a link is allowed to survive pointing at.
+     * Everything else gets stripped, on the reasoning that a comment link's
+     * default state is spam until proven otherwise -- found live: a comment
+     * from "Hava Durumu Uşak" (an unremarkable-looking name, doesn't match
+     * looks_like_domain() at all) had its Website field pointing at
+     * spam-domain.example with no target="_blank", so one click took a
+     * visitor off the site entirely. hardcode-ok: these are RequestDesk's
+     * own family of properties (this plugin's vendor, plus the two brands
+     * that ship it) -- but still filterable, so an install that wants a
+     * DIFFERENT allowlist (or none at all) can set its own:
+     *     add_filter('requestdesk_link_strip_allowlist', fn() => array('example.com'));
+     */
+    const DEFAULT_ALLOWED_LINK_DOMAINS = array(
+        'contentcucumber.com', // hardcode-ok: RequestDesk's own family of properties, see docblock above
+        'talk-commerce.com',   // hardcode-ok: RequestDesk's own family of properties, see docblock above
+        'requestdesk.ai',      // hardcode-ok: this plugin's own vendor domain, see docblock above
+    );
+
     public function __construct() {
         add_action('transition_comment_status', array($this, 'maybe_strip_links'), 10, 3);
     }
@@ -135,20 +163,26 @@ class RequestDesk_Comment_Link_Stripper {
         $final_author = self::maybe_strip_domain_name($original_author);
         $author_changed = ($final_author !== $original_author);
 
-        // A spammer who sets their NAME to a domain overwhelmingly also sets
-        // their Website field to that same domain -- confirmed on the exact
-        // comment that surfaced this gap: replacing the name to "Reader" but
-        // leaving comment_author_url alone meant clicking "Reader" still
-        // redirected to the spam site. Repointed to the explainer post
-        // instead of just cleared, so the link goes somewhere useful rather
-        // than dead. Only touched when the name itself was flagged, so a
-        // genuine commenter's real website link (a normal, expected part of
-        // blog commenting) is never touched.
+        // The Website field gets checked independently of the name -- a
+        // spam link doesn't need a spam-shaped name to go with it. Repointed
+        // to the explainer post rather than cleared, so the link goes
+        // somewhere useful rather than dead. A URL that already resolves to
+        // one of our own domains (see DEFAULT_ALLOWED_LINK_DOMAINS) is the
+        // ONLY kind that survives -- a real commenter's OTHER personal site
+        // gets repointed too. Policy is deliberately "everything gets
+        // stripped except our own properties," not "spam gets stripped, real
+        // links survive": an outbound link's legitimacy doesn't change what
+        // it costs the site to host it.
         $original_url = (string) $comment->comment_author_url;
+        $url_is_allowed = ($original_url === '') || self::is_allowed_link_host(self::url_host($original_url));
         $explainer_url = (string) apply_filters('requestdesk_author_placeholder_link', self::EXPLAINER_URL);
-        $url_changed = ($author_changed && $explainer_url !== $original_url);
+        // Also populate the link when the name alone was flagged and there
+        // was nothing in the Website field to begin with -- "Reader" still
+        // deserves somewhere useful to point, even with nothing to strip.
+        $needs_link_fix = !$url_is_allowed || ($author_changed && $original_url === '');
+        $url_changed = ($needs_link_fix && $explainer_url !== $original_url);
 
-        if (!$content_changed && !$author_changed) {
+        if (!$content_changed && !$author_changed && !$url_changed) {
             return;
         }
 
@@ -219,6 +253,43 @@ class RequestDesk_Comment_Link_Stripper {
     }
 
     /**
+     * True when $host is (or is a subdomain of) one of the allowed domains.
+     * Suffix-matched on a leading dot, not a substring match -- an allowed
+     * domain of "example.com" matches "blog.example.com" but not
+     * "example.com.evil.example", which is exactly the bypass a plain
+     * substring check would open up.
+     */
+    private static function is_allowed_link_host($host) {
+        $host = strtolower((string) $host);
+        if ($host === '') {
+            return false;
+        }
+
+        $allowed = apply_filters('requestdesk_link_strip_allowlist', self::DEFAULT_ALLOWED_LINK_DOMAINS);
+        if (!is_array($allowed)) {
+            return false;
+        }
+
+        foreach ($allowed as $domain) {
+            $domain = strtolower(trim((string) $domain));
+            if ($domain === '') {
+                continue;
+            }
+            if ($host === $domain || substr($host, -(strlen($domain) + 1)) === '.' . $domain) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Host of a URL, or '' if it can't be parsed -- never lets a bad URL fall through as "allowed". */
+    private static function url_host($url) {
+        $host = wp_parse_url((string) $url, PHP_URL_HOST);
+        return is_string($host) ? $host : '';
+    }
+
+    /**
      * Second pass: hand the regex-stripped content to Claude to catch
      * link-shaped text the regex can't (bare URLs, spelled-out/obfuscated
      * domains). Runs whether or not the regex pass changed anything, since
@@ -241,7 +312,7 @@ class RequestDesk_Comment_Link_Stripper {
             return $content;
         }
 
-        $result = $claude->strip_remaining_links($content);
+        $result = $claude->strip_remaining_links($content, apply_filters('requestdesk_link_strip_allowlist', self::DEFAULT_ALLOWED_LINK_DOMAINS));
 
         if (is_wp_error($result)) {
             if (function_exists('error_log')) {
@@ -264,15 +335,21 @@ class RequestDesk_Comment_Link_Stripper {
     }
 
     /**
-     * Remove every `<a>...</a>` phrase -- tag and its anchor text -- from
-     * comment content. Bare, un-linked URLs are left alone; this only removes
-     * what was deliberately wrapped in a link.
+     * Remove every `<a>...</a>` phrase -- tag and its anchor text -- whose
+     * href does NOT resolve to an allowed domain. Bare, un-linked URLs are
+     * left alone; this only touches what was deliberately wrapped in a link.
+     * A link pointing at one of our own domains (see
+     * DEFAULT_ALLOWED_LINK_DOMAINS) survives untouched, tag and text both.
      *
      * Public + static so it can be unit tested and reused (e.g. a WP-CLI
      * backfill command) without standing up the whole hook.
      */
     public static function strip_links($content) {
-        $stripped = preg_replace('#<a\b[^>]*>.*?</a>#is', '', $content);
+        $stripped = preg_replace_callback(
+            '#<a\b[^>]*>.*?</a>#is',
+            array(__CLASS__, 'strip_link_tag_unless_allowed'),
+            $content
+        );
         if ($stripped === null) {
             // preg_replace failed (e.g. PCRE backtrack limit on pathological
             // input) -- never destroy the comment because of that.
@@ -280,6 +357,18 @@ class RequestDesk_Comment_Link_Stripper {
         }
 
         return self::tidy_whitespace($stripped);
+    }
+
+    /** preg_replace_callback handler: keep an `<a>` tag as-is if its href is allowed, else drop the whole phrase. */
+    private static function strip_link_tag_unless_allowed($matches) {
+        $tag = $matches[0];
+
+        if (preg_match('/href\s*=\s*(["\'])(.*?)\1/is', $tag, $href_match)
+            && self::is_allowed_link_host(self::url_host($href_match[2]))) {
+            return $tag;
+        }
+
+        return '';
     }
 
     /**

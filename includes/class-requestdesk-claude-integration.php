@@ -310,8 +310,14 @@ Focus on actionable insights for content updates and improvements.";
      * text, or a WP_Error the caller falls back from -- moderation must never
      * block on this call failing.
      */
-    public function strip_remaining_links($content) {
-        $prompt = "You are cleaning a WordPress comment a human moderator already approved for its content. An automated pass already removed every <a href> link. Your ONLY job is to find and remove any remaining link-shaped text this comment still contains -- a bare web address typed as plain text (an http/https or www-prefixed link), a spelled-out or obfuscated domain (\"example dot com\", \"example[.]com\"), or any other text whose sole purpose is to point somewhere else.
+    public function strip_remaining_links($content, $allowed_domains = array()) {
+        $allowed_domains = array_filter(array_map('strval', (array) $allowed_domains));
+        $exception = '';
+        if (!empty($allowed_domains)) {
+            $exception = " The ONLY exception: leave alone anything that points to " . implode(', ', $allowed_domains) . " (including subdomains of those) -- those are our own sites, not spam.";
+        }
+
+        $prompt = "You are cleaning a WordPress comment a human moderator already approved for its content. An automated pass already removed every <a href> link that doesn't point to one of our own domains. Your ONLY job is to find and remove any remaining link-shaped text this comment still contains -- a bare web address typed as plain text (an http/https or www-prefixed link), a spelled-out or obfuscated domain (\"example dot com\", \"example[.]com\"), or any other text whose sole purpose is to point somewhere else.{$exception}
 
 Rules:
 - Remove ONLY link-shaped text. Do not paraphrase, reword, summarize, or correct anything else.

@@ -378,11 +378,25 @@ function requestdesk_settings_page() {
                                 <input type="checkbox" name="strip_comment_links" value="1" <?php checked(!empty($settings['strip_comment_links'])); ?>>
                                 Strip links from comments when approved
                             </label>
+                            <?php
+                            $requestdesk_allowed_link_domains = class_exists('RequestDesk_Comment_Link_Stripper')
+                                ? apply_filters('requestdesk_link_strip_allowlist', RequestDesk_Comment_Link_Stripper::DEFAULT_ALLOWED_LINK_DOMAINS)
+                                : array();
+                            $requestdesk_allowed_link_domains_display = !empty($requestdesk_allowed_link_domains)
+                                ? implode(', ', array_map('esc_html', (array) $requestdesk_allowed_link_domains))
+                                : 'none configured';
+                            ?>
                             <p class="description">
                                 When a comment transitions to Approved &mdash; a manual click, a bulk action, the
                                 REST API, or a plugin like Akismet auto-approving a returning commenter &mdash; any
-                                <code>&lt;a&gt;...&lt;/a&gt;</code> phrase in it is removed, tag and anchor text both.
-                                The rest of the comment is left as written. Off by default.
+                                <code>&lt;a&gt;...&lt;/a&gt;</code> phrase in it is removed, tag and anchor text both,
+                                <strong>unless</strong> the link points to
+                                <code><?php echo $requestdesk_allowed_link_domains_display; ?></code> (or a
+                                subdomain of one). Every other link is removed regardless of where it points or how
+                                legitimate it looks &mdash; the policy is "our own properties survive, nothing else
+                                does," not "spam gets removed, real links stay." Override the allowed list with the
+                                <code>requestdesk_link_strip_allowlist</code> filter. The rest of the comment is left
+                                as written. Off by default.
                             </p>
                             <p class="description">
                                 <?php if (!empty($settings['claude_api_key'])) : ?>
@@ -410,8 +424,14 @@ function requestdesk_settings_page() {
                                 <?php endif; ?>
                                 so the placeholder name goes somewhere useful instead of dead. Override or disable
                                 with the <code>requestdesk_author_placeholder_link</code> filter (return an empty
-                                string to just clear it, as before). A real commenter's own website link is never
-                                touched &mdash; only repointed when the name itself was flagged as spam.
+                                string to just clear it, as before).
+                            </p>
+                            <p class="description">
+                                The comment's Website field is checked the same way, independent of whether the
+                                author's name looked spammy &mdash; a name can read completely ordinary while the
+                                Website field still points somewhere unrelated. Any Website field that doesn't
+                                resolve to the allowed list above is repointed to the same explainer post, even if
+                                the name attached to it is left untouched.
                             </p>
                         </td>
                     </tr>
