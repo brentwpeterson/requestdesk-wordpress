@@ -751,12 +751,58 @@ class RequestDesk_Headless_API {
             'seo' => $seo
         );
 
+        // Podcast episode fields. Added only when a value exists, so the response
+        // for an ordinary post is unchanged.
+        $data = array_merge($data, $this->get_podcast_data($post_id));
+
         // Include full content for single post requests
         if ($include_full) {
             $data['content'] = apply_filters('the_content', $content);
         }
 
         return $data;
+    }
+
+    /**
+     * Podcast episode fields for a post.
+     *
+     * audio_embed / audio_url: the Podcaster plugin keeps the player's embed code in
+     * cmb_thst_audio_embed_code and the source url in cmb_thst_audio_embed. The Astro
+     * front end has always asked for `audio_embed`; this is the first time it is sent.
+     *
+     * guest / duration_seconds: no plugin on the site stores these. They read the
+     * _requestdesk_* meta keys below, which stay empty until something fills them, so
+     * a post without them returns neither field.
+     */
+    private function get_podcast_data($post_id) {
+        $out = array();
+
+        $embed = (string) get_post_meta($post_id, 'cmb_thst_audio_embed_code', true);
+        if ($embed !== '') {
+            $out['audio_embed'] = $embed;
+        }
+
+        $audio_url = (string) get_post_meta($post_id, 'cmb_thst_audio_embed', true);
+        if ($audio_url !== '') {
+            $out['audio_url'] = esc_url_raw($audio_url);
+        }
+
+        $guest = array(
+            'name'    => (string) get_post_meta($post_id, '_requestdesk_guest_name', true),
+            'company' => (string) get_post_meta($post_id, '_requestdesk_guest_company', true),
+            'title'   => (string) get_post_meta($post_id, '_requestdesk_guest_title', true),
+        );
+        $guest = array_filter($guest, 'strlen');
+        if (!empty($guest)) {
+            $out['guest'] = $guest;
+        }
+
+        $duration = (int) get_post_meta($post_id, '_requestdesk_duration_seconds', true);
+        if ($duration > 0) {
+            $out['duration_seconds'] = $duration;
+        }
+
+        return $out;
     }
 
     /**
