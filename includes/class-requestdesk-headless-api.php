@@ -802,6 +802,12 @@ class RequestDesk_Headless_API {
             $out['duration_seconds'] = $duration;
         }
 
+        // The RequestDesk episode record this post was matched to.
+        $rd_id = (string) get_post_meta($post_id, '_requestdesk_episode_id', true);
+        if ($rd_id !== '') {
+            $out['requestdesk_episode_id'] = $rd_id;
+        }
+
         return $out;
     }
 

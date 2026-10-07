@@ -783,6 +783,17 @@ class RequestDesk_API {
             if (isset($episode['duration_seconds'])) {
                 $wanted['_requestdesk_duration_seconds'] = (string) max(0, (int) $episode['duration_seconds']);
             }
+            // The RequestDesk episode this post belongs to: a 24-character hex id, or
+            // an empty string to clear it. Anything else is refused, not trimmed.
+            if (isset($episode['rd_episode_id'])) {
+                $rd_id = (string) $episode['rd_episode_id'];
+                if ($rd_id !== '' && !preg_match('/^[0-9a-f]{24}$/', $rd_id)) {
+                    $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'rd_episode_id must be 24 hex characters');
+                    $failed++;
+                    continue;
+                }
+                $wanted['_requestdesk_episode_id'] = $rd_id;
+            }
             if (empty($wanted)) {
                 $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'nothing to set');
                 $failed++;

@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.58.1] - 2026-10-07
+
+### Added
+- **A post can carry the RequestDesk episode it belongs to.** `POST /requestdesk/v1/podcast-meta` accepts `rd_episode_id` per episode and stores it in `_requestdesk_episode_id`. Only a 24-character lowercase hex id is accepted, or an empty string to clear it; anything else fails that episode and writes nothing for it. The headless posts API returns it as `requestdesk_episode_id` when set. RequestDesk's episode records have no stored link to their WordPress post (the episode URL is empty on all 454 published episodes), so this is the durable join for feeding guest data and, later, durations.
+
 ## [2.58.0] - 2026-10-07
 
 ### Added
