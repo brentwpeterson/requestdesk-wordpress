@@ -364,6 +364,25 @@ class RequestDesk_API {
             )
         ));
 
+        // Set podcast episode guest (name, company, title) and duration on posts.
+        // Writes only the _requestdesk_guest_* and _requestdesk_duration_seconds
+        // meta keys that the headless API reads back. Main key only, like every
+        // other write route here; the headless key stays read-only.
+        register_rest_route($this->namespace, '/podcast-meta', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'set_podcast_meta'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'episodes' => array(
+                    'required' => true,
+                    'type' => 'array',
+                    'description' => 'List of {post_id, guest: {name, company, title}, duration_seconds}',
+                    'items' => array('type' => 'object'),
+                ),
+                'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false),
+            )
+        ));
+
         // Set alt text on images inside one post/page without rewriting the
         // rest of its content. Updates the <img> HTML, the GenerateBlocks media
         // block attributes that mirror it, and an empty media-library alt.
@@ -722,6 +741,84 @@ class RequestDesk_API {
         // URL and still match a staging copy whose host was search-replaced.
         $wp = strpos((string) $src, '/wp-content/');
         return $wp !== false ? substr($src, $wp) : $src;
+    }
+
+    /**
+     * POST /podcast-meta: set guest and duration meta on posts, verified by reading
+     * each value back. A field that is absent from an episode is left alone, and an
+     * empty string clears it. Nothing else on the post is touched.
+     */
+    public function set_podcast_meta($request) {
+        $episodes = (array) $request->get_param('episodes');
+        if (empty($episodes)) {
+            return new WP_Error('missing_episodes', 'Pass episodes: a list of {post_id, guest, duration_seconds}.', array('status' => 400));
+        }
+
+        $guest_keys = array(
+            'name'    => '_requestdesk_guest_name',
+            'company' => '_requestdesk_guest_company',
+            'title'   => '_requestdesk_guest_title',
+        );
+        $dry_run = (bool) $request->get_param('dry_run');
+        $results = array();
+        $failed = 0;
+
+        foreach ($episodes as $episode) {
+            $id = isset($episode['post_id']) ? (int) $episode['post_id'] : 0;
+            $post = $id ? get_post($id) : null;
+            if (!$post || $post->post_type !== 'post') {
+                $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'not a post');
+                $failed++;
+                continue;
+            }
+
+            $wanted = array();
+            if (isset($episode['guest']) && is_array($episode['guest'])) {
+                foreach ($guest_keys as $field => $meta_key) {
+                    if (array_key_exists($field, $episode['guest'])) {
+                        $wanted[$meta_key] = sanitize_text_field((string) $episode['guest'][$field]);
+                    }
+                }
+            }
+            if (isset($episode['duration_seconds'])) {
+                $wanted['_requestdesk_duration_seconds'] = (string) max(0, (int) $episode['duration_seconds']);
+            }
+            if (empty($wanted)) {
+                $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'nothing to set');
+                $failed++;
+                continue;
+            }
+
+            $before = array();
+            $ok = true;
+            foreach ($wanted as $meta_key => $value) {
+                $before[$meta_key] = (string) get_post_meta($id, $meta_key, true);
+                if ($dry_run) {
+                    continue;
+                }
+                update_post_meta($id, $meta_key, $value);
+                if ((string) get_post_meta($id, $meta_key, true) !== $value) {
+                    $ok = false;
+                }
+            }
+            if (!$ok) {
+                $failed++;
+            }
+            $results[] = array(
+                'post_id' => $id,
+                'title'   => get_the_title($id),
+                'before'  => $before,
+                'after'   => $wanted,
+                'ok'      => $ok,
+            );
+        }
+
+        return array(
+            'dry_run' => $dry_run,
+            'count'   => count($results),
+            'failed'  => $failed,
+            'results' => $results,
+        );
     }
 
     /**
