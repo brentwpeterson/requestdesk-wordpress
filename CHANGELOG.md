@@ -5,6 +5,12 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.58.0] - 2026-10-07
+
+### Added
+- **Podcast episode fields on the headless posts API.** `GET /requestdesk/v1/headless/posts` and `/posts/{slug}` now return `audio_embed` (the Podcaster plugin's `cmb_thst_audio_embed_code`) and `audio_url` (`cmb_thst_audio_embed`), which the talk-commerce.com front end has always asked for and never received, plus `guest` (`name`, `company`, `title`) and `duration_seconds` from the `_requestdesk_guest_*` and `_requestdesk_duration_seconds` post meta. Each field appears only when it has a value, so an ordinary post returns exactly what it returned before. Tested on a restored copy of the live site: 770 posts scanned, 177 return `audio_embed`, the original fields unchanged.
+- **`POST /requestdesk/v1/podcast-meta`** writes those guest and duration meta keys for a list of posts: `{episodes: [{post_id, guest: {name, company, title}, duration_seconds}], dry_run}`. Main key only, like every other write route here (the headless key stays read-only). A field left out of an episode is not touched, an empty string clears it, and each value is read back after writing. Dry run changes nothing and returns the before values. Nothing fills these keys automatically yet; the first fill is a one-time backfill from RequestDesk episode records.
+
 ## [2.57.0] - 2026-09-28
 
 ### Fixed
