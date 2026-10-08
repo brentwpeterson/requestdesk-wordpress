@@ -47,6 +47,144 @@ class RequestDesk_Event {
         add_filter('manage_' . self::POST_TYPE . '_posts_columns', array($this, 'admin_columns'));
         add_action('manage_' . self::POST_TYPE . '_posts_custom_column', array($this, 'admin_column_content'), 10, 2);
         add_action('pre_get_posts', array($this, 'admin_default_order'));
+        add_action('rest_api_init', array($this, 'register_rest_routes'));
+    }
+
+    /**
+     * Write routes for the RequestDesk MCP, so an event can be created, edited,
+     * published or unpublished without a wp-admin login. Same API key as the
+     * other /requestdesk/v1 write routes. Saves go through save_values(), the
+     * same sanitizing the editor and the importer use.
+     */
+    public function register_rest_routes() {
+        $auth = array($this, 'verify_api_key');
+        register_rest_route('requestdesk/v1', '/event', array(
+            array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'rest_get_events'),
+                'permission_callback' => $auth,
+                'args'                => array('slug' => array('required' => false, 'type' => 'string')),
+            ),
+        ));
+        register_rest_route('requestdesk/v1', '/event-status', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'rest_set_event_status'),
+            'permission_callback' => $auth,
+            'args'                => array(
+                'slug'    => array('required' => true, 'type' => 'string'),
+                'status'  => array('required' => true, 'type' => 'string', 'description' => 'publish, draft or trash'),
+                'confirm' => array('required' => false, 'type' => 'boolean', 'default' => false, 'description' => 'Required for trash'),
+                'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false),
+            ),
+        ));
+    }
+
+    public function verify_api_key($request) {
+        $settings = get_option('requestdesk_settings', array());
+        $api_key  = isset($settings['api_key']) ? $settings['api_key'] : '';
+        if (empty($api_key)) {
+            return new WP_Error('no_api_key', 'RequestDesk API key not configured', array('status' => 401));
+        }
+        $provided = $request->get_header('X-RequestDesk-API-Key');
+        if (empty($provided) || !hash_equals($api_key, (string) $provided)) {
+            return new WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+        return true;
+    }
+
+    /** The post for a slug in any status, or null. Trashed events count. */
+    private static function find_by_slug($slug) {
+        $found = get_posts(array(
+            'post_type'      => self::POST_TYPE,
+            'name'           => sanitize_title($slug),
+            'post_status'    => array('publish', 'draft', 'pending', 'private', 'future', 'trash'),
+            'posts_per_page' => 1,
+        ));
+        return $found ? $found[0] : null;
+    }
+
+    /** Raw view for the MCP: every status, every field, plus what the public API would do with it. */
+    private static function describe($post) {
+        $meta = array();
+        foreach (array_keys(self::fields()) as $key) {
+            $meta[$key] = (string) self::get($post->ID, $key);
+        }
+        $problems = array();
+        if (empty($meta['start_date'])) {
+            $problems[] = 'no start_date: left out of the public API';
+        }
+        if (empty($meta['city'])) {
+            $problems[] = 'no city: left out of the public API';
+        }
+        return array(
+            'id'       => (int) $post->ID,
+            'slug'     => $post->post_name,
+            'title'    => $post->post_title,
+            'status'   => $post->post_status,
+            'content'  => $post->post_content,
+            'meta'     => $meta,
+            'upcoming' => !empty($meta['end_date']) ? self::is_upcoming($meta['end_date']) : null,
+            'problems' => $problems,
+        );
+    }
+
+    public function rest_get_events($request) {
+        $slug = (string) $request->get_param('slug');
+        if ($slug !== '') {
+            $post = self::find_by_slug($slug);
+            if (!$post) {
+                return new WP_Error('event_not_found', 'No event with slug "' . $slug . '".', array('status' => 404));
+            }
+            return new WP_REST_Response(array('event' => self::describe($post)), 200);
+        }
+        $posts = get_posts(array(
+            'post_type'      => self::POST_TYPE,
+            'post_status'    => array('publish', 'draft', 'pending', 'private', 'future'),
+            'posts_per_page' => -1,
+        ));
+        $events = array_map(array(__CLASS__, 'describe'), $posts);
+        usort($events, function ($a, $b) { return strcmp($b['meta']['start_date'], $a['meta']['start_date']); });
+        foreach ($events as &$e) {
+            unset($e['content']);
+        }
+        unset($e);
+        return new WP_REST_Response(array('events' => $events, 'count' => count($events)), 200);
+    }
+
+    public function rest_set_event_status($request) {
+        $status = (string) $request->get_param('status');
+        if (!in_array($status, array('publish', 'draft', 'trash'), true)) {
+            return new WP_Error('bad_status', 'status must be publish, draft or trash.', array('status' => 400));
+        }
+        $post = self::find_by_slug((string) $request->get_param('slug'));
+        if (!$post) {
+            return new WP_Error('event_not_found', 'No event with that slug.', array('status' => 404));
+        }
+        if ($status === 'trash' && !$request->get_param('confirm')) {
+            return new WP_Error('confirm_required', 'Trashing needs confirm=true.', array('status' => 400));
+        }
+        if ($status === 'publish') {
+            $d = self::describe($post);
+            if ($d['problems']) {
+                return new WP_Error('would_be_invisible', 'Cannot publish: ' . implode('; ', $d['problems']), array('status' => 422));
+            }
+        }
+        $from = $post->post_status;
+        if ($request->get_param('dry_run') || $from === $status) {
+            return new WP_REST_Response(array('success' => true, 'dry_run' => (bool) $request->get_param('dry_run'), 'slug' => $post->post_name, 'from' => $from, 'to' => $status, 'changed' => false), 200);
+        }
+        if ($status === 'trash') {
+            $ok = wp_trash_post($post->ID);
+        } elseif ($from === 'trash') {
+            $ok = wp_untrash_post($post->ID) && wp_update_post(array('ID' => $post->ID, 'post_status' => $status));
+        } else {
+            $ok = wp_update_post(array('ID' => $post->ID, 'post_status' => $status), true);
+        }
+        if (!$ok || is_wp_error($ok)) {
+            return new WP_Error('status_failed', 'WordPress did not change the status.', array('status' => 500));
+        }
+        $now = get_post_status($post->ID);
+        return new WP_REST_Response(array('success' => $now === $status, 'slug' => $post->post_name, 'from' => $from, 'to' => $now, 'changed' => true), $now === $status ? 200 : 207);
     }
 
     /**

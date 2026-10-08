@@ -5,21 +5,54 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.58.2] - 2026-10-08
+## [2.63.0] - 2026-10-08
 
 ### Added
-- **A guest's LinkedIn profile on a post.** `POST /requestdesk/v1/podcast-meta` accepts `guest.linkedin` and stores it in `_requestdesk_guest_linkedin`. Only `https://www.linkedin.com/in/<id>` is accepted, or an empty string to clear; anything else fails that episode and writes nothing for it. The headless posts API returns it as `guest.linkedin` when set, so the front end can mark up the guest with `sameAs`.
+- **Podcast episode fields on the headless posts API.** `GET /requestdesk/v1/headless/posts` and `/posts/{slug}` now return `audio_embed` (the Podcaster plugin's `cmb_thst_audio_embed_code`) and `audio_url` (`cmb_thst_audio_embed`), plus `guest` (`name`, `company`, `title`, `linkedin`), `duration_seconds` and `requestdesk_episode_id` from the `_requestdesk_*` post meta. Each field appears only when it has a value, so an ordinary post returns exactly what it returned before.
+- **`POST /requestdesk/v1/podcast-meta`** writes those meta keys for a list of posts: `{episodes: [{post_id, guest: {name, company, title, linkedin}, duration_seconds, rd_episode_id}], dry_run}`. Main key only, like every other write route here (the headless key stays read-only). A field left out of an episode is not touched and an empty string clears it. `rd_episode_id` must be 24 lowercase hex characters, and `guest.linkedin` must be a public profile url under the `in/` path; anything else fails that episode and writes nothing for it. Dry run changes nothing and returns the before values; each value is read back after writing.
 
-## [2.58.1] - 2026-10-07
+### Merge note
+- This release joins two lines of work that had split from 2.57.0: the Content Cucumber tree (2.58.0 to 2.62.1, listed below) and the podcast fields above, which shipped to Talk Commerce live as 2.58.0, 2.58.1 and 2.58.2 before the merge. Both are in 2.63.0, merged file by file against the 2.57.0 base.
+
+## [2.62.1] - 2026-10-07
+
+### Fixed
+- **The SEO / AEO / AIO service now has a URL in the home-page OfferCatalog.** It was the one Offer of five with no `url`, so an agent reading the catalog had nowhere to go for it. It now points at `/seo-ai-search/`. Surfaced by the Webscale AI readiness scan of 2026-10-07.
+
+## [2.62.0] - 2026-10-05
+
+### Fixed
+- **The event dry run now lists a body change.** `POST /requestdesk/v1/events` with `dry_run` compared only fields, so an edit that touched only the page content came back as `changes: []`. It now adds `_content` with the old and new size in bytes and the byte position of the first difference, comparing the body the way it will be saved.
+- **Generate New Key on the Headless API page asks first.** That button saved a new key the moment it was clicked, with no confirmation, and every website or app holding the old key broke without notice. It now confirms, names what stops working, and notes that the RequestDesk API key is separate. The Headless page text also says that each reader stores its own copy of the key.
+
+## [2.61.0] - 2026-10-04
+
+### Fixed
+- **A new event now reaches the other sites within about a minute.** The open event routes (`/public/events`, `/public/events/{slug}`) now send `Cache-Control: public, max-age=60, s-maxage=60` and `Surrogate-Control: max-age=60`. With no lifetime, the CDN in front of the site served an old copy of the list long after nine events were added (four cached, thirteen on the site), so a frontend reading the list showed four events. The key-protected `/headless/` routes are unchanged.
+
+## [2.60.0] - 2026-10-03
 
 ### Added
-- **A post can carry the RequestDesk episode it belongs to.** `POST /requestdesk/v1/podcast-meta` accepts `rd_episode_id` per episode and stores it in `_requestdesk_episode_id`. Only a 24-character lowercase hex id is accepted, or an empty string to clear it; anything else fails that episode and writes nothing for it. The headless posts API returns it as `requestdesk_episode_id` when set. RequestDesk's episode records have no stored link to their WordPress post (the episode URL is empty on all 454 published episodes), so this is the durable join for feeding guest data and, later, durations.
+- **Events readable with no key.** `GET /requestdesk/v1/public/events` (list, with `when` and `per_page`) and `GET /requestdesk/v1/public/events/{slug}` (one event with its body) answer without an API key. They return exactly what `/headless/events` returns: published events with a start date and a city, the same information the public `/events/` pages show. A frontend that reads them stores no secret, so regenerating a key in WordPress cannot break it. The key-protected `/headless/events` routes are unchanged, and every write route still needs the RequestDesk API key.
 
-## [2.58.0] - 2026-10-07
+## [2.59.0] - 2026-10-03
 
 ### Added
-- **Podcast episode fields on the headless posts API.** `GET /requestdesk/v1/headless/posts` and `/posts/{slug}` now return `audio_embed` (the Podcaster plugin's `cmb_thst_audio_embed_code`) and `audio_url` (`cmb_thst_audio_embed`), which the talk-commerce.com front end has always asked for and never received, plus `guest` (`name`, `company`, `title`) and `duration_seconds` from the `_requestdesk_guest_*` and `_requestdesk_duration_seconds` post meta. Each field appears only when it has a value, so an ordinary post returns exactly what it returned before. Tested on a restored copy of the live site: 770 posts scanned, 177 return `audio_embed`, the original fields unchanged.
-- **`POST /requestdesk/v1/podcast-meta`** writes those guest and duration meta keys for a list of posts: `{episodes: [{post_id, guest: {name, company, title}, duration_seconds}], dry_run}`. Main key only, like every other write route here (the headless key stays read-only). A field left out of an episode is not touched, an empty string clears it, and each value is read back after writing. Dry run changes nothing and returns the before values. Nothing fills these keys automatically yet; the first fill is a one-time backfill from RequestDesk episode records.
+- **`POST /update-featured-image` accepts the image file itself.** Send `image_base64` and `filename` instead of a public URL, so an image that exists only on a local disk can reach the Media Library without a theme file, a commit or a sync. The file is checked first (png, jpeg, webp or gif, up to 8 MB), uploaded with the same `media_handle_sideload` path as the URL version, and set as the post's featured image. Also new: `alt` (stored on the Media Library image), `dry_run` (validate and report, upload nothing), and `image_url` in the response.
+- Works on any post type, so an event's featured image can be set. An event's homepage image falls back to its featured image.
+
+### Changed
+- `featured_image_url` is no longer required by the route; the handler asks for it or `image_base64` and refuses a request with neither (400).
+
+## [2.58.0] - 2026-10-02
+
+### Added
+- **Event control for the RequestDesk MCP.** `GET /requestdesk/v1/event` lists every event in any status, with the fields and any problem that would hide it from the public API (`?slug=` returns one). `POST /requestdesk/v1/event-status` publishes, drafts or trashes an event by slug; trashing needs `confirm=true`. Both use the main RequestDesk API key.
+- **`POST /requestdesk/v1/events` (the existing upsert) gains `dry_run`**, a refusal to publish an event with no `start_date` or `city` (422, instead of publishing an event the public API silently drops), and a read-back after saving that reports `mismatch`.
+
+### Changed
+- **Updating an event without sending `status` keeps its status.** The route used to default to `draft`, so an edit could unpublish a live event.
+- The events seed and importer moved here from the Talk Commerce repo (`tools/events/`). Events live in Content Cucumber only.
 
 ## [2.57.0] - 2026-09-28
 

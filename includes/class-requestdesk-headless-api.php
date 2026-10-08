@@ -223,6 +223,46 @@ class RequestDesk_Headless_API {
                 )
             )
         ));
+
+        // Events with no key. The list and the single-event body are the same
+        // information the public /events/ pages already show: published events
+        // only, each with a start date and a city (get_events and get_event leave
+        // out any that lack either). A frontend reads them without storing a
+        // secret, so a regenerated key cannot break it. Reads only; every write
+        // route still needs the RequestDesk API key.
+        register_rest_route($this->namespace, '/public/events', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_events'),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'when' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'default' => 'all',
+                    'enum' => array('all', 'upcoming', 'past')
+                ),
+                'per_page' => array(
+                    'required' => false,
+                    'type' => 'integer',
+                    'default' => 100,
+                    'minimum' => 1,
+                    'maximum' => 100
+                )
+            )
+        ));
+
+        register_rest_route($this->namespace, '/public/events/(?P<slug>[a-zA-Z0-9-]+)', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_event'),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'slug' => array(
+                    'required' => true,
+                    'type' => 'string',
+                    'description' => 'Event slug'
+                )
+            )
+        ));
     }
 
     /**
@@ -290,6 +330,24 @@ class RequestDesk_Headless_API {
     }
 
     /**
+     * Short edge-cache lifetime for the open event routes (/public/events...).
+     * Without a lifetime, the CDN in front of the site kept serving an old list
+     * long after an event was added (2026-10-04: four events cached while the
+     * site held thirteen), so a change made through the MCP did not reach a
+     * frontend that reads this list. Sixty seconds keeps the routes cheap and
+     * the lag short.
+     * The key-protected /headless/ routes are not marked public.
+     */
+    private function public_cache($response, $request) {
+        if (strpos((string) $request->get_route(), '/requestdesk/v1/public/') === 0
+            && $response instanceof WP_HTTP_Response) {
+            $response->header('Cache-Control', 'public, max-age=60, s-maxage=60');
+            $response->header('Surrogate-Control', 'max-age=60');
+        }
+        return $response;
+    }
+
+    /**
      * Published events, upcoming soonest first, then past most recent first.
      *
      * The list leaves out each event's rendered body to stay small; the single
@@ -335,11 +393,11 @@ class RequestDesk_Headless_API {
 
             $events = array_slice(RequestDesk_Event::sort_for_api($events), 0, $per_page);
 
-            return rest_ensure_response(array(
+            return $this->public_cache(rest_ensure_response(array(
                 'events' => $events,
                 'count'  => count($events),
                 'when'   => $when,
-            ));
+            )), $request);
         } catch (Throwable $e) {
             return new WP_Error('events_failed', $e->getMessage(), array('status' => 500));
         }
@@ -379,7 +437,7 @@ class RequestDesk_Headless_API {
                 );
             }
 
-            return rest_ensure_response(array('event' => $formatted));
+            return $this->public_cache(rest_ensure_response(array('event' => $formatted)), $request);
         } catch (Throwable $e) {
             return new WP_Error('event_failed', $e->getMessage(), array('status' => 500));
         }

@@ -288,13 +288,19 @@ class RequestDesk_API {
                 'status' => array(
                     'required' => false,
                     'type' => 'string',
-                    'default' => 'draft',
+                    'description' => 'Omit to keep an existing event\'s status; a new event is created as draft.',
                     'enum' => array('draft', 'publish', 'pending', 'private')
                 ),
                 'meta' => array(
                     'required' => false,
                     'type' => 'object',
                     'description' => 'Event fields keyed as in RequestDesk_Event::fields(). Only keys sent are written.'
+                ),
+                'dry_run' => array(
+                    'required' => false,
+                    'type' => 'boolean',
+                    'default' => false,
+                    'description' => 'Report what would change and save nothing.'
                 )
             )
         ));
@@ -325,9 +331,30 @@ class RequestDesk_API {
                     'description' => 'WordPress post ID to update'
                 ),
                 'featured_image_url' => array(
-                    'required' => true,
+                    'required' => false,
                     'type' => 'string',
-                    'description' => 'URL of the featured image to set'
+                    'description' => 'Public URL of the featured image to set. Omit when sending image_base64.'
+                ),
+                'image_base64' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'The image file itself, base64 encoded (png, jpeg, webp or gif, up to 8 MB), for an image with no public URL.'
+                ),
+                'filename' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'File name for image_base64, e.g. the-running-event-header.png.'
+                ),
+                'alt' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'Alt text stored on the Media Library image.'
+                ),
+                'dry_run' => array(
+                    'required' => false,
+                    'type' => 'boolean',
+                    'default' => false,
+                    'description' => 'Check the image and report what would happen; upload nothing.'
                 )
             )
         ));
@@ -1696,8 +1723,63 @@ class RequestDesk_API {
                 );
             }
 
-            // Set featured image using existing method
-            $attachment_id = $this->set_featured_image_from_url($post_id, $featured_image_url);
+            $image_base64 = (string) $request->get_param('image_base64');
+            $dry_run = (bool) $request->get_param('dry_run');
+
+            if ($image_base64 !== '') {
+                // A file sent in the request: validate it first, so a dry run and
+                // a real upload judge the same bytes.
+                $bytes = base64_decode($image_base64, true);
+                if ($bytes === false || $bytes === '') {
+                    return new WP_Error('invalid_image', 'image_base64 is not valid base64.', array('status' => 400));
+                }
+                if (strlen($bytes) > 8 * 1024 * 1024) {
+                    return new WP_Error('image_too_large', 'Image is over 8 MB.', array('status' => 413));
+                }
+                $info = @getimagesizefromstring($bytes);
+                $allowed = array('image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp', 'image/gif' => 'gif');
+                if (!$info || !isset($allowed[$info['mime']])) {
+                    return new WP_Error('invalid_image', 'The file is not a png, jpeg, webp or gif image.', array('status' => 400));
+                }
+                $name = sanitize_file_name((string) $request->get_param('filename'));
+                if ($name === '' || !preg_match('/\.(png|jpe?g|webp|gif)$/i', $name)) {
+                    $name = 'image-' . gmdate('Ymd-His') . '.' . $allowed[$info['mime']];
+                }
+                if ($dry_run) {
+                    return new WP_REST_Response(array(
+                        'success' => true,
+                        'dry_run' => true,
+                        'post_id' => $post_id,
+                        'post_type' => $post->post_type,
+                        'would_upload' => array('filename' => $name, 'mime' => $info['mime'], 'width' => $info[0], 'height' => $info[1], 'bytes' => strlen($bytes)),
+                        'current_featured_image' => get_the_post_thumbnail_url($post_id, 'full') ?: null,
+                    ), 200);
+                }
+                $attachment_id = $this->set_featured_image_from_bytes($post_id, $bytes, $name);
+            } else {
+                if ($featured_image_url === '') {
+                    return new WP_Error('missing_image', 'Send featured_image_url or image_base64.', array('status' => 400));
+                }
+                if ($dry_run) {
+                    return new WP_REST_Response(array(
+                        'success' => true,
+                        'dry_run' => true,
+                        'post_id' => $post_id,
+                        'post_type' => $post->post_type,
+                        'would_download' => $featured_image_url,
+                        'current_featured_image' => get_the_post_thumbnail_url($post_id, 'full') ?: null,
+                    ), 200);
+                }
+                // Set featured image using existing method
+                $attachment_id = $this->set_featured_image_from_url($post_id, $featured_image_url);
+            }
+
+            if ($attachment_id && !is_wp_error($attachment_id)) {
+                $alt = (string) $request->get_param('alt');
+                if ($alt !== '') {
+                    update_post_meta($attachment_id, '_wp_attachment_image_alt', sanitize_text_field($alt));
+                }
+            }
 
             if ($attachment_id && !is_wp_error($attachment_id)) {
                 return new WP_REST_Response(array(
@@ -1705,6 +1787,7 @@ class RequestDesk_API {
                     'message' => 'Featured image updated successfully',
                     'post_id' => $post_id,
                     'attachment_id' => $attachment_id,
+                    'image_url' => wp_get_attachment_url($attachment_id),
                     'post_url' => get_permalink($post_id)
                 ), 200);
             } else {
@@ -1726,6 +1809,30 @@ class RequestDesk_API {
         }
     }
 
+
+    /**
+     * Set featured image from file bytes (already validated by the caller).
+     * Same Media Library path as the URL version: media_handle_sideload.
+     */
+    private function set_featured_image_from_bytes($post_id, $bytes, $filename) {
+        require_once(ABSPATH . 'wp-admin/includes/media.php');
+        require_once(ABSPATH . 'wp-admin/includes/file.php');
+        require_once(ABSPATH . 'wp-admin/includes/image.php');
+
+        $temp_file = wp_tempnam($filename);
+        if (!$temp_file || file_put_contents($temp_file, $bytes) === false) {
+            return new WP_Error('temp_write_failed', 'Could not write the image to a temporary file.');
+        }
+        $attachment_id = media_handle_sideload(array('name' => $filename, 'tmp_name' => $temp_file), $post_id);
+        if (file_exists($temp_file)) {
+            unlink($temp_file);
+        }
+        if (is_wp_error($attachment_id)) {
+            return $attachment_id;
+        }
+        set_post_thumbnail($post_id, $attachment_id);
+        return $attachment_id;
+    }
 
     /**
      * Set featured image from URL
@@ -1834,11 +1941,69 @@ class RequestDesk_API {
             'numberposts' => 1,
         ));
 
+        // Omitting status keeps an existing event's status (it used to reset to
+        // draft); a new event starts as draft.
+        $final_status = $request->get_param('status') ?: ($existing ? $existing[0]->post_status : 'draft');
+
+        // What the event will look like after this save, to refuse a publish the
+        // public API would silently drop (no start_date or city) and to report
+        // exactly what changes.
+        $fields  = RequestDesk_Event::fields();
+        $merged  = array();
+        $changes = array();
+        foreach (array_keys($fields) as $k) {
+            $merged[$k] = $existing ? (string) RequestDesk_Event::get($existing[0]->ID, $k) : '';
+        }
+        foreach ((array) $meta as $k => $v) {
+            $new = RequestDesk_Event::sanitize_value($fields[$k], $v);
+            if ($merged[$k] !== $new) {
+                $changes[$k] = array('from' => $merged[$k], 'to' => $new);
+            }
+            $merged[$k] = $new;
+        }
+        if ($final_status === 'publish' && (empty($merged['start_date']) || empty($merged['city']))) {
+            return new WP_Error('would_be_invisible', 'A published event needs start_date and city, or the public API leaves it out.', array('status' => 422));
+        }
+        if (!$existing) {
+            $changes['_created'] = array('from' => null, 'to' => $slug);
+        } else {
+            if ($existing[0]->post_title !== $title) {
+                $changes['_title'] = array('from' => $existing[0]->post_title, 'to' => $title);
+            }
+            if ($existing[0]->post_status !== $final_status) {
+                $changes['_status'] = array('from' => $existing[0]->post_status, 'to' => $final_status);
+            }
+        }
+        // Page body. Compared the way it will be saved (wp_kses_post), so a dry run lists a body change
+        // instead of reporting "no changes" for an edit that only touches the content.
+        if ($request->get_param('content') !== null) {
+            $new_content = trim(wp_kses_post((string) $request->get_param('content')));
+            $old_content = $existing ? trim((string) $existing[0]->post_content) : '';
+            if ($new_content !== $old_content) {
+                $changes['_content'] = array(
+                    'from' => strlen($old_content) . ' bytes' . ($existing ? '' : ' (new event)'),
+                    'to'   => strlen($new_content) . ' bytes',
+                    'first_difference_at_byte' => (function ($a, $b) {
+                        $n = min(strlen($a), strlen($b));
+                        for ($i = 0; $i < $n; $i++) {
+                            if ($a[$i] !== $b[$i]) {
+                                return $i;
+                            }
+                        }
+                        return $n;
+                    })($old_content, $new_content),
+                );
+            }
+        }
+        if ($request->get_param('dry_run')) {
+            return rest_ensure_response(array('success' => true, 'dry_run' => true, 'action' => $existing ? 'update' : 'create', 'changes' => $changes));
+        }
+
         $postarr = array(
             'post_type'   => RequestDesk_Event::POST_TYPE,
             'post_title'  => $title,
             'post_name'   => $slug,
-            'post_status' => $request->get_param('status') ?: 'draft',
+            'post_status' => $final_status,
         );
         if ($request->get_param('content') !== null) {
             $postarr['post_content'] = wp_kses_post((string) $request->get_param('content'));
@@ -1859,8 +2024,18 @@ class RequestDesk_API {
         }
 
         $post = get_post($post_id);
+        // Verified by reading back, not by trusting the write.
+        $mismatch = array();
+        foreach ((array) $meta as $k => $v) {
+            if ((string) RequestDesk_Event::get($post_id, $k) !== $merged[$k] && $k !== 'end_date') {
+                $mismatch[] = $k;
+            }
+        }
         return rest_ensure_response(array(
-            'success'   => true,
+            'success'   => empty($mismatch),
+            'dry_run'   => false,
+            'changes'   => $changes,
+            'mismatch'  => $mismatch,
             'action'    => $existing ? 'updated' : 'created',
             'post_id'   => $post_id,
             'status'    => $post->post_status,

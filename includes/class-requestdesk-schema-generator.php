@@ -960,7 +960,7 @@ class RequestDesk_Schema_Generator {
                 'name' => 'Services',
                 'itemListElement' => array(
                     array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Growth Marketing', 'url' => $home . 'growth-marketing')),
-                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'SEO / AEO / AIO')),
+                    array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'SEO / AEO / AIO', 'url' => $home . 'seo-ai-search')),
                     array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'HubSpot Implementation', 'url' => $home . 'hubspot-audit')),
                     array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Loop Marketing', 'url' => $home . 'hubspot-loop-marketing')),
                     array('@type' => 'Offer', 'itemOffered' => array('@type' => 'Service', 'name' => 'Live Event Content', 'url' => $home . 'conference-coverage'))

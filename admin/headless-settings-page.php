@@ -58,9 +58,9 @@ function requestdesk_headless_settings_page() {
                     <td>
                         <input type="text" name="headless_api_key" id="headless_api_key" value="<?php echo esc_attr($settings['api_key']); ?>" class="regular-text" style="font-family: monospace;" readonly />
                         <button type="button" class="button" onclick="copyApiKey()" id="copy-btn">Copy</button>
-                        <p class="description">This key authenticates requests to the headless API.</p>
+                        <p class="description">This key authenticates requests to the headless API. Any website or app that reads this site with the key stores its own copy.</p>
                         <p>
-                            <button type="submit" name="requestdesk_headless_generate" class="button">Generate New Key</button>
+                            <button type="submit" name="requestdesk_headless_generate" class="button" onclick="return confirm('<?php echo esc_js("Generate a new Headless API key?\n\nThe new key is saved the moment you confirm. The current key stops working immediately, and every website or app that reads this site with it will fail until its stored copy is replaced with the new key.\n\nThe RequestDesk API key on the Settings page is a separate key and is not affected."); ?>');">Generate New Key</button>
                         </p>
                         <script>
                         function copyApiKey() {
