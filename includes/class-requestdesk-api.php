@@ -779,6 +779,20 @@ class RequestDesk_API {
                         $wanted[$meta_key] = sanitize_text_field((string) $episode['guest'][$field]);
                     }
                 }
+                // The guest's LinkedIn profile: a public profile url under the in/ path,
+                // or an empty string to clear. Anything else fails this episode, nothing
+                // is trimmed.
+                if (array_key_exists('linkedin', $episode['guest'])) {
+                    $li = (string) $episode['guest']['linkedin'];
+                    $li_prefix = 'https://www.linkedin.com/in/'; // hardcode-ok: validates a profile url on LinkedIn, a public third-party site; not a Content Cucumber endpoint
+                    $li_id = ($li !== '' && strpos($li, $li_prefix) === 0) ? rtrim(substr($li, strlen($li_prefix)), '/') : '';
+                    if ($li !== '' && !preg_match('/^[A-Za-z0-9%_\-]+$/', $li_id)) {
+                        $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'guest.linkedin must be a LinkedIn public profile url (the in/<id> form)');
+                        $failed++;
+                        continue;
+                    }
+                    $wanted['_requestdesk_guest_linkedin'] = $li;
+                }
             }
             if (isset($episode['duration_seconds'])) {
                 $wanted['_requestdesk_duration_seconds'] = (string) max(0, (int) $episode['duration_seconds']);

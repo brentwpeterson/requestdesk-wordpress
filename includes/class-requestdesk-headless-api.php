@@ -791,6 +791,7 @@ class RequestDesk_Headless_API {
             'name'    => (string) get_post_meta($post_id, '_requestdesk_guest_name', true),
             'company' => (string) get_post_meta($post_id, '_requestdesk_guest_company', true),
             'title'   => (string) get_post_meta($post_id, '_requestdesk_guest_title', true),
+            'linkedin' => (string) get_post_meta($post_id, '_requestdesk_guest_linkedin', true),
         );
         $guest = array_filter($guest, 'strlen');
         if (!empty($guest)) {

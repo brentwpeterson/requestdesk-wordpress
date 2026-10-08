@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.58.2] - 2026-10-08
+
+### Added
+- **A guest's LinkedIn profile on a post.** `POST /requestdesk/v1/podcast-meta` accepts `guest.linkedin` and stores it in `_requestdesk_guest_linkedin`. Only `https://www.linkedin.com/in/<id>` is accepted, or an empty string to clear; anything else fails that episode and writes nothing for it. The headless posts API returns it as `guest.linkedin` when set, so the front end can mark up the guest with `sameAs`.
+
 ## [2.58.1] - 2026-10-07
 
 ### Added
