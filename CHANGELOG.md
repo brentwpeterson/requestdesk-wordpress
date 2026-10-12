@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.63.1] - 2026-10-12
+
+### Fixed
+- **`post_id` can be a JSON number on `/publish` and `/update-featured-image`.** Both routes declared `post_id` as a string only, so `{"post_id": 23357}` failed argument validation with a 400 (`post_id is not of type string`) before the handler ran, while `{"post_id": "23357"}` worked. On contentcucumber.com the host replaces that 400 with its own HTML "Bad Request" page, so the failure looked like a request-size or `image_base64` problem when the image was fine. Both routes now accept a number or a numeric string, matching the routes that already declared `post_id` as an integer.
+
 ## [2.63.0] - 2026-10-08
 
 ### Added

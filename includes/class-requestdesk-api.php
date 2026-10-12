@@ -202,7 +202,7 @@ class RequestDesk_API {
                 ),
                 'post_id' => array(
                     'required' => false,
-                    'type' => 'string',
+                    'type' => array('string', 'integer'),
                     'description' => 'Post ID to update (if provided, updates existing post instead of creating new one)'
                 ),
                 'author' => array(
@@ -327,7 +327,7 @@ class RequestDesk_API {
             'args' => array(
                 'post_id' => array(
                     'required' => true,
-                    'type' => 'string',
+                    'type' => array('string', 'integer'),
                     'description' => 'WordPress post ID to update'
                 ),
                 'featured_image_url' => array(
