@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.64.0] - 2026-10-14
+
+### Added
+- **Front page A/B test (Settings -> A/B Test).** One test at a time. Variant A is the front page as the theme renders it; Variant B replaces the inner HTML of up to three elements found by CSS selector (for contentcucumber.com: `.cc-hero-bold__headline`, `.cc-hero-bold__lede`, `.cc-hero-bold__cta--primary`). The visitor's variant is picked in the browser and kept in a 90-day cookie, so it works behind Flywheel's full-page cache. An inline head script hides B's elements until they are swapped, so A never flashes. The goal is a click on a selector, a HubSpot form submission, or both. Views (once per browser session) and goals (once per visitor) are counted through `POST /requestdesk/v1/ab-test/event` and shown on the tab, and pushed to the GTM dataLayer as `rd_ab_view` / `rd_ab_goal`. `?rd_ab=a` or `?rd_ab=b` previews a variant without counting. A test that is switched on but missing its name, changes, or goal does not run, and the tab says why. Renaming the test starts a new split and new counts. The counter is open to anonymous visitors, so its numbers are a guide, not an audit.
+
 ## [2.63.1] - 2026-10-12
 
 ### Fixed
