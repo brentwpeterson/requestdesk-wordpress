@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.63.1
+ * Version: 2.64.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.63.1');
+define('REQUESTDESK_VERSION', '2.64.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -116,6 +116,10 @@ $plugin_files = array(
     'admin/homepage-hero-settings-page.php',
     'includes/class-requestdesk-stats-bar.php',
     'admin/stats-bar-settings-page.php',
+    // Shared, off until switched on in Settings -> A/B Test. Renders nothing
+    // and registers only the counter route while no test is running.
+    'includes/class-requestdesk-ab-test.php',
+    'admin/ab-test-settings-page.php',
     'includes/class-requestdesk-comparison-table.php',
     'includes/class-requestdesk-indexnow.php',
     'includes/class-requestdesk-asset-hub.php',
@@ -407,6 +411,7 @@ function requestdesk_combined_settings_page() {
             <a href="#seo" class="nav-tab" onclick="openTab(event, 'seo')">SEO</a>
             <a href="#homepage-hero" class="nav-tab" onclick="openTab(event, 'homepage-hero')">Homepage Hero</a>
             <a href="#stats-bar" class="nav-tab" onclick="openTab(event, 'stats-bar')">Stats Bar</a>
+            <a href="#ab-test" class="nav-tab" onclick="openTab(event, 'ab-test')">A/B Test</a>
         </nav>
 
         <!-- General RequestDesk Settings Tab -->
@@ -464,6 +469,15 @@ function requestdesk_combined_settings_page() {
             <?php
             if (function_exists('requestdesk_stats_bar_settings_page')) {
                 requestdesk_stats_bar_settings_page();
+            }
+            ?>
+        </div>
+
+        <!-- A/B Test Settings Tab -->
+        <div id="ab-test" class="tab-content" style="display: none;">
+            <?php
+            if (function_exists('requestdesk_ab_test_settings_page')) {
+                requestdesk_ab_test_settings_page();
             }
             ?>
         </div>
