@@ -2066,7 +2066,7 @@ class RequestDesk_API {
             $provided_key = $request->get_param('api_key');
         }
 
-        if (empty($provided_key) || $provided_key !== $api_key) {
+        if (empty($provided_key) || !hash_equals((string) $api_key, (string) $provided_key)) {
             return new WP_Error(
                 'invalid_api_key',
                 'Invalid API key',
