@@ -371,6 +371,19 @@ class RequestDesk_Comment_Link_Stripper {
             return $content;
         }
 
+        // A light edit only removes text. Model output that carries more angle
+        // brackets than the input did is not a light edit: a commenter can write
+        // instructions that make Claude emit markup, and wp_update_comment() stores
+        // it unfiltered when a moderator with unfiltered_html approves. Reject it,
+        // then filter whatever is kept the way core filters a comment.
+        if (substr_count($result, '<') > substr_count($content, '<')) {
+            if (function_exists('error_log')) {
+                error_log('RequestDesk: Claude link-strip pass rejected on comment approval -- output added markup, keeping regex-only result.');
+            }
+            return $content;
+        }
+        $result = wp_kses($result, wp_kses_allowed_html('pre_comment_content'));
+
         // Claude's own light edit can leave the same kind of double-space gap
         // the regex pass guards against (removing "example dot com" out of the
         // middle of a sentence, for instance) -- tidy it the same way.
