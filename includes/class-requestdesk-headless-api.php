@@ -1117,9 +1117,7 @@ class RequestDesk_Headless_API {
                 $provided_key = substr($provided_key, 7);
             }
         }
-        if (empty($provided_key)) {
-            $provided_key = $request->get_param('api_key');
-        }
+        // Header only. A key in the query string lands in access logs and Referer.
 
         if (!empty($provided_key)) {
             foreach ($accepted_keys as $accepted_key) {

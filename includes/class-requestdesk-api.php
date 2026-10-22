@@ -2065,9 +2065,7 @@ class RequestDesk_API {
         }
 
         $provided_key = $request->get_header('X-RequestDesk-API-Key');
-        if (empty($provided_key)) {
-            $provided_key = $request->get_param('api_key');
-        }
+        // Header only. A key in the query string lands in access logs and Referer.
 
         if (empty($provided_key) || !hash_equals((string) $api_key, (string) $provided_key)) {
             return new WP_Error(

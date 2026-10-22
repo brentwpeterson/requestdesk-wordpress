@@ -773,9 +773,7 @@ class RequestDesk_AEO_Core {
         }
 
         $provided_key = $request->get_header('X-RequestDesk-API-Key');
-        if (empty($provided_key)) {
-            $provided_key = $request->get_param('api_key');
-        }
+        // Header only. A key in the query string lands in access logs and Referer.
 
         return !empty($provided_key) && hash_equals($api_key, $provided_key);
     }
