@@ -21,7 +21,14 @@ class RequestDesk_Headless_API {
      * Uses a raw SQL UPDATE so the increment is safe under concurrent
      * requests (no get_option/update_option race condition).
      */
-    public static function increment_request_count() {
+    public static function increment_request_count($request = null) {
+        // The keyless /public/ routes are anonymous. Counting them lets any
+        // visitor write to the options table on every call and inflate the
+        // usage figure reported under the client's key.
+        if ($request instanceof WP_REST_Request
+            && strpos((string) $request->get_route(), '/requestdesk/v1/public/') === 0) {
+            return;
+        }
         global $wpdb;
         $wpdb->query(
             "UPDATE {$wpdb->options} SET option_value = option_value + 1 WHERE option_name = 'requestdesk_headless_api_count'"
@@ -356,7 +363,7 @@ class RequestDesk_Headless_API {
      * the last save.
      */
     public function get_events($request) {
-        self::increment_request_count();
+        self::increment_request_count($request);
         try {
             if (!class_exists('RequestDesk_Event')) {
                 return new WP_Error(
@@ -409,7 +416,7 @@ class RequestDesk_Headless_API {
      * because the list route leaves it out too.
      */
     public function get_event($request) {
-        self::increment_request_count();
+        self::increment_request_count($request);
         try {
             if (!class_exists('RequestDesk_Event')) {
                 return new WP_Error(
