@@ -50,7 +50,10 @@ class RequestDesk_API {
      * Remove any iframe whose src host is not in $embed_hosts.
      */
     private static function strip_foreign_iframes($html) {
-        return preg_replace_callback('#<iframe\b[^>]*>.*?</iframe>#is', function ($m) {
+        // Match the opening tag alone. An iframe with no closing tag used to slip
+        // past the host check and reach kses, which keeps any src. Content between
+        // a removed pair is the iframe's fallback text and stays as plain text.
+        return preg_replace_callback('#<iframe\b[^>]*>#is', function ($m) {
             if (!preg_match('#\bsrc\s*=\s*["\']([^"\']+)["\']#i', $m[0], $src)) {
                 return '';
             }

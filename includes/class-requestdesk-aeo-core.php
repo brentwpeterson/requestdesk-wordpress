@@ -410,7 +410,7 @@ class RequestDesk_AEO_Core {
             $ps_schema = $this->schema_generator->generate_professional_service_schema();
             if (!empty($ps_schema)) {
                 echo '<script type="application/ld+json">';
-                echo json_encode($ps_schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+                echo json_encode($ps_schema, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
                 echo '</script>' . "\n";
             }
         }
@@ -426,7 +426,7 @@ class RequestDesk_AEO_Core {
             echo '<script type="application/ld+json">';
             echo json_encode(
                 $this->clean_faq_question_names($aeo_data['faq_data']),
-                JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
+                JSON_HEX_TAG | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
             );
             echo '</script>' . "\n";
         }

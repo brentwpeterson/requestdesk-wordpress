@@ -1368,7 +1368,7 @@ class RequestDesk_Schema_Generator {
         foreach ($schemas as $schema) {
             if (!empty($schema)) {
                 $output .= '<script type="application/ld+json">';
-                $output .= json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+                $output .= json_encode($schema, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
                 $output .= '</script>' . "\n";
             }
         }
