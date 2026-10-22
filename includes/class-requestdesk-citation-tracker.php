@@ -437,11 +437,12 @@ class RequestDesk_Citation_Tracker {
     public function ajax_get_citation_stats() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
         $stats = $this->get_citation_stats($post_id);
 
         wp_send_json_success($stats);
@@ -453,11 +454,12 @@ class RequestDesk_Citation_Tracker {
     public function ajax_update_citation_stats() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
         $stats = $this->update_citation_stats($post_id);
 
         wp_send_json_success(array(

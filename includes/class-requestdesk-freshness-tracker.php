@@ -533,11 +533,12 @@ class RequestDesk_Freshness_Tracker {
     public function ajax_check_freshness() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
         $post = get_post($post_id);
 
         if (!$post) {
@@ -556,11 +557,12 @@ class RequestDesk_Freshness_Tracker {
     public function ajax_mark_fresh() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
 
         // Update the post modified date
         wp_update_post(array(

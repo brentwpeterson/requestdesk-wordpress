@@ -869,11 +869,12 @@ class RequestDesk_AEO_Core {
     public function ajax_analyze_content() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
         $post = get_post($post_id);
 
         if (!$post) {
@@ -892,11 +893,12 @@ class RequestDesk_AEO_Core {
     public function ajax_optimize_content() {
         check_ajax_referer('requestdesk_aeo_nonce', 'nonce');
 
-        if (!current_user_can('edit_posts')) {
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if (!$post_id || !current_user_can('edit_post', $post_id)) {
             wp_die('Unauthorized');
         }
 
-        $post_id = intval($_POST['post_id']);
         $force = !empty($_POST['force']);
 
         $result = $this->optimize_post($post_id, $force);

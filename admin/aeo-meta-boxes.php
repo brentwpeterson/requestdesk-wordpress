@@ -851,12 +851,17 @@ function requestdesk_ajax_regenerate_schema() {
 add_action('wp_ajax_requestdesk_get_schema_preview', 'requestdesk_ajax_get_schema_preview');
 function requestdesk_ajax_get_schema_preview() {
     // Verify nonce
-    if (!wp_verify_nonce($_GET['nonce'], 'requestdesk_schema_preview')) {
+    if (!isset($_GET['nonce'], $_GET['post_id']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['nonce'])), 'requestdesk_schema_preview')) {
         wp_send_json_error('Invalid nonce');
         return;
     }
 
     $post_id = intval($_GET['post_id']);
+
+    if (!current_user_can('edit_post', $post_id)) {
+        wp_send_json_error('Permission denied');
+        return;
+    }
 
     $post = get_post($post_id);
     if (!$post) {
