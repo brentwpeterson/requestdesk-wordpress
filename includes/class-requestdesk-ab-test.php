@@ -218,6 +218,18 @@ class RequestDesk_AB_Test {
             );
         }
 
+        // The route is anonymous and every accepted event rewrites one option.
+        // Cap accepted events per visitor address per minute so a loop cannot
+        // turn the route into a write flood or swing the counts. Over the cap
+        // costs one transient read.
+        $ip_raw = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '';
+        $bucket = 'rd_abt_' . md5($ip_raw);
+        $seen   = (int) get_transient($bucket);
+        if ($seen >= 30) {
+            return new WP_Error('rd_ab_test_rate_limited', 'Too many events.', array('status' => 429));
+        }
+        set_transient($bucket, $seen + 1, MINUTE_IN_SECONDS);
+
         $variant = $request->get_param('variant');
         $key     = $request->get_param('type') === 'goal' ? 'goals' : 'views';
 
