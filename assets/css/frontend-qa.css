@@ -72,6 +72,15 @@
     margin-bottom: 0;
 }
 
+/* Links inside answers: vertical padding on the inline link grows its tap
+   area toward 44px on touch screens without changing the line layout
+   (mobile audit 2026-10-31). */
+@media (pointer: coarse) {
+    .requestdesk-qa-answer a {
+        padding: 10px 0;
+    }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .requestdesk-qa-section {

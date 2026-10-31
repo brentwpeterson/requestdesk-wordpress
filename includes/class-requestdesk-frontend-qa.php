@@ -94,6 +94,21 @@ class RequestDesk_Frontend_QA {
             return;
         }
 
+        // Printed in the footer, not the head. The Q&A block sits at the end
+        // of the post, so a head <link> held back first paint for styles the
+        // first screen never uses: PSI mobile put frontend-qa.css at 451 ms of
+        // render-blocking time (mobile audit 2026-10-31).
+        // A style enqueued during wp_footer is printed by print_late_styles()
+        // before </body>.
+        add_action('wp_footer', array($this, 'enqueue_frontend_styles_late'), 5);
+    }
+
+    /**
+     * Enqueue the Q&A stylesheet late so WordPress prints it in the footer.
+     * Called from wp_footer only after enqueue_frontend_styles() confirmed the
+     * post has Q&A pairs to render.
+     */
+    public function enqueue_frontend_styles_late() {
         wp_enqueue_style(
             'requestdesk-frontend-qa',
             REQUESTDESK_PLUGIN_URL . 'assets/css/frontend-qa.css',
