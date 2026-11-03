@@ -75,6 +75,7 @@ class RequestDesk_Headless_Sites {
         add_action('post_updated', array($this, 'on_post_updated'), 10, 3);
         add_action(self::CRON_HOOK, array(__CLASS__, 'fire_rebuild'));
         add_action('admin_notices', array($this, 'webhook_error_notices'));
+        add_action('load-edit.php', array($this, 'add_site_views'));
 
         // Author term fields.
         foreach (self::all_author_taxonomies() as $tax) {
@@ -917,6 +918,72 @@ class RequestDesk_Headless_Sites {
             echo esc_html($e['message']) . ' <em>(' . esc_html($e['at']) . ' UTC)</em> ';
             echo '<a href="' . esc_url(admin_url('admin.php?page=requestdesk-headless-sites&site=' . $key)) . '">Headless Sites settings</a></p></div>';
         }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Site switcher on the list screens                                   */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Adds a jump-list to the All | Mine | Published row of every list screen
+     * a site owns (this install's posts and pages, and every headless-site
+     * type), so an editor moves between sites and types in one click.
+     * Only when at least one headless site exists.
+     */
+    public function add_site_views() {
+        if (!self::get_sites()) {
+            return;
+        }
+        $screen_type = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : 'post';
+        if (!in_array($screen_type, requestdesk_content_post_types(), true)) {
+            return;
+        }
+        add_filter('views_edit-' . $screen_type, array($this, 'site_views'));
+    }
+
+    /** Every list screen, grouped by site: [site name => [type => label]]. */
+    public static function site_type_groups() {
+        $groups = array(
+            get_bloginfo('name') => array(
+                'post' => get_post_type_object('post')->labels->name,
+                'page' => get_post_type_object('page')->labels->name,
+            ),
+        );
+        foreach (self::get_sites() as $site) {
+            foreach ($site['types'] as $type) {
+                $groups[$site['name']][$type['slug']] = $type['plural'];
+            }
+        }
+        return $groups;
+    }
+
+    public function site_views($views) {
+        $current = isset($_GET['post_type']) ? sanitize_key($_GET['post_type']) : 'post';
+        $links = array();
+        foreach (self::site_type_groups() as $site_name => $types) {
+            $parts = array();
+            foreach ($types as $slug => $label) {
+                if (!post_type_exists($slug) || !current_user_can(get_post_type_object($slug)->cap->edit_posts)) {
+                    continue;
+                }
+                $counts = (array) wp_count_posts($slug);
+                unset($counts['trash'], $counts['auto-draft'], $counts['inherit']);
+                $count = array_sum(array_map('intval', $counts));
+                $text = esc_html($label) . ' <span class="count">(' . number_format_i18n($count) . ')</span>';
+                $parts[] = $slug === $current
+                    ? '<strong>' . $text . '</strong>'
+                    : '<a href="' . esc_url(admin_url('edit.php?post_type=' . $slug)) . '">' . $text . '</a>';
+            }
+            if ($parts) {
+                $links[] = '<span class="rdhs-site">' . esc_html($site_name) . ':</span> ' . implode(' &middot; ', $parts);
+            }
+        }
+        if ($links) {
+            // A view row is a flat list joined by " | "; keep the sites on
+            // their own line so they read as a switcher, not as filters.
+            $views['rdhs_sites'] = '<br /><span class="rdhs-sites">' . implode(' &nbsp;&nbsp;|&nbsp;&nbsp; ', $links) . '</span>';
+        }
+        return $views;
     }
 
     /* ------------------------------------------------------------------ */
