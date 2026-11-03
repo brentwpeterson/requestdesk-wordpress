@@ -233,6 +233,23 @@ class RequestDesk_API {
                     'type' => 'string',
                     'description' => 'URL slug to assign to the post'
                 ),
+                // Headless sites (2.65.0). See RequestDesk_Headless_Sites and
+                // GET /headless/sites for the types and fields an install has.
+                'post_type' => array(
+                    'required' => false,
+                    'type' => 'string',
+                    'description' => 'post (default) or a headless-site type slug'
+                ),
+                'fields' => array(
+                    'required' => false,
+                    'type' => 'object',
+                    'description' => 'Custom field values for a headless-site type, keyed by field key'
+                ),
+                'authors' => array(
+                    'required' => false,
+                    'type' => 'array',
+                    'description' => 'Author names for a headless site with an author type'
+                ),
                 // SEO meta. Stored in the _requestdesk_* namespace, which
                 // RequestDesk_Yoast_Meta makes win over Yoast on a rendered
                 // site and get_seo_data() serves to the headless front end.
@@ -1420,6 +1437,50 @@ class RequestDesk_API {
 
             $is_update = !empty($post_id);
 
+            // Content type. Empty means a native post, as before. Anything else
+            // must be a type owned by a headless site; an unknown type is an
+            // error, never quietly published as a post somewhere it does not belong.
+            $post_type = sanitize_key($str('post_type')) ?: 'post';
+            $site_type = null;
+            if ($post_type !== 'post') {
+                $site_type = class_exists('RequestDesk_Headless_Sites') ? RequestDesk_Headless_Sites::find_type($post_type) : null;
+                if (!$site_type) {
+                    return new WP_Error('invalid_post_type', "post_type '$post_type' is not post or a headless-site type on this install.", array('status' => 400));
+                }
+            }
+            $fields = $request->get_param('fields');
+            if ($fields !== null && !is_array($fields)) {
+                return new WP_Error('invalid_fields', 'fields must be an object of field key => value.', array('status' => 400));
+            }
+            if ($fields && !$site_type) {
+                return new WP_Error('invalid_fields', 'fields apply only to a headless-site post_type.', array('status' => 400));
+            }
+            if ($fields) {
+                $known = array_map(function ($f) { return $f['key']; }, $site_type['type']['fields']);
+                $unknown = array_diff(array_keys($fields), $known);
+                if ($unknown) {
+                    return new WP_Error('unknown_fields', "Type $post_type has no field(s): " . implode(', ', $unknown), array('status' => 400));
+                }
+            }
+            $authors = $request->get_param('authors');
+            if ($authors !== null && (!is_array($authors) || !$site_type || empty($site_type['site']['authors']))) {
+                return new WP_Error('invalid_authors', 'authors is a list of author names and applies only to a headless site with an author type.', array('status' => 400));
+            }
+            $site_tax = array('category' => null, 'tag' => null);
+            if ($site_type) {
+                foreach (RequestDesk_Headless_Sites::type_taxonomies($site_type['site'], $site_type['type']) as $x) {
+                    if ($x['role'] !== '') {
+                        $site_tax[$x['role']] = $x['slug'];
+                    }
+                }
+                foreach (array('categories' => 'category', 'tags' => 'tag') as $param => $role) {
+                    $given = $request->get_param($param);
+                    if (!empty($given) && !$site_tax[$role]) {
+                        return new WP_Error('invalid_' . $param, "Type $post_type has no $role-role taxonomy, so $param cannot be set.", array('status' => 400));
+                    }
+                }
+            }
+
             $author = absint($request->get_param('author'));
             $slug = sanitize_title($str('slug'));
             // Accept post_date, date, or date_gmt as the publish-date input (first non-empty wins).
@@ -1439,7 +1500,7 @@ class RequestDesk_API {
             $post_data = array(
                 'post_title' => $title,
                 'post_status' => $status,
-                'post_type' => 'post'
+                'post_type' => $post_type
             );
 
             // Only set content if provided (allows metadata-only updates)
@@ -1496,6 +1557,9 @@ class RequestDesk_API {
                 if (!$existing_post) {
                     throw new Exception("No content found at ID {$post_id}; refusing to update.");
                 }
+                if ($str('post_type') !== '' && $existing_post->post_type !== $post_type) {
+                    return new WP_Error('post_type_mismatch', "Post {$post_id} is a {$existing_post->post_type}; an update cannot change it to $post_type.", array('status' => 400));
+                }
 
                 // PRESERVE THE EXISTING CONTENT TYPE.
                 //
@@ -1524,7 +1588,7 @@ class RequestDesk_API {
                 $check_slug = !empty($slug) ? $slug : sanitize_title($title);
                 $existing = get_posts(array(
                     'name' => $check_slug,
-                    'post_type' => 'post',
+                    'post_type' => $post_type,
                     'post_status' => array('publish', 'draft', 'pending', 'future', 'private'),
                     'numberposts' => 1,
                 ));
@@ -1550,6 +1614,29 @@ class RequestDesk_API {
             // Handle featured image
             if (!empty($featured_image)) {
                 $this->set_featured_image_from_url($post_id, $featured_image);
+            }
+
+            // Headless-site types: categories and tags go to the site's own
+            // taxonomies, authors to its author type, fields to their meta keys.
+            if ($site_type) {
+                foreach (array('category' => $categories, 'tag' => $tags) as $role => $names) {
+                    if (!empty($names) && is_array($names)) {
+                        $set = $this->set_terms_by_name($post_id, $site_tax[$role], $names);
+                        if ($role === 'category') {
+                            $category_ids = $set;
+                        } else {
+                            $tag_names = $set;
+                        }
+                    }
+                }
+                $categories = array();
+                $tags = array();
+                if (is_array($authors) && $authors) {
+                    $this->set_terms_by_name($post_id, RequestDesk_Headless_Sites::author_taxonomy($site_type['site']), $authors);
+                }
+                if ($fields) {
+                    RequestDesk_Headless_Sites::write_fields($post_id, $site_type['type'], $fields);
+                }
             }
 
             // Handle categories
@@ -1669,7 +1756,7 @@ class RequestDesk_API {
                 'success' => true,
                 'post_id' => $post_id,
                 'post_type' => get_post_type($post_id),
-                'post_url' => get_permalink($post_id),
+                'post_url' => $site_type ? RequestDesk_Headless_Sites::item_url(get_post($post_id)) : get_permalink($post_id),
                 'edit_url' => get_edit_post_link($post_id, 'raw'),
                 'featured_image_set' => !empty($featured_image),
                 'seo_meta_set' => $seo_meta_set,
@@ -2052,6 +2139,35 @@ class RequestDesk_API {
     /**
      * Verify API key for authentication
      */
+    /**
+     * Assign terms by name or slug, creating missing ones. Returns the ids set.
+     * Replaces the post's terms in that taxonomy, like wp_set_post_categories.
+     */
+    private function set_terms_by_name($post_id, $taxonomy, $names) {
+        $ids = array();
+        foreach ($names as $name) {
+            $name = sanitize_text_field((string) $name);
+            if ($name === '') {
+                continue;
+            }
+            $term = get_term_by('slug', sanitize_title($name), $taxonomy) ?: get_term_by('name', $name, $taxonomy);
+            if (!$term) {
+                $created = wp_insert_term($name, $taxonomy);
+                if (is_wp_error($created)) {
+                    throw new Exception("Could not create term '$name' in $taxonomy: " . $created->get_error_message());
+                }
+                $ids[] = (int) $created['term_id'];
+            } else {
+                $ids[] = (int) $term->term_id;
+            }
+        }
+        $result = wp_set_object_terms($post_id, $ids, $taxonomy);
+        if (is_wp_error($result)) {
+            throw new Exception("Could not set $taxonomy terms: " . $result->get_error_message());
+        }
+        return $ids;
+    }
+
     public function verify_api_key($request) {
         $settings = get_option('requestdesk_settings', array());
         $api_key = $settings['api_key'] ?? '';

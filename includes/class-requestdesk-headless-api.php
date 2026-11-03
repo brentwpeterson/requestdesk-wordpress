@@ -780,13 +780,7 @@ class RequestDesk_Headless_API {
 
     /** The URL an item lives at on its frontend, from the type's path pattern. */
     private function frontend_url($post, $site, $type) {
-        $path = $type['path'];
-        $full = $post->post_name;
-        if ($type['behavior'] === 'page') {
-            $full = trim((string) get_page_uri($post), '/');
-        }
-        $path = str_replace(array('{slug}', '{path}'), array($post->post_name, $full), $path);
-        return $site['frontend_url'] . '/' . ltrim($path, '/');
+        return RequestDesk_Headless_Sites::item_url($post);
     }
 
     /** Extra fields a headless-site item carries: terms, author, custom fields. */

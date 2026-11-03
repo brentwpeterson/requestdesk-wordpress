@@ -119,6 +119,20 @@ class RequestDesk_Headless_Sites {
         return null;
     }
 
+    /** The URL an item lives at on its frontend, from its type's path pattern. */
+    public static function item_url($post) {
+        $found = $post ? self::find_type($post->post_type) : null;
+        if (!$found) {
+            return null;
+        }
+        $full = $post->post_name;
+        if ($found['type']['behavior'] === 'page') {
+            $full = trim((string) get_page_uri($post), '/');
+        }
+        $path = str_replace(array('{slug}', '{path}'), array($post->post_name, $full), $found['type']['path']);
+        return $found['site']['frontend_url'] . '/' . ltrim($path, '/');
+    }
+
     /** Every post type slug owned by a headless site. */
     public static function all_type_slugs() {
         $out = array();
