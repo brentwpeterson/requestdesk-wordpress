@@ -45,6 +45,7 @@ class RequestDesk_Content_Audit {
         'page-listicle-json.php',
         'page-landing-growth.php',
         'template-landing-standalone.php',
+        'page-webinar-json.php',
     );
 
     /** @var array<string,array> id => pass/fail check definition */
@@ -276,11 +277,26 @@ class RequestDesk_Content_Audit {
             }
         }
 
-        $candidate = $data_dir . $slug . $lang_suffix . '.json';
-        if ($lang_suffix !== '' && !file_exists($candidate)) {
-            $candidate = $data_dir . $slug . '.json';
+        // Nested pages resolve by their full URI with slashes turned to dashes
+        // (/industries/legal -> industries-legal.json), then by bare slug,
+        // the same order the theme's cc_landing_resolve_data_file() uses.
+        $path_slug  = str_replace('/', '-', trim((string) get_page_uri($post->ID), '/'));
+        $candidates = array();
+        foreach (array_unique(array($path_slug, $slug)) as $base) {
+            if ($base === '') {
+                continue;
+            }
+            if ($lang_suffix !== '') {
+                $candidates[] = $data_dir . $base . $lang_suffix . '.json';
+            }
+            $candidates[] = $data_dir . $base . '.json';
         }
-        return $candidate;
+        foreach ($candidates as $candidate) {
+            if (file_exists($candidate)) {
+                return $candidate;
+            }
+        }
+        return $data_dir . $slug . $lang_suffix . '.json';
     }
 
     private function json_has_image($json_file) {
@@ -337,7 +353,10 @@ class RequestDesk_Content_Audit {
         if ($json_file !== null && file_exists($json_file)) {
             $data = json_decode((string) file_get_contents($json_file), true);
             $j = is_array($data) ? wp_json_encode($data) : '';
-            if ($j && preg_match('~"youtube_id"|"type"\s*:\s*"video-embed"|youtube\.com|youtu\.be|vimeo~i', $j)) {
+            // A hero "video" key pointing at an mp4/webm is a real self-hosted clip
+            // (homepage hero). A "video_bg" loop is decorative and does not count.
+            if ($j && (preg_match('~"youtube_id"|"type"\s*:\s*"video-embed"|youtube\.com|youtu\.be|vimeo~i', $j)
+                || preg_match('~"video"\s*:\s*"[^"]+\.(mp4|webm)"~i', $j))) {
                 if (preg_match('~"video_source"\s*:\s*"cc"~i', $j)) {
                     if (preg_match('~"video_note"\s*:\s*"([^"]+)"~i', $j, $m)) {
                         return array('state' => 'cc', 'note' => $m[1]);
@@ -358,6 +377,20 @@ class RequestDesk_Content_Audit {
         }
 
         return array('state' => 'none', 'note' => '');
+    }
+
+    /**
+     * One-word media state for the inventory: video-cc | video-external | images | text.
+     * Video wins over images; "images" means a featured image, an in-content
+     * <img>, or (JSON pages) any image path in the landing-data JSON.
+     */
+    public function media_state($post) {
+        $v = $this->detect_video($post);
+        if ($v['state'] !== 'none') {
+            return 'video-' . $v['state'];
+        }
+        $img = $this->check_missing_images($post);
+        return !empty($img['pass']) ? 'images' : 'text';
     }
 
     /* --------------------------------------------------- GSC traffic cache */
@@ -381,9 +414,12 @@ class RequestDesk_Content_Audit {
     }
 
     private function traffic_for($post) {
-        $path = trim(str_replace(home_url(), '', get_permalink($post->ID)), '/');
+        // Path only: home_url() and get_permalink() can disagree on scheme
+        // (http vs https under wp-cli), which left the homepage unmatched.
+        $path = trim((string) wp_parse_url(get_permalink($post->ID), PHP_URL_PATH), '/');
         $map  = $this->traffic_map();
-        return isset($map[$path]) ? $map[$path] : array('clicks' => 0, 'impr' => 0, 'pos' => 0);
+        $t = isset($map[$path]) ? $map[$path] : array();
+        return array_merge(array('clicks' => 0, 'impr' => 0, 'pos' => 0, 'sessions' => 0), $t);
     }
 
     private function get_pages() {
@@ -540,24 +576,56 @@ class RequestDesk_Content_Audit {
 
         $rows = array();
         $counts = array('none' => 0, 'external' => 0, 'cc' => 0);
-        $none_traffic = 0; // impressions sitting on pages with no video
+        $media_counts = array('video-cc' => 0, 'video-external' => 0, 'images' => 0, 'text' => 0);
+        $none_traffic = 0; // sessions sitting on pages with no video
+        $has_sessions = false;
 
         foreach ($posts as $p) {
             $v = $this->detect_video($p);
             $t = $this->traffic_for($p);
             $counts[$v['state']]++;
-            if ($v['state'] === 'none') {
-                $none_traffic += (int) $t['impr'];
+            $m = $v['state'] !== 'none' ? 'video-' . $v['state'] : ($this->check_missing_images($p)['pass'] ? 'images' : 'text');
+            $media_counts[$m]++;
+            if (!empty($t['sessions'])) {
+                $has_sessions = true;
             }
-            $rows[] = array('post' => $p, 'v' => $v, 't' => $t);
+            if ($v['state'] === 'none') {
+                $none_traffic += (int) $t['sessions'];
+            }
+            $rows[] = array('post' => $p, 'v' => $v, 't' => $t, 'm' => $m);
         }
 
-        // Rank by impressions desc — traffic is the "where it wins most" signal.
-        usort($rows, function ($a, $b) {
+        // Rank: pages before posts (Brent, 2026-10-14: all pages first, a post
+        // gets a video consideration only when it out-ranks a page), then by
+        // GA4 sessions when the cache carries them, impressions otherwise.
+        usort($rows, function ($a, $b) use ($has_sessions) {
+            $pa = $a['post']->post_type === 'page' ? 0 : 1;
+            $pb = $b['post']->post_type === 'page' ? 0 : 1;
+            if ($pa !== $pb) {
+                return $pa <=> $pb;
+            }
+            if ($has_sessions && ((int) $b['t']['sessions']) !== ((int) $a['t']['sessions'])) {
+                return ((int) $b['t']['sessions']) <=> ((int) $a['t']['sessions']);
+            }
+            if (((int) $b['t']['clicks']) !== ((int) $a['t']['clicks'])) {
+                return ((int) $b['t']['clicks']) <=> ((int) $a['t']['clicks']);
+            }
             return ((int) $b['t']['impr']) <=> ((int) $a['t']['impr']);
         });
 
-        $has_cache = !empty($this->traffic_map());
+        $map       = $this->traffic_map();
+        $has_cache = !empty($map);
+        $window    = '';
+        if ($has_cache) {
+            $raw = json_decode((string) file_get_contents(plugin_dir_path(dirname(__FILE__)) . 'data/gsc-traffic.json'), true);
+            $window = isset($raw['_meta']['window']) ? (string) $raw['_meta']['window'] : '';
+        }
+        $media_badge = array(
+            'video-cc'       => array('#00a32a', 'Video (CC)'),
+            'video-external' => array('#e08a00', 'Video (external)'),
+            'images'         => array('#2271b1', 'Images'),
+            'text'           => array('#646970', 'Text only'),
+        );
         $show = 150; // cap the table; summary counts span everything
         $badge = array(
             'none'     => array('#d63638', 'No video'),
@@ -568,10 +636,10 @@ class RequestDesk_Content_Audit {
         <div class="wrap">
             <h1>Video Opportunities</h1>
             <p style="color:#646970;max-width:840px;">
-                Every published post and page, ranked by <strong>real Search Console traffic</strong>, showing whether it has a
-                <strong>CC-created</strong> video, a borrowed <strong>external</strong> embed, or <strong>none</strong>.
-                Video is the highest-leverage add — per Ahrefs, video presence is one of the strongest signals answer engines
-                use to decide who to cite. Start at the top: high-traffic pages with no CC video.
+                Every published page, then every post, ranked by <strong>GA4 sessions</strong> (Search Console clicks as tiebreak),
+                showing what each one carries: a <strong>CC-created</strong> video, a borrowed <strong>external</strong> embed,
+                <strong>images</strong> only, or <strong>text</strong> only. Pages come first; a post gets a video consideration
+                only when it out-ranks a page. Work the top of the list in batches of six.<?php if ($window): ?> Traffic window: <?php echo esc_html($window); ?>.<?php endif; ?>
             </p>
 
             <?php if (!$has_cache): ?>
@@ -593,23 +661,33 @@ class RequestDesk_Content_Audit {
                     <div style="font-size:26px;font-weight:600;line-height:1;color:#00a32a;"><?php echo (int) $counts['cc']; ?></div>
                     <div style="color:#646970;margin-top:4px;">CC video</div>
                 </div>
+                <div style="background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:14px 20px;">
+                    <div style="font-size:26px;font-weight:600;line-height:1;color:#2271b1;"><?php echo (int) $media_counts['images']; ?></div>
+                    <div style="color:#646970;margin-top:4px;">images only</div>
+                </div>
+                <div style="background:#fff;border:1px solid #c3c4c7;border-radius:6px;padding:14px 20px;">
+                    <div style="font-size:26px;font-weight:600;line-height:1;color:#646970;"><?php echo (int) $media_counts['text']; ?></div>
+                    <div style="color:#646970;margin-top:4px;">text only</div>
+                </div>
                 <div style="background:#f6f7f7;border:1px solid #c3c4c7;border-radius:6px;padding:14px 20px;">
                     <div style="font-size:26px;font-weight:600;line-height:1;"><?php echo number_format($none_traffic); ?></div>
-                    <div style="color:#646970;margin-top:4px;">monthly impressions on no-video pages</div>
+                    <div style="color:#646970;margin-top:4px;"><?php echo $has_sessions ? 'sessions' : 'impressions'; ?> on no-video pages (window)</div>
                 </div>
             </div>
 
-            <p style="color:#646970;font-size:12px;">Top <?php echo (int) $show; ?> by 3-month impressions. Video state: “CC video” needs an ownership marker (<code>video_source: "cc"</code> in JSON, or the <code>_cc_video_source</code> meta) — a bare embed reads as “External”.</p>
+            <p style="color:#646970;font-size:12px;">Top <?php echo (int) $show; ?>, pages first, then posts, by GA4 sessions in the window. Video state: “CC video” needs an ownership marker (<code>video_source: "cc"</code> in JSON, or the <code>_cc_video_source</code> meta) — a bare embed reads as “External”.</p>
 
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th style="width:30%;">Page</th>
-                        <th style="width:11%;">Video</th>
-                        <th style="width:9%;text-align:right;">Impr (3mo)</th>
-                        <th style="width:8%;text-align:right;">Clicks</th>
-                        <th style="width:22%;">Video note</th>
-                        <th style="width:12%;">Action</th>
+                        <th style="width:28%;">Page</th>
+                        <th style="width:6%;">Type</th>
+                        <th style="width:12%;">Media</th>
+                        <th style="width:8%;text-align:right;">Sessions</th>
+                        <th style="width:7%;text-align:right;">Clicks</th>
+                        <th style="width:7%;text-align:right;">Impr</th>
+                        <th style="width:22%;">Note</th>
+                        <th style="width:10%;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -617,7 +695,7 @@ class RequestDesk_Content_Audit {
                     $p = $row['post'];
                     $v = $row['v'];
                     $t = $row['t'];
-                    list($color, $label) = $badge[$v['state']];
+                    list($color, $label) = $media_badge[$row['m']];
                     $edit_url = get_edit_post_link($p->ID, 'raw');
                     $view_url = get_permalink($p->ID);
                 ?>
@@ -626,9 +704,11 @@ class RequestDesk_Content_Audit {
                             <strong><a href="<?php echo esc_url($edit_url); ?>"><?php echo esc_html(get_the_title($p) ?: '(no title)'); ?></a></strong>
                             <div style="font-size:12px;"><a href="<?php echo esc_url($view_url); ?>" target="_blank" rel="noopener" style="color:#646970;"><?php echo esc_html(str_replace(home_url(), '', $view_url)); ?></a></div>
                         </td>
+                        <td style="color:#646970;font-size:12px;"><?php echo esc_html($p->post_type); ?></td>
                         <td><span style="display:inline-block;padding:2px 9px;border-radius:10px;background:<?php echo $color; ?>;color:#fff;font-size:11px;font-weight:600;"><?php echo esc_html($label); ?></span></td>
-                        <td style="text-align:right;font-variant-numeric:tabular-nums;"><?php echo number_format((int) $t['impr']); ?></td>
+                        <td style="text-align:right;font-variant-numeric:tabular-nums;"><?php echo number_format((int) $t['sessions']); ?></td>
                         <td style="text-align:right;font-variant-numeric:tabular-nums;color:#646970;"><?php echo number_format((int) $t['clicks']); ?></td>
+                        <td style="text-align:right;font-variant-numeric:tabular-nums;color:#646970;"><?php echo number_format((int) $t['impr']); ?></td>
                         <td style="color:#646970;font-size:12px;"><?php echo esc_html($v['note']); ?></td>
                         <td><a href="<?php echo esc_url($edit_url); ?>" class="button button-small">Edit</a></td>
                     </tr>
