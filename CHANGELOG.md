@@ -5,6 +5,19 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.0] - 2026-11-03
+
+### Added
+- **Headless Sites (RequestDesk > Headless Sites).** One WordPress can serve extra headless frontends next to the site its theme renders. Each site is data, not code: a key, name, frontend URL, logo, default OG image, favicon, rebuild webhook and optional site API key, plus a content model of types (post-like or page-like, with a canonical path such as `/episode/{slug}`), taxonomies (role `category` or `tag`), custom fields (text, textarea, url, number, date, embed; optionally stored under an existing meta key), an optional author type and menu locations. The model is edited as JSON on the screen or written through `POST /requestdesk/v1/headless/sites` with the main key. Types are headless only (`public => false`, no rewrite), so the theme, the core sitemap, RSS and Yoast sitemaps never show them, and Polylang leaves them untranslated. A type that holds content cannot be removed or renamed.
+- **Routes per site** under `/requestdesk/v1/headless/sites/{site}/`: `{type}` (paged; filters `term`, `exclude_term`, `taxonomy`, `author`, `field` + `value`, `parent`, `search`), `{type}/{slug}`, `terms/{taxonomy}`, `authors`, `authors/{slug}`, `site`, `menus`. Discovery at `GET /headless/sites` (no secrets), `GET`/`DELETE /headless/sites/{site}/config` and `POST /headless/sites/{site}/rebuild` with the main key. A site key reads only its own site. Items carry `url` (the frontend URL), `terms`, `fields`, and `categories`/`tags` from the role taxonomies.
+- **Rebuild webhook.** Publishing, editing or unpublishing on a site's type queues one rebuild 30 seconds out, so a bulk edit fires once. A missing webhook or a failed call stays on screen as an admin notice until a later rebuild succeeds.
+- **Site switcher** on the list screens: a second line under All | Published linking every site's types with counts.
+- **`/publish` accepts `post_type`, `fields` and `authors`.** `post_type` defaults to `post`; any other value must be a headless-site type or the call fails with 400. Categories and tags go to that site's role taxonomies.
+
+### Changed
+- `/headless/site` no longer lists menu locations owned by a headless site. `/headless/posts`, `/pages` and `/site` are otherwise unchanged.
+- SEO, AEO, freshness, citation and schema features read their post types from `requestdesk_content_post_types()` (post, page and every headless-site type) instead of a fixed post/page list.
+
 ## [2.64.0] - 2026-10-14
 
 ### Added
