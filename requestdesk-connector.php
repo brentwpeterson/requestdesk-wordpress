@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.64.0
+ * Version: 2.65.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.64.0');
+define('REQUESTDESK_VERSION', '2.65.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -134,7 +134,12 @@ $plugin_files = array(
     // registration happens only on site-module installs (see
     // RequestDesk_Event::register_post_type); elsewhere the post type is
     // admin-only, so a client site gains no URL by activating the plugin.
-    'includes/class-requestdesk-event.php'
+    'includes/class-requestdesk-event.php',
+    // Shared. Extra headless frontends served from this install, each with its
+    // own types (public => false, like video). An install with no sites
+    // configured registers nothing but the settings screen.
+    'includes/class-requestdesk-headless-sites.php',
+    'admin/headless-sites-page.php'
     // partner and case-study moved to $cc_only_files below. Leaving them here
     // is what made the gate a no-op for them: require_once from this list runs
     // first, so adding them to the gated list alone changes nothing.
@@ -341,6 +346,7 @@ function requestdesk_init() {
         'RequestDesk_Admin_Columns',
         'RequestDesk_Video',
         'RequestDesk_Event',
+        'RequestDesk_Headless_Sites',
         'RequestDesk_Comment_Link_Stripper'
     );
 

@@ -131,7 +131,7 @@ function requestdesk_aeo_bulk_optimizer_page() {
     // Get posts for the grid
     $posts_per_page = 50; // Show more posts for bulk operations
     $args = array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => $posts_per_page,
         'orderby' => 'modified',

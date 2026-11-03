@@ -270,6 +270,628 @@ class RequestDesk_Headless_API {
                 )
             )
         ));
+
+        if (class_exists('RequestDesk_Headless_Sites')) {
+            $this->register_site_routes();
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Headless sites: extra frontends served from this install.           */
+    /* See RequestDesk_Headless_Sites. Every route is scoped to one site,  */
+    /* and a type or taxonomy outside that site answers 404.               */
+    /* ------------------------------------------------------------------ */
+
+    private function register_site_routes() {
+        $site = '(?P<site>[a-z][a-z0-9]{1,9})';
+
+        // Discovery: every site, its types, taxonomies and fields. No secrets.
+        register_rest_route($this->namespace, '/headless/sites', array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'site_discovery'),
+                'permission_callback' => array($this, 'verify_any_site_key'),
+            ),
+            array(
+                'methods' => 'POST',
+                'callback' => array($this, 'site_config_save'),
+                'permission_callback' => array($this, 'verify_main_key'),
+            ),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/config", array(
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'site_config_get'),
+                'permission_callback' => array($this, 'verify_main_key'),
+            ),
+            array(
+                'methods' => 'DELETE',
+                'callback' => array($this, 'site_config_delete'),
+                'permission_callback' => array($this, 'verify_main_key'),
+            ),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/rebuild", array(
+            'methods' => 'POST',
+            'callback' => array($this, 'site_rebuild'),
+            'permission_callback' => array($this, 'verify_main_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/site", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_meta'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/menus", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_menus'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/terms/(?P<taxonomy>[a-z][a-z0-9_]{1,31})", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_terms'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/authors", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_authors'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/authors/(?P<slug>[a-zA-Z0-9-]+)", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_author'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/(?P<type>[a-z][a-z0-9_]{1,19})", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_items'),
+            'permission_callback' => array($this, 'verify_site_key'),
+            'args' => array(
+                'page'     => array('type' => 'integer', 'default' => 1, 'minimum' => 1),
+                'per_page' => array('type' => 'integer', 'default' => 10, 'minimum' => 1, 'maximum' => 100),
+                'orderby'  => array('type' => 'string', 'default' => 'date', 'enum' => array('date', 'modified', 'title', 'menu_order')),
+                'order'    => array('type' => 'string', 'default' => 'DESC', 'enum' => array('ASC', 'DESC')),
+                'search'   => array('type' => 'string'),
+                'taxonomy' => array('type' => 'string', 'description' => 'Taxonomy slug for term / exclude_term'),
+                'term'     => array('type' => 'string', 'description' => 'Only items in this term slug'),
+                'exclude_term' => array('type' => 'string', 'description' => 'Comma list of term slugs to leave out'),
+                'author'   => array('type' => 'string', 'description' => 'Author term slug'),
+                'field'    => array('type' => 'string', 'description' => 'Custom field key to match'),
+                'value'    => array('type' => 'string', 'description' => 'Value the field must equal'),
+                'parent'   => array('type' => 'integer', 'description' => 'Page-like types: parent id, 0 for top level'),
+            ),
+        ));
+
+        register_rest_route($this->namespace, "/headless/sites/$site/(?P<type>[a-z][a-z0-9_]{1,19})/(?P<slug>[a-zA-Z0-9-]+)", array(
+            'methods' => 'GET',
+            'callback' => array($this, 'site_item'),
+            'permission_callback' => array($this, 'verify_site_key'),
+        ));
+    }
+
+    /** The site named in the route, or a 404. */
+    private function route_site($request) {
+        $site = RequestDesk_Headless_Sites::get_site((string) $request->get_param('site'));
+        if (!$site) {
+            return new WP_Error('site_not_found', 'No headless site with key ' . $request->get_param('site'), array('status' => 404));
+        }
+        return $site;
+    }
+
+    /** The type config of the route's type, only if it belongs to the site. */
+    private function route_type($site, $slug) {
+        foreach ($site['types'] as $type) {
+            if ($type['slug'] === $slug) {
+                return $type;
+            }
+        }
+        return new WP_Error('type_not_found', "Site {$site['key']} has no type $slug", array('status' => 404));
+    }
+
+    private function site_context($site, $type) {
+        return array('site' => $site, 'type' => $type);
+    }
+
+    public function site_discovery($request) {
+        self::increment_request_count($request);
+        $only = $this->key_site_scope($request);
+        $sites = array();
+        foreach (RequestDesk_Headless_Sites::get_sites() as $key => $site) {
+            if ($only !== null && $only !== $key) {
+                continue;
+            }
+            $sites[] = RequestDesk_Headless_Sites::public_config($site);
+        }
+        return rest_ensure_response(array('success' => true, 'sites' => $sites));
+    }
+
+    public function site_config_get($request) {
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        return rest_ensure_response(array('success' => true, 'site' => RequestDesk_Headless_Sites::public_config($site)));
+    }
+
+    /** Create or replace one site. Body is the site config. Main key only. */
+    public function site_config_save($request) {
+        $input = $request->get_json_params();
+        $result = RequestDesk_Headless_Sites::save_site(is_array($input) ? $input : array());
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        // Types registered from the old config are still in memory for this
+        // request; the next request registers the new ones.
+        return rest_ensure_response(array('success' => true, 'site' => RequestDesk_Headless_Sites::public_config($result)));
+    }
+
+    public function site_config_delete($request) {
+        $result = RequestDesk_Headless_Sites::delete_site((string) $request->get_param('site'));
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        return rest_ensure_response(array('success' => true, 'deleted' => $request->get_param('site')));
+    }
+
+    /** Fire the rebuild webhook now and report the answer. */
+    public function site_rebuild($request) {
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $result = RequestDesk_Headless_Sites::fire_rebuild($site['key']);
+        if (is_wp_error($result)) {
+            return new WP_Error('rebuild_failed', $result->get_error_message(), array('status' => 502));
+        }
+        return rest_ensure_response(array('success' => true, 'site' => $site['key'], 'rebuilt_at' => gmdate('c')));
+    }
+
+    public function site_meta($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $types = array();
+        foreach ($site['types'] as $type) {
+            $count = wp_count_posts($type['slug']);
+            $types[] = array(
+                'slug'     => $type['slug'],
+                'singular' => $type['singular'],
+                'plural'   => $type['plural'],
+                'behavior' => $type['behavior'],
+                'path'     => $type['path'],
+                'published'=> isset($count->publish) ? (int) $count->publish : 0,
+            );
+        }
+        $taxonomies = array();
+        foreach ($site['taxonomies'] as $tax) {
+            $taxonomies[] = array(
+                'slug'  => $tax['slug'],
+                'plural'=> $tax['plural'],
+                'role'  => $tax['role'],
+                'hierarchical' => $tax['hierarchical'],
+                'terms' => $this->terms_for($tax['slug']),
+            );
+        }
+        return rest_ensure_response(array(
+            'success' => true,
+            'site' => array(
+                'key'         => $site['key'],
+                'name'        => $site['name'],
+                'description' => $site['description'],
+                'url'         => $site['frontend_url'],
+                'logo'        => $site['logo'] !== '' ? $site['logo'] : null,
+                'og_image'    => $site['og_image'] !== '' ? $site['og_image'] : null,
+                'favicon'     => $site['favicon'] !== '' ? $site['favicon'] : null,
+                'language'    => get_locale(),
+                'timezone'    => wp_timezone_string(),
+                'types'       => $types,
+                'taxonomies'  => $taxonomies,
+                'menus'       => $this->menus_for_locations($this->site_locations($site)),
+                'plugin_version' => REQUESTDESK_VERSION,
+            ),
+        ));
+    }
+
+    public function site_menus($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        return rest_ensure_response(array('success' => true, 'menus' => $this->menus_for_locations($this->site_locations($site))));
+    }
+
+    /** location key as the site names it => real location. */
+    private function site_locations($site) {
+        $out = array();
+        foreach ($site['menus'] as $menu) {
+            $out[$menu['slug']] = RequestDesk_Headless_Sites::menu_location($site, $menu['slug']);
+        }
+        return $out;
+    }
+
+    private function menus_for_locations($locations) {
+        $assigned = get_nav_menu_locations();
+        $menus = array();
+        foreach ($locations as $name => $location) {
+            $menus[$name] = array();
+            if (empty($assigned[$location])) {
+                continue;
+            }
+            $items = wp_get_nav_menu_items($assigned[$location]);
+            foreach ((array) $items as $item) {
+                $menus[$name][] = array(
+                    'id'     => (int) $item->ID,
+                    'parent' => (int) $item->menu_item_parent,
+                    'title'  => $item->title,
+                    'url'    => $this->menu_item_url($item),
+                    'target' => $item->target ?: '_self',
+                );
+            }
+        }
+        return $menus;
+    }
+
+    /**
+     * A menu item pointing at a headless-site item has no WordPress URL
+     * (the types have no permalinks), so resolve it to the frontend URL.
+     */
+    private function menu_item_url($item) {
+        if ($item->type === 'post_type' && !empty($item->object_id)) {
+            $post = get_post((int) $item->object_id);
+            if ($post) {
+                $found = RequestDesk_Headless_Sites::find_type($post->post_type);
+                if ($found) {
+                    return $this->frontend_url($post, $found['site'], $found['type']);
+                }
+            }
+        }
+        return $item->url;
+    }
+
+    private function terms_for($taxonomy) {
+        $terms = get_terms(array('taxonomy' => $taxonomy, 'hide_empty' => false, 'orderby' => 'name'));
+        $out = array();
+        if (is_wp_error($terms)) {
+            return $out;
+        }
+        foreach ($terms as $term) {
+            $out[] = array(
+                'id'          => $term->term_id,
+                'name'        => $term->name,
+                'slug'        => $term->slug,
+                'description' => $term->description,
+                'parent'      => (int) $term->parent,
+                'count'       => (int) $term->count,
+            );
+        }
+        return $out;
+    }
+
+    public function site_terms($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $slug = (string) $request->get_param('taxonomy');
+        if (!in_array($slug, array_map(function ($x) { return $x['slug']; }, $site['taxonomies']), true)) {
+            return new WP_Error('taxonomy_not_found', "Site {$site['key']} has no taxonomy $slug", array('status' => 404));
+        }
+        return rest_ensure_response(array('success' => true, 'taxonomy' => $slug, 'terms' => $this->terms_for($slug)));
+    }
+
+    private function author_tax_or_error($site) {
+        if (empty($site['authors'])) {
+            return new WP_Error('authors_disabled', "Site {$site['key']} has no author type", array('status' => 404));
+        }
+        return RequestDesk_Headless_Sites::author_taxonomy($site);
+    }
+
+    public function site_authors($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $tax = $this->author_tax_or_error($site);
+        if (is_wp_error($tax)) {
+            return $tax;
+        }
+        $terms = get_terms(array('taxonomy' => $tax, 'hide_empty' => false, 'orderby' => 'name'));
+        $authors = array();
+        foreach (is_wp_error($terms) ? array() : $terms as $term) {
+            $authors[] = RequestDesk_Headless_Sites::format_author_term($term);
+        }
+        return rest_ensure_response(array('success' => true, 'authors' => $authors));
+    }
+
+    public function site_author($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $tax = $this->author_tax_or_error($site);
+        if (is_wp_error($tax)) {
+            return $tax;
+        }
+        $term = get_term_by('slug', sanitize_title($request->get_param('slug')), $tax);
+        if (!$term) {
+            return new WP_Error('author_not_found', 'Author not found: ' . $request->get_param('slug'), array('status' => 404));
+        }
+        return rest_ensure_response(array('success' => true, 'author' => RequestDesk_Headless_Sites::format_author_term($term)));
+    }
+
+    public function site_items($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $type = $this->route_type($site, (string) $request->get_param('type'));
+        if (is_wp_error($type)) {
+            return $type;
+        }
+
+        $page     = (int) ($request->get_param('page') ?: 1);
+        $per_page = (int) ($request->get_param('per_page') ?: 10);
+        $orderby  = $request->get_param('orderby') ?: ($type['behavior'] === 'page' ? 'menu_order' : 'date');
+        $order    = $request->get_param('order') ?: ($type['behavior'] === 'page' ? 'ASC' : 'DESC');
+
+        $args = array(
+            'post_type'      => $type['slug'],
+            'post_status'    => 'publish',
+            'posts_per_page' => $per_page,
+            'paged'          => $page,
+            'orderby'        => $orderby,
+            'order'          => $order,
+        );
+
+        if ($request->get_param('search')) {
+            $args['s'] = sanitize_text_field($request->get_param('search'));
+        }
+        if ($request->get_param('parent') !== null && $type['behavior'] === 'page') {
+            $args['post_parent'] = (int) $request->get_param('parent');
+        }
+
+        $tax_query = array();
+        $term = $request->get_param('term');
+        $exclude = $request->get_param('exclude_term');
+        if ($term || $exclude) {
+            $tax_slug = (string) $request->get_param('taxonomy');
+            $own = RequestDesk_Headless_Sites::type_taxonomies($site, $type);
+            if ($tax_slug === '') {
+                // No taxonomy named: use the type's category-role taxonomy.
+                foreach ($own as $x) {
+                    if ($x['role'] === 'category') {
+                        $tax_slug = $x['slug'];
+                    }
+                }
+            }
+            if (!in_array($tax_slug, array_map(function ($x) { return $x['slug']; }, $own), true)) {
+                return new WP_Error('taxonomy_not_found', "Type {$type['slug']} has no taxonomy " . ($tax_slug ?: '(none named)'), array('status' => 400));
+            }
+            if ($term) {
+                $tax_query[] = array('taxonomy' => $tax_slug, 'field' => 'slug', 'terms' => sanitize_title($term));
+            }
+            if ($exclude) {
+                $tax_query[] = array(
+                    'taxonomy' => $tax_slug,
+                    'field'    => 'slug',
+                    'terms'    => array_map('sanitize_title', explode(',', $exclude)),
+                    'operator' => 'NOT IN',
+                );
+            }
+        }
+        if ($request->get_param('author')) {
+            $author_tax = $this->author_tax_or_error($site);
+            if (is_wp_error($author_tax)) {
+                return $author_tax;
+            }
+            $tax_query[] = array('taxonomy' => $author_tax, 'field' => 'slug', 'terms' => sanitize_title($request->get_param('author')));
+        }
+        if ($tax_query) {
+            $args['tax_query'] = array_merge(array('relation' => 'AND'), $tax_query);
+        }
+
+        $field = $request->get_param('field');
+        if ($field !== null && $field !== '') {
+            $match = null;
+            foreach ($type['fields'] as $f) {
+                if ($f['key'] === $field) {
+                    $match = $f;
+                }
+            }
+            if (!$match) {
+                return new WP_Error('field_not_found', "Type {$type['slug']} has no field $field", array('status' => 400));
+            }
+            $args['meta_query'] = array(array(
+                'key'   => RequestDesk_Headless_Sites::field_meta_key($match),
+                'value' => (string) $request->get_param('value'),
+            ));
+        }
+
+        $query = new WP_Query($args);
+        $ctx = $this->site_context($site, $type);
+        $items = array();
+        foreach ($query->posts as $post) {
+            $items[] = $type['behavior'] === 'page'
+                ? $this->format_page($post, false, $ctx)
+                : $this->format_post($post, false, $ctx);
+        }
+        $total = (int) $query->found_posts;
+        $total_pages = (int) ceil($total / $per_page);
+
+        return rest_ensure_response(array(
+            'success' => true,
+            'site'    => $site['key'],
+            'type'    => $type['slug'],
+            'items'   => $items,
+            'pagination' => array(
+                'page'         => $page,
+                'per_page'     => $per_page,
+                'total'        => $total,
+                'total_pages'  => $total_pages,
+                'has_next'     => $page < $total_pages,
+                'has_previous' => $page > 1,
+            ),
+        ));
+    }
+
+    public function site_item($request) {
+        self::increment_request_count($request);
+        $site = $this->route_site($request);
+        if (is_wp_error($site)) {
+            return $site;
+        }
+        $type = $this->route_type($site, (string) $request->get_param('type'));
+        if (is_wp_error($type)) {
+            return $type;
+        }
+        $slug = sanitize_title($request->get_param('slug'));
+        $query = new WP_Query(array(
+            'post_type'      => $type['slug'],
+            'post_status'    => 'publish',
+            'name'           => $slug,
+            'posts_per_page' => 1,
+            'no_found_rows'  => true,
+        ));
+        if (empty($query->posts)) {
+            return new WP_Error('item_not_found', "No {$type['singular']} with slug $slug", array('status' => 404));
+        }
+        $ctx = $this->site_context($site, $type);
+        $post = $query->posts[0];
+        return rest_ensure_response(array(
+            'success' => true,
+            'site'    => $site['key'],
+            'type'    => $type['slug'],
+            'item'    => $type['behavior'] === 'page' ? $this->format_page($post, true, $ctx) : $this->format_post($post, true, $ctx),
+        ));
+    }
+
+    /** The URL an item lives at on its frontend, from the type's path pattern. */
+    private function frontend_url($post, $site, $type) {
+        $path = $type['path'];
+        $full = $post->post_name;
+        if ($type['behavior'] === 'page') {
+            $full = trim((string) get_page_uri($post), '/');
+        }
+        $path = str_replace(array('{slug}', '{path}'), array($post->post_name, $full), $path);
+        return $site['frontend_url'] . '/' . ltrim($path, '/');
+    }
+
+    /** Extra fields a headless-site item carries: terms, author, custom fields. */
+    private function site_item_extras($post, $ctx, &$data) {
+        $site = $ctx['site'];
+        $type = $ctx['type'];
+
+        $terms = array();
+        foreach (RequestDesk_Headless_Sites::type_taxonomies($site, $type) as $tax) {
+            $list = array();
+            $assigned = get_the_terms($post->ID, $tax['slug']);
+            foreach (is_array($assigned) ? $assigned : array() as $t) {
+                $list[] = array('id' => $t->term_id, 'name' => $t->name, 'slug' => $t->slug);
+            }
+            $terms[$tax['slug']] = $list;
+            // Role aliases keep a frontend written for posts working unchanged.
+            if ($tax['role'] === 'category') {
+                $data['categories'] = $list;
+            } elseif ($tax['role'] === 'tag') {
+                $data['tags'] = $list;
+            }
+        }
+        $data['terms'] = $terms;
+
+        if (!empty($site['authors']) && $type['behavior'] === 'post') {
+            $assigned = get_the_terms($post->ID, RequestDesk_Headless_Sites::author_taxonomy($site));
+            $authors = array();
+            foreach (is_array($assigned) ? $assigned : array() as $t) {
+                $authors[] = RequestDesk_Headless_Sites::format_author_term($t);
+            }
+            $data['authors'] = $authors;
+            if ($authors) {
+                $data['author'] = array(
+                    'name'   => $authors[0]['name'],
+                    'slug'   => $authors[0]['slug'],
+                    'avatar' => $authors[0]['avatar'],
+                );
+            }
+        }
+
+        $fields = RequestDesk_Headless_Sites::read_fields($post->ID, $type);
+        $data['fields'] = $fields['fields'];
+        foreach ($fields['root'] as $k => $v) {
+            if (!array_key_exists($k, $data)) {
+                $data[$k] = $v;
+            }
+        }
+        $data['url'] = $this->frontend_url($post, $site, $type);
+    }
+
+    /** Which site a per-site key is scoped to; null for the main or headless key. */
+    private function key_site_scope($request) {
+        $provided = $this->provided_key($request);
+        if ($provided === '') {
+            return null;
+        }
+        foreach (RequestDesk_Headless_Sites::get_sites() as $key => $site) {
+            if ($site['api_key'] !== '' && hash_equals($site['api_key'], $provided)) {
+                return $key;
+            }
+        }
+        return null;
+    }
+
+    private function provided_key($request) {
+        $key = $request->get_header('X-RequestDesk-API-Key');
+        if (empty($key)) {
+            $key = $request->get_header('X-WP-Headless-Key');
+        }
+        if (empty($key)) {
+            $auth = (string) $request->get_header('Authorization');
+            $key = strpos($auth, 'Bearer ') === 0 ? substr($auth, 7) : $auth;
+        }
+        return (string) $key;
+    }
+
+    /** Route for one site: the headless key, the main key, or that site's own key. */
+    public function verify_site_key($request) {
+        $site = RequestDesk_Headless_Sites::get_site((string) $request->get_param('site'));
+        if ($site && $site['api_key'] !== '' && hash_equals($site['api_key'], $this->provided_key($request))) {
+            return true;
+        }
+        return $this->verify_api_key($request);
+    }
+
+    /** Discovery: any accepted key; a per-site key sees only its own site. */
+    public function verify_any_site_key($request) {
+        if ($this->key_site_scope($request) !== null) {
+            return true;
+        }
+        return $this->verify_api_key($request);
+    }
+
+    /** Config writes: the main RequestDesk key only, like every write route. */
+    public function verify_main_key($request) {
+        $settings = get_option('requestdesk_settings', array());
+        $main = (string) ($settings['api_key'] ?? '');
+        if ($main === '') {
+            return new WP_Error('no_api_key', 'RequestDesk API key not configured', array('status' => 401));
+        }
+        $provided = (string) $request->get_header('X-RequestDesk-API-Key');
+        if ($provided === '' || !hash_equals($main, $provided)) {
+            return new WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+        return true;
     }
 
     /**
@@ -696,7 +1318,13 @@ class RequestDesk_Headless_API {
             // Get navigation menus if registered
             $menus = array();
             $menu_locations = get_nav_menu_locations();
+            $site_locations = class_exists('RequestDesk_Headless_Sites')
+                ? RequestDesk_Headless_Sites::all_menu_locations() : array();
             foreach ($menu_locations as $location => $menu_id) {
+                // A headless site's menus belong to that site's /menus route.
+                if (in_array($location, $site_locations, true)) {
+                    continue;
+                }
                 if ($menu_id) {
                     $menu_items = wp_get_nav_menu_items($menu_id);
                     if ($menu_items) {
@@ -749,7 +1377,7 @@ class RequestDesk_Headless_API {
     /**
      * Format post data for API response
      */
-    private function format_post($post, $include_full = true) {
+    private function format_post($post, $include_full = true, $ctx = null) {
         $post_id = $post->ID;
 
         // Author data
@@ -796,8 +1424,8 @@ class RequestDesk_Headless_API {
         $word_count = str_word_count(strip_tags($content));
         $reading_time = ceil($word_count / 200);
 
-        // SEO data
-        $seo = $this->get_seo_data($post);
+        // SEO data. A headless-site item's canonical is its frontend URL.
+        $seo = $this->get_seo_data($post, $ctx ? $this->frontend_url($post, $ctx['site'], $ctx['type']) : null);
 
         $data = array(
             'id' => $post_id,
@@ -816,9 +1444,17 @@ class RequestDesk_Headless_API {
             'seo' => $seo
         );
 
-        // Podcast episode fields. Added only when a value exists, so the response
-        // for an ordinary post is unchanged.
-        $data = array_merge($data, $this->get_podcast_data($post_id));
+        if ($ctx) {
+            // Terms, author terms and custom fields come from the site config.
+            // Native category/tag lists do not apply to a headless-site type.
+            $data['categories'] = array();
+            $data['tags'] = array();
+            $this->site_item_extras($post, $ctx, $data);
+        } else {
+            // Podcast episode fields. Added only when a value exists, so the
+            // response for an ordinary post is unchanged.
+            $data = array_merge($data, $this->get_podcast_data($post_id));
+        }
 
         // Include full content for single post requests
         if ($include_full) {
@@ -880,7 +1516,7 @@ class RequestDesk_Headless_API {
     /**
      * Format page data for API response
      */
-    private function format_page($page, $include_full = true) {
+    private function format_page($page, $include_full = true, $ctx = null) {
         $page_id = $page->ID;
 
         // Featured image
@@ -911,7 +1547,7 @@ class RequestDesk_Headless_API {
         if ($include_full) {
             $child_pages = get_children(array(
                 'post_parent' => $page_id,
-                'post_type' => 'page',
+                'post_type' => $page->post_type,
                 'post_status' => 'publish',
                 'orderby' => 'menu_order',
                 'order' => 'ASC'
@@ -927,7 +1563,7 @@ class RequestDesk_Headless_API {
         }
 
         // SEO data
-        $seo = $this->get_seo_data($page);
+        $seo = $this->get_seo_data($page, $ctx ? $this->frontend_url($page, $ctx['site'], $ctx['type']) : null);
 
         $data = array(
             'id' => $page_id,
@@ -943,6 +1579,10 @@ class RequestDesk_Headless_API {
             'template' => get_page_template_slug($page_id) ?: 'default',
             'seo' => $seo
         );
+
+        if ($ctx) {
+            $this->site_item_extras($page, $ctx, $data);
+        }
 
         if ($include_full) {
             $data['content'] = apply_filters('the_content', $page->post_content);
@@ -978,12 +1618,15 @@ class RequestDesk_Headless_API {
     /**
      * Get SEO data from various SEO plugins or post meta
      */
-    private function get_seo_data($post) {
+    private function get_seo_data($post, $frontend_url = null) {
         $post_id = $post->ID;
-        $permalink = get_permalink($post_id);
+        $permalink = $frontend_url ?: get_permalink($post_id);
 
-        // Default title and description
-        $title = $post->post_title . ' | ' . get_bloginfo('name');
+        // Default title and description. A headless-site item is titled with
+        // its own site's name, not this install's.
+        $found = $frontend_url && class_exists('RequestDesk_Headless_Sites')
+            ? RequestDesk_Headless_Sites::find_type($post->post_type) : null;
+        $title = $post->post_title . ' | ' . ($found ? $found['site']['name'] : get_bloginfo('name'));
         $description = get_the_excerpt($post);
 
         // RequestDesk's own values, which WIN over every SEO plugin below.
@@ -1047,7 +1690,8 @@ class RequestDesk_Headless_API {
         $og_image = get_post_meta($post_id, '_requestdesk_og_image', true)
             ?: get_post_meta($post_id, '_yoast_wpseo_opengraph-image', true)
             ?: get_post_meta($post_id, 'rank_math_facebook_image', true)
-            ?: get_the_post_thumbnail_url($post_id, 'full');
+            ?: get_the_post_thumbnail_url($post_id, 'full')
+            ?: ($found && $found['site']['og_image'] !== '' ? $found['site']['og_image'] : false);
 
         // Canonical URL
         $canonical = get_post_meta($post_id, '_requestdesk_canonical_url', true)

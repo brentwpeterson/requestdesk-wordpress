@@ -29,7 +29,7 @@ function requestdesk_seo_add_meta_boxes() {
         }
     }
 
-    $post_types = array('post', 'page');
+    $post_types = requestdesk_content_post_types();
 
     foreach ($post_types as $post_type) {
         add_meta_box(

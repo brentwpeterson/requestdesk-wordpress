@@ -346,7 +346,7 @@ class RequestDesk_Freshness_Tracker {
             return;
         }
 
-        if (!in_array($post->post_type, array('post', 'page'))) {
+        if (!in_array($post->post_type, requestdesk_content_post_types())) {
             return;
         }
 
@@ -394,7 +394,7 @@ class RequestDesk_Freshness_Tracker {
 
         // Find content that needs freshness updates
         $stale_posts = get_posts(array(
-            'post_type' => array('post', 'page'),
+            'post_type' => requestdesk_content_post_types(),
             'post_status' => 'publish',
             'posts_per_page' => -1, // Process all posts for complete analytics
             'meta_query' => array(
@@ -588,7 +588,7 @@ class RequestDesk_Freshness_Tracker {
      */
     public function get_posts_needing_attention($limit = 10) {
         return get_posts(array(
-            'post_type' => array('post', 'page'),
+            'post_type' => requestdesk_content_post_types(),
             'post_status' => 'publish',
             'posts_per_page' => $limit,
             'meta_key' => '_requestdesk_freshness_score',

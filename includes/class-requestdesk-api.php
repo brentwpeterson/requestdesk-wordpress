@@ -727,7 +727,7 @@ class RequestDesk_API {
         $failed = 0;
         foreach ($ids as $id) {
             $post = get_post($id);
-            if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+            if (!$post || !in_array($post->post_type, requestdesk_content_post_types(), true)) {
                 $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'not a post or page');
                 $failed++;
                 continue;
@@ -884,7 +884,7 @@ class RequestDesk_API {
 
         $post_id = (int) $request->get_param('post_id');
         $post = get_post($post_id);
-        if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+        if (!$post || !in_array($post->post_type, requestdesk_content_post_types(), true)) {
             return new WP_Error('post_not_found', 'No post or page with ID ' . $post_id . '.', array('status' => 404));
         }
         if (!class_exists('WP_HTML_Tag_Processor')) {

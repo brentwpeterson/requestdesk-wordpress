@@ -313,7 +313,7 @@ class RequestDesk_Citation_Tracker {
             $post = get_post($post_id);
         }
 
-        if (!$post || !in_array($post->post_type, array('post', 'page'))) {
+        if (!$post || !in_array($post->post_type, requestdesk_content_post_types())) {
             return;
         }
 
@@ -349,7 +349,7 @@ class RequestDesk_Citation_Tracker {
     public function monitor_citations() {
         // Get all posts that need citation monitoring
         $posts = get_posts(array(
-            'post_type' => array('post', 'page'),
+            'post_type' => requestdesk_content_post_types(),
             'post_status' => 'publish',
             'posts_per_page' => -1, // Process all posts for complete analytics
             'meta_query' => array(

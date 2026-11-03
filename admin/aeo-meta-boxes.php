@@ -18,7 +18,7 @@ function requestdesk_aeo_add_meta_boxes() {
         'requestdesk-aeo-optimization',
         'AEO Optimization',
         'requestdesk_aeo_optimization_meta_box',
-        array('post', 'page'),
+        requestdesk_content_post_types(),
         'side',
         'default'
     );
@@ -27,7 +27,7 @@ function requestdesk_aeo_add_meta_boxes() {
         'requestdesk-aeo-qa-pairs',
         'Q&A Pairs',
         'requestdesk_aeo_qa_pairs_meta_box',
-        array('post', 'page'),
+        requestdesk_content_post_types(),
         'normal',
         'default'
     );
@@ -36,7 +36,7 @@ function requestdesk_aeo_add_meta_boxes() {
         'requestdesk-aeo-citations',
         'Citation Statistics',
         'requestdesk_aeo_citations_meta_box',
-        array('post', 'page'),
+        requestdesk_content_post_types(),
         'normal',
         'default'
     );
@@ -45,7 +45,7 @@ function requestdesk_aeo_add_meta_boxes() {
         'requestdesk-aeo-schema-control',
         'Schema Control',
         'requestdesk_aeo_schema_control_meta_box',
-        array('post', 'page'),
+        requestdesk_content_post_types(),
         'side',
         'default'
     );

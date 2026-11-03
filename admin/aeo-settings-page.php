@@ -782,7 +782,7 @@ function requestdesk_aeo_bulk_page() {
 
     // Get posts for bulk operations (increased limit for better visibility)
     $posts = get_posts(array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => 200, // Show more posts in admin interface
         'orderby' => 'modified',
@@ -1028,7 +1028,7 @@ function requestdesk_perform_full_rescan() {
 
     // Get all published posts and pages
     $posts = get_posts(array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => -1
     ));
@@ -1070,7 +1070,7 @@ function requestdesk_perform_citations_rescan() {
     $results = array('processed' => 0);
 
     $posts = get_posts(array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => -1
     ));
@@ -1092,7 +1092,7 @@ function requestdesk_perform_freshness_rescan() {
     $results = array('processed' => 0);
 
     $posts = get_posts(array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => -1
     ));
@@ -1114,7 +1114,7 @@ function requestdesk_perform_claude_rescan() {
     $results = array('processed' => 0, 'analyzed' => 0);
 
     $posts = get_posts(array(
-        'post_type' => array('post', 'page'),
+        'post_type' => requestdesk_content_post_types(),
         'post_status' => 'publish',
         'posts_per_page' => -1
     ));

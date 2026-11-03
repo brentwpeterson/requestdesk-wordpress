@@ -235,7 +235,7 @@ class RequestDesk_Schema_Generator {
         }
 
         // For custom post types - add archive
-        if (!in_array($post->post_type, array('post', 'page'))) {
+        if (!in_array($post->post_type, requestdesk_content_post_types())) {
             $post_type_obj = get_post_type_object($post->post_type);
             if ($post_type_obj && $post_type_obj->has_archive) {
                 $breadcrumbs[] = array(

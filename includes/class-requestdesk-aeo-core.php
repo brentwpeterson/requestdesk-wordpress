@@ -67,7 +67,7 @@ class RequestDesk_AEO_Core {
         }
 
         // Only process posts and pages
-        if (!in_array($post->post_type, array('post', 'page'))) {
+        if (!in_array($post->post_type, requestdesk_content_post_types())) {
             return;
         }
 
@@ -799,7 +799,7 @@ class RequestDesk_AEO_Core {
         $mode = $request->get_param('mode') ?: 'replace';
 
         $post = get_post($post_id);
-        if (!$post || !in_array($post->post_type, array('post', 'page'), true)) {
+        if (!$post || !in_array($post->post_type, requestdesk_content_post_types(), true)) {
             return new WP_Error('invalid_post', 'Post not found', array('status' => 404));
         }
 
