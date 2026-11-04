@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.1] - 2026-11-03
+
+### Fixed
+- **Headless site item and author routes accept underscores in slugs.** `/headless/sites/{site}/{type}/{slug}` and `/authors/{slug}` matched only letters, digits and hyphens, while WordPress keeps underscores in a slug, so an item saved with one (`eo-_-heidi-olson`, imported from Transistor) answered `rest_no_route` and stopped the eovoices.com build.
+
 ## [2.65.0] - 2026-11-03
 
 ### Added

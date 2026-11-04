@@ -342,7 +342,7 @@ class RequestDesk_Headless_API {
             'permission_callback' => array($this, 'verify_site_key'),
         ));
 
-        register_rest_route($this->namespace, "/headless/sites/$site/authors/(?P<slug>[a-zA-Z0-9-]+)", array(
+        register_rest_route($this->namespace, "/headless/sites/$site/authors/(?P<slug>[a-zA-Z0-9_-]+)", array(
             'methods' => 'GET',
             'callback' => array($this, 'site_author'),
             'permission_callback' => array($this, 'verify_site_key'),
@@ -368,7 +368,7 @@ class RequestDesk_Headless_API {
             ),
         ));
 
-        register_rest_route($this->namespace, "/headless/sites/$site/(?P<type>[a-z][a-z0-9_]{1,19})/(?P<slug>[a-zA-Z0-9-]+)", array(
+        register_rest_route($this->namespace, "/headless/sites/$site/(?P<type>[a-z][a-z0-9_]{1,19})/(?P<slug>[a-zA-Z0-9_-]+)", array(
             'methods' => 'GET',
             'callback' => array($this, 'site_item'),
             'permission_callback' => array($this, 'verify_site_key'),
