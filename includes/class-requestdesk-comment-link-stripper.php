@@ -129,6 +129,18 @@ class RequestDesk_Comment_Link_Stripper {
         // Website field intact and this class never saw it.
         add_action('wp_insert_comment', array($this, 'maybe_strip_on_insert'), 10, 2);
 
+        // Keep the commenter's IP when a moderator edits or approves through
+        // the REST API. Core's WP_REST_Comments_Controller::prepare_item_for_database()
+        // fills comment_author_IP from $_SERVER['REMOTE_ADDR'] on EVERY request,
+        // update included, so approving from the WordPress mobile app or any
+        // REST client overwrites the spammer's IP with the moderator's own.
+        // Found live 2026-11-05: 22 of 35 approved comments on a production
+        // site carried the owner's home IP, while Akismet's
+        // akismet_as_submitted meta still held the real submitting IPs.
+        // Runs whether or not link stripping is enabled: this is data
+        // integrity, not link policy.
+        add_filter('rest_preprocess_comment', array(__CLASS__, 'keep_author_ip_on_rest_update'), 10, 2);
+
         // A link that survives (the author link, or an allowlisted content
         // link) must never navigate a reader away from the page in the same
         // tab -- found live: an author link opened in the same window, so
@@ -274,6 +286,30 @@ class RequestDesk_Comment_Link_Stripper {
             update_comment_meta($comment->comment_ID, '_requestdesk_author_url_original', $original_url);
         }
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_at', current_time('mysql'));
+    }
+
+    /**
+     * On a REST update of an existing comment, drop the comment_author_IP that
+     * core filled from the moderator's REMOTE_ADDR, unless the caller set
+     * author_ip explicitly. With the key gone, a status-only request falls
+     * through to core's status-only path and the stored IP is left as is.
+     * Creates (no comment id on the request) are untouched.
+     *
+     * @param array           $prepared_comment
+     * @param WP_REST_Request $request
+     * @return array
+     */
+    public static function keep_author_ip_on_rest_update($prepared_comment, $request) {
+        if (!is_array($prepared_comment) || !($request instanceof WP_REST_Request)) {
+            return $prepared_comment;
+        }
+        if (empty($request['id']) || isset($request['author_ip'])) {
+            return $prepared_comment;
+        }
+
+        unset($prepared_comment['comment_author_IP']);
+
+        return $prepared_comment;
     }
 
     /**
