@@ -141,6 +141,11 @@ class RequestDesk_Comment_Link_Stripper {
         // integrity, not link policy.
         add_filter('rest_preprocess_comment', array(__CLASS__, 'keep_author_ip_on_rest_update'), 10, 2);
 
+        // One-time repair for comments already stamped with a moderator's IP
+        // by the REST bug above. Runs once per site on the first admin page
+        // load after this version lands; the result is kept in an option.
+        add_action('admin_init', array(__CLASS__, 'maybe_restore_author_ips_once'));
+
         // A link that survives (the author link, or an allowlisted content
         // link) must never navigate a reader away from the page in the same
         // tab -- found live: an author link opened in the same window, so
@@ -310,6 +315,57 @@ class RequestDesk_Comment_Link_Stripper {
         unset($prepared_comment['comment_author_IP']);
 
         return $prepared_comment;
+    }
+
+    /** Option that records the one-time IP repair ran, and what it changed. */
+    const IP_RESTORE_OPTION = 'requestdesk_comment_ip_restore';
+
+    /**
+     * Put back each comment's original IP from Akismet's akismet_as_submitted
+     * meta, which Akismet writes once at submission and never rewrites. Only a
+     * valid IP that differs from the stored one is written. Comments without
+     * that meta (posted before Akismet kept it) are left alone: there is no
+     * record of their real IP to restore from.
+     */
+    public static function maybe_restore_author_ips_once() {
+        if (get_option(self::IP_RESTORE_OPTION)) {
+            return;
+        }
+        if (!current_user_can('moderate_comments')) {
+            return;
+        }
+
+        $changed = array();
+        $comments = get_comments(array(
+            'status'   => 'all',
+            'number'   => 0,
+            'meta_key' => 'akismet_as_submitted',
+        ));
+
+        foreach ($comments as $comment) {
+            $submitted = get_comment_meta($comment->comment_ID, 'akismet_as_submitted', true);
+            $original = (is_array($submitted) && isset($submitted['comment_author_IP'])) ? (string) $submitted['comment_author_IP'] : '';
+            if ($original === '' || !filter_var($original, FILTER_VALIDATE_IP) || $original === $comment->comment_author_IP) {
+                continue;
+            }
+
+            self::$updating = true;
+            $result = wp_update_comment(array(
+                'comment_ID'        => $comment->comment_ID,
+                'comment_author_IP' => $original,
+            ), true);
+            self::$updating = false;
+
+            if (!is_wp_error($result)) {
+                $changed[$comment->comment_ID] = array('from' => $comment->comment_author_IP, 'to' => $original);
+            }
+        }
+
+        update_option(self::IP_RESTORE_OPTION, array(
+            'ran_at'  => current_time('mysql'),
+            'checked' => count($comments),
+            'changed' => $changed,
+        ), false);
     }
 
     /**
