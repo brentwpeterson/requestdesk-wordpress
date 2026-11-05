@@ -118,6 +118,17 @@ class RequestDesk_Comment_Link_Stripper {
     public function __construct() {
         add_action('transition_comment_status', array($this, 'maybe_strip_links'), 10, 3);
 
+        // A comment approved AT INSERT never fires transition_comment_status:
+        // wp_insert_comment() / wp_new_comment() only fire wp_insert_comment
+        // and comment_post. That is the path WordPress takes when the
+        // "Comment author must have a previously approved comment" option
+        // auto-approves a returning commenter, or when Akismet passes one.
+        // Found live 2026-11-05: a comment on a production site came in
+        // from a commenter whose first comment (7778) had been stripped and
+        // approved, so core auto-approved the second one with its spam
+        // Website field intact and this class never saw it.
+        add_action('wp_insert_comment', array($this, 'maybe_strip_on_insert'), 10, 2);
+
         // A link that survives (the author link, or an allowlisted content
         // link) must never navigate a reader away from the page in the same
         // tab -- found live: an author link opened in the same window, so
@@ -168,8 +179,9 @@ class RequestDesk_Comment_Link_Stripper {
     }
 
     /**
-     * Fires on every comment_approved change, including the 'new' -> 'approved'
-     * transition an auto-approved comment takes on first insert.
+     * Fires on every comment_approved change made after insert (a wp-admin
+     * click, a bulk action, the REST API, wp_set_comment_status()). A comment
+     * approved at insert does NOT come through here -- see maybe_strip_on_insert().
      *
      * @param string     $new_status 'approved', 'unapproved', 'spam', 'trash', or 'deleted'.
      * @param string     $old_status Same vocabulary.
@@ -262,6 +274,27 @@ class RequestDesk_Comment_Link_Stripper {
             update_comment_meta($comment->comment_ID, '_requestdesk_author_url_original', $original_url);
         }
         update_comment_meta($comment->comment_ID, '_requestdesk_links_stripped_at', current_time('mysql'));
+    }
+
+    /**
+     * Run the same strip on a comment that is already approved when it is
+     * inserted (returning-commenter auto-approval, Akismet, a plugin calling
+     * wp_insert_comment() with comment_approved = 1). Held, spam and trashed
+     * inserts are left alone; they reach maybe_strip_links() if and when
+     * they are approved later.
+     *
+     * @param int        $comment_id
+     * @param WP_Comment $comment
+     */
+    public function maybe_strip_on_insert($comment_id, $comment) {
+        if (!($comment instanceof WP_Comment)) {
+            $comment = get_comment($comment_id);
+        }
+        if (!$comment || (string) $comment->comment_approved !== '1') {
+            return;
+        }
+
+        $this->maybe_strip_links('approved', 'new', $comment);
     }
 
     /**

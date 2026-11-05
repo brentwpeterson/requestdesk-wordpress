@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.2] - 2026-11-05
+
+### Fixed
+- **Comment link stripper now runs on comments approved at insert.** The stripper listened only to `transition_comment_status`, which WordPress does not fire when a comment is approved the moment it is inserted. A returning commenter auto-approved under "Comment author must have a previously approved comment" (or a comment Akismet passes) therefore kept its Website link. Found live on a production site: a second comment from a commenter whose first comment had been stripped. The stripper now also hooks `wp_insert_comment` and runs the same pass when the new comment's status is already approved.
+
 ## [2.65.1] - 2026-11-03
 
 ### Fixed
