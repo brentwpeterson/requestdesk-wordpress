@@ -63,6 +63,13 @@ class RequestDesk_Comment_Link_Stripper {
     private static $allow_ip_change = false;
 
     /**
+     * The IP the one-time repair means to write. Set only around its own
+     * wp_update_comment() call, because the IP in $data has already been
+     * through pre_comment_user_ip by the time keep_stored_author_ip() sees it.
+     */
+    private static $intended_ip = null;
+
+    /**
      * Stand-in for a comment author name that turned out to be a domain.
      * Filterable so a site can use its own wording without touching code:
      *     add_filter('requestdesk_stripped_author_placeholder', fn() => 'Guest');
@@ -347,7 +354,18 @@ class RequestDesk_Comment_Link_Stripper {
      * @return array
      */
     public static function keep_stored_author_ip($data, $comment, $commentarr) {
-        if (self::$allow_ip_change || !is_array($data) || !is_array($comment)) {
+        if (!is_array($data) || !is_array($comment)) {
+            return $data;
+        }
+        if (self::$intended_ip !== null) {
+            // Found live 2026-11-06: the 2.65.3 repair reported 7 IPs restored
+            // and every one read back as the IP of the admin whose page load
+            // ran it. The host rewrites the IP in pre_comment_user_ip, which
+            // runs before this filter, so the value has to be set here.
+            $data['comment_author_IP'] = self::$intended_ip;
+            return $data;
+        }
+        if (self::$allow_ip_change) {
             return $data;
         }
         if (isset($comment['comment_author_IP']) && $comment['comment_author_IP'] !== '') {
@@ -359,10 +377,10 @@ class RequestDesk_Comment_Link_Stripper {
 
     /**
      * Option that records the one-time IP repair ran, and what it changed.
-     * _v2 (2.65.3): the 2.65.2 run could not hold its writes against the
-     * host rewrite that keep_stored_author_ip() now blocks, so it runs again.
+     * _v2 (2.65.3), _v3 (2.65.5): earlier runs could not hold their writes
+     * against a host rewrite in pre_comment_user_ip, so it runs again.
      */
-    const IP_RESTORE_OPTION = 'requestdesk_comment_ip_restore_v2';
+    const IP_RESTORE_OPTION = 'requestdesk_comment_ip_restore_v3';
 
     /**
      * Put back each comment's original IP from Akismet's akismet_as_submitted
@@ -394,12 +412,12 @@ class RequestDesk_Comment_Link_Stripper {
             }
 
             self::$updating = true;
-            self::$allow_ip_change = true;
+            self::$intended_ip = $original;
             $result = wp_update_comment(array(
                 'comment_ID'        => $comment->comment_ID,
                 'comment_author_IP' => $original,
             ), true);
-            self::$allow_ip_change = false;
+            self::$intended_ip = null;
             self::$updating = false;
 
             if (!is_wp_error($result)) {

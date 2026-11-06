@@ -599,7 +599,8 @@ class RequestDesk_API {
             // What the one-time IP repair did on this site: null = not run yet.
             'ip_restore' => array(
                 'v1' => get_option('requestdesk_comment_ip_restore', null),
-                'v2' => get_option(RequestDesk_Comment_Link_Stripper::IP_RESTORE_OPTION, null),
+                'v2' => get_option('requestdesk_comment_ip_restore_v2', null),
+                'v3' => get_option(RequestDesk_Comment_Link_Stripper::IP_RESTORE_OPTION, null),
             ),
         ), 200);
     }

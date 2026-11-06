@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.5] - 2026-11-06
+
+### Fixed
+- **The comment IP repair writes the IP it means to write.** The 2.65.4 readout showed the repair ran on a production site and reported 7 IPs restored, yet every one read back as the IP of the admin whose page load ran it. Something on that host rewrites the IP in `pre_comment_user_ip`, which runs before `wp_update_comment_data`, so the repair now sets its intended IP inside that last filter. The repair records itself in `requestdesk_comment_ip_restore_v3` and runs once more; `GET /comments` reports `v1`, `v2` and `v3`.
+
 ## [2.65.4] - 2026-11-06
 
 ### Added
