@@ -59,6 +59,9 @@ class RequestDesk_Comment_Link_Stripper {
     /** Guards against re-entering wp_update_comment() from inside our own hook. */
     private static $updating = false;
 
+    /** True only while code that MEANS to change a comment's IP is writing. */
+    private static $allow_ip_change = false;
+
     /**
      * Stand-in for a comment author name that turned out to be a domain.
      * Filterable so a site can use its own wording without touching code:
@@ -140,6 +143,16 @@ class RequestDesk_Comment_Link_Stripper {
         // Runs whether or not link stripping is enabled: this is data
         // integrity, not link policy.
         add_filter('rest_preprocess_comment', array(__CLASS__, 'keep_author_ip_on_rest_update'), 10, 2);
+
+        // Last line of defense for the same data: every wp_update_comment()
+        // keeps the IP already stored, whoever calls it. Found live
+        // 2026-11-06: an edit through this plugin's own /comments/{id} route
+        // (plain wp_update_comment, no REST controller) stamped the calling
+        // server's IP on three comments on a production site, while the same
+        // call on the local copy kept the IP. Something on that host rewrites
+        // the IP during wp_filter_comment(); wp_update_comment_data runs after
+        // it, right before the database write, so this holds whatever it is.
+        add_filter('wp_update_comment_data', array(__CLASS__, 'keep_stored_author_ip'), 999, 3);
 
         // One-time repair for comments already stamped with a moderator's IP
         // by the REST bug above. Runs once per site on the first admin page
@@ -308,7 +321,13 @@ class RequestDesk_Comment_Link_Stripper {
         if (!is_array($prepared_comment) || !($request instanceof WP_REST_Request)) {
             return $prepared_comment;
         }
-        if (empty($request['id']) || isset($request['author_ip'])) {
+        if (empty($request['id'])) {
+            return $prepared_comment;
+        }
+        if (isset($request['author_ip'])) {
+            // An explicit author_ip is a deliberate change; let it through
+            // keep_stored_author_ip() for this request.
+            self::$allow_ip_change = true;
             return $prepared_comment;
         }
 
@@ -317,8 +336,33 @@ class RequestDesk_Comment_Link_Stripper {
         return $prepared_comment;
     }
 
-    /** Option that records the one-time IP repair ran, and what it changed. */
-    const IP_RESTORE_OPTION = 'requestdesk_comment_ip_restore';
+    /**
+     * wp_update_comment_data filter: put the stored IP back unless the write
+     * is one that means to change it (the one-time repair, or a REST request
+     * that passed author_ip). $comment is the row as it was before the update.
+     *
+     * @param array $data       Columns about to be written.
+     * @param array $comment    Original comment row (slashed).
+     * @param array $commentarr Merged update arguments.
+     * @return array
+     */
+    public static function keep_stored_author_ip($data, $comment, $commentarr) {
+        if (self::$allow_ip_change || !is_array($data) || !is_array($comment)) {
+            return $data;
+        }
+        if (isset($comment['comment_author_IP']) && $comment['comment_author_IP'] !== '') {
+            $data['comment_author_IP'] = $comment['comment_author_IP'];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Option that records the one-time IP repair ran, and what it changed.
+     * _v2 (2.65.3): the 2.65.2 run could not hold its writes against the
+     * host rewrite that keep_stored_author_ip() now blocks, so it runs again.
+     */
+    const IP_RESTORE_OPTION = 'requestdesk_comment_ip_restore_v2';
 
     /**
      * Put back each comment's original IP from Akismet's akismet_as_submitted
@@ -350,10 +394,12 @@ class RequestDesk_Comment_Link_Stripper {
             }
 
             self::$updating = true;
+            self::$allow_ip_change = true;
             $result = wp_update_comment(array(
                 'comment_ID'        => $comment->comment_ID,
                 'comment_author_IP' => $original,
             ), true);
+            self::$allow_ip_change = false;
             self::$updating = false;
 
             if (!is_wp_error($result)) {
@@ -517,8 +563,8 @@ class RequestDesk_Comment_Link_Stripper {
 
     /**
      * Remove every `<a>...</a>` phrase -- tag and its anchor text -- whose
-     * href does NOT resolve to an allowed domain. Bare, un-linked URLs are
-     * left alone; this only touches what was deliberately wrapped in a link.
+     * href does NOT resolve to an allowed domain, then every bare URL
+     * (a scheme or www. prefix) whose host is not allowed.
      * A link pointing at one of our own domains (see
      * DEFAULT_ALLOWED_LINK_DOMAINS) survives untouched, tag and text both.
      *
@@ -537,7 +583,45 @@ class RequestDesk_Comment_Link_Stripper {
             return $content;
         }
 
+        // Bare URLs too. WordPress turns a plain scheme-prefixed URL in comment text
+        // into a live link at display time (make_clickable), so a URL with no
+        // <a> tag is still a link on the page. Found live 2026-11-06: a comment
+        // carried a product URL in parentheses through approval because only the
+        // Claude pass looked for bare URLs, and that pass was not available.
+        $bare = preg_replace_callback(
+            '#(?<![\w"\'=/@.-])(?:https?://|www\.)[^\s<>"\']+#i',
+            array(__CLASS__, 'strip_bare_url_unless_allowed'),
+            $stripped
+        );
+        if ($bare !== null && $bare !== $stripped) {
+            // "Tool (URL), more" -> "Tool (), more" -> "Tool, more".
+            $bare = preg_replace('/[ \t]*\(\s*\)/', '', $bare);
+            $bare = preg_replace('/[ \t]+([,.;:!?])/', '$1', $bare);
+            $stripped = $bare;
+        }
+
         return self::tidy_whitespace($stripped);
+    }
+
+    /**
+     * preg_replace_callback handler for a bare URL: keep it if its host is
+     * allowed, else drop it. Trailing sentence punctuation and a closing
+     * parenthesis are kept outside the URL so the sentence still reads.
+     */
+    private static function strip_bare_url_unless_allowed($matches) {
+        $url = $matches[0];
+        $tail = '';
+        if (preg_match('/[.,;:!?)\]]+$/', $url, $tail_match)) {
+            $tail = $tail_match[0];
+            $url = substr($url, 0, -strlen($tail));
+        }
+
+        $parse = (stripos($url, 'www.') === 0) ? 'http://' . $url : $url;
+        if (self::is_allowed_link_host(self::url_host($parse))) {
+            return $matches[0];
+        }
+
+        return $tail;
     }
 
     /**

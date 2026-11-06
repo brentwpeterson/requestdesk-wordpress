@@ -5,6 +5,13 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.3] - 2026-11-06
+
+### Fixed
+- **Bare URLs in comment text are stripped.** The regex pass removed only `<a>` tags and left plain `https://...` and `www....` URLs to the optional Claude pass. WordPress renders a plain URL as a live link (`make_clickable`), so a comment kept its link whenever the Claude pass was unavailable. Found live on a production site. Bare URLs on a host outside the allowlist are now removed by the regex pass, with empty parentheses and stray spaces before punctuation tidied.
+- **Every comment update keeps the stored commenter IP.** A `wp_update_comment_data` filter (priority 999, after `wp_filter_comment()`) puts the stored IP back on every `wp_update_comment()` unless the write means to change it (the IP repair, or a REST request that sends `author_ip`). Found live on a production site: an edit through the connector's own `/comments/{id}` route stamped the calling server's IP, which the local copy of the same site did not reproduce.
+- **IP repair runs again.** The one-time repair now records itself in `requestdesk_comment_ip_restore_v2`, so sites that ran the 2.65.2 version run it once more with the IP guard in place.
+
 ## [2.65.2] - 2026-11-05
 
 ### Fixed
