@@ -557,6 +557,9 @@ class RequestDesk_API {
                 'author_name_original' => get_comment_meta($comment->comment_ID, '_requestdesk_author_name_original', true) ?: null,
                 'author_url_original' => get_comment_meta($comment->comment_ID, '_requestdesk_author_url_original', true) ?: null,
             ),
+            // The IP Akismet recorded when the comment was submitted, which the
+            // one-time IP repair restores from. null = no Akismet record.
+            'akismet_submitted_ip' => $this->akismet_submitted_ip($comment->comment_ID),
         );
     }
 
@@ -593,7 +596,21 @@ class RequestDesk_API {
             'success' => true,
             'count' => count($comments),
             'comments' => array_values(array_filter(array_map(array($this, 'format_comment_for_api'), $comments))),
+            // What the one-time IP repair did on this site: null = not run yet.
+            'ip_restore' => array(
+                'v1' => get_option('requestdesk_comment_ip_restore', null),
+                'v2' => get_option(RequestDesk_Comment_Link_Stripper::IP_RESTORE_OPTION, null),
+            ),
         ), 200);
+    }
+
+    /** Submitting IP from Akismet's akismet_as_submitted meta, or null. */
+    private function akismet_submitted_ip($comment_id) {
+        $submitted = get_comment_meta($comment_id, 'akismet_as_submitted', true);
+        if (is_array($submitted) && !empty($submitted['comment_author_IP'])) {
+            return (string) $submitted['comment_author_IP'];
+        }
+        return null;
     }
 
     /**

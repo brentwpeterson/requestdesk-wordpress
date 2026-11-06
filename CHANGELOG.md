@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.65.4] - 2026-11-06
+
+### Added
+- **Comment IP repair is readable through the API.** `GET /comments` now returns `ip_restore` with the stored result of both repair runs (`v1`, `v2`; null = not run), and each comment carries `akismet_submitted_ip`, the IP Akismet recorded at submission (null = no record). The 2.65.2 and 2.65.3 repairs left no readable trace on a production site, so a failed run could not be told apart from a run that found nothing.
+
 ## [2.65.3] - 2026-11-06
 
 ### Fixed
