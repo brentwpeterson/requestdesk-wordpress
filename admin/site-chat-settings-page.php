@@ -31,6 +31,13 @@ function requestdesk_site_chat_settings_page() {
     $problem  = RequestDesk_Site_Chat::config_error($settings);
     if ($problem !== '') {
         echo '<div class="notice notice-error"><p><strong>The website chat is switched on but not loading.</strong> ' . esc_html($problem) . ' No chat appears on the site until this is fixed.</p></div>';
+    } elseif (!empty($settings['enabled'])) {
+        $remote = RequestDesk_Site_Chat::remote_check($settings);
+        if ($remote !== '') {
+            echo '<div class="notice notice-error"><p><strong>The script tag is on the site, but RequestDesk will not show the chat here.</strong> ' . esc_html($remote) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-info"><p>RequestDesk serves this chat to ' . esc_html(RequestDesk_Site_Chat::site_origin()) . '. It shows on every front-end page.</p></div>';
+        }
     }
     ?>
 
@@ -69,7 +76,7 @@ function requestdesk_site_chat_settings_page() {
                     <th scope="row">Preview</th>
                     <td>
                         <a href="<?php echo esc_url(RequestDesk_Site_Chat::preview_url($settings)); ?>" target="_blank" rel="noopener">Try this chat on the RequestDesk preview page</a>
-                        <p class="description">The chat answers only on the websites listed on the agent. If this site's address is not on that list, the chat loads here and refuses every message.</p>
+                        <p class="description">The chat shows only on the websites listed on the agent. This site's address is <?php echo esc_html(RequestDesk_Site_Chat::site_origin()); ?>; a local or staging copy needs its own address on that list.</p>
                     </td>
                 </tr>
                 <?php endif; ?>

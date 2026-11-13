@@ -19,9 +19,11 @@
  * that is not https) prints nothing and says why on the settings tab, so the site never
  * loads a broken widget and the admin is not left guessing.
  *
- * The chat answers only on websites listed in the agent's allowed websites
- * (exact origin match). A site not on that list loads the widget and every
- * message is refused with 403.
+ * The chat shows only on websites listed in the agent's allowed websites
+ * (exact origin match). On a site not on that list the widget's first
+ * request is refused with 403 and nothing is drawn, so the settings tab
+ * makes that same request server-side and names the address to add. A local
+ * or staging copy needs its own address on the list to be tested.
  *
  * @package RequestDesk
  */
@@ -74,6 +76,44 @@ class RequestDesk_Site_Chat {
             return 'The RequestDesk URL must use https.';
         }
         return '';
+    }
+
+    /**
+     * This site's origin, as the browser sends it (scheme://host[:port]).
+     */
+    public static function site_origin() {
+        $parts = wp_parse_url(home_url());
+        $origin = $parts['scheme'] . '://' . $parts['host'];
+        if (!empty($parts['port'])) {
+            $origin .= ':' . $parts['port'];
+        }
+        return $origin;
+    }
+
+    /**
+     * Ask RequestDesk whether it serves this chat to this site, the same
+     * request the widget makes in the browser. Returns '' when it does, or
+     * the reason it does not. Without this check a site missing from the
+     * agent's allowed websites shows no chat and says nothing.
+     */
+    public static function remote_check($settings) {
+        $url = untrailingslashit($settings['base_url']) . '/api/public/site-chat/' . rawurlencode($settings['slug']) . '/config';
+        $origin = self::site_origin();
+        $response = wp_remote_get($url, array('timeout' => 8, 'headers' => array('Origin' => $origin)));
+        if (is_wp_error($response)) {
+            return 'RequestDesk could not be reached at ' . $settings['base_url'] . ': ' . $response->get_error_message();
+        }
+        $code = wp_remote_retrieve_response_code($response);
+        if ($code === 200) {
+            return '';
+        }
+        if ($code === 403) {
+            return 'RequestDesk refuses this site. Add ' . $origin . ' to the allowed websites on the agent\'s Website Chat settings in RequestDesk.';
+        }
+        if ($code === 404) {
+            return 'RequestDesk has no switched-on chat with the slug "' . $settings['slug'] . '".';
+        }
+        return 'RequestDesk answered HTTP ' . $code . ' for this chat.';
     }
 
     /**

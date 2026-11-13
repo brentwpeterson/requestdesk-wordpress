@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Website Chat tab.** Settings -> RequestDesk -> Website Chat turns an agent's RequestDesk website chat on or off for this site. It holds three fields: the switch, the chat slug, and the RequestDesk URL (no default; the address of the RequestDesk app the agent lives in). When on, every front-end page gets one footer tag, `<script src=".../api/public/site-chat/widget.js" data-chat="<slug>" async>`. Never printed on admin, feed or REST requests. Off by default on every install. A switch that is on with no slug, no RequestDesk URL, or one that is not https, prints nothing and shows an error on the tab. Stored in its own option, `requestdesk_site_chat_settings`. The tab links to the chat's preview page on RequestDesk. What the chat answers from and which websites it answers on are set on the agent in RequestDesk.
+- **The tab says whether RequestDesk will show the chat on this site.** When switched on, the tab makes the widget's own first request server-side, with this site's address, and shows the result: served, or the reason not (this address is missing from the agent's allowed websites, no chat with that slug, RequestDesk unreachable). Before this, a site missing from the allowed list had the tag on every page and no chat, with nothing saying why.
 
 ## [2.65.5] - 2026-11-06
 
