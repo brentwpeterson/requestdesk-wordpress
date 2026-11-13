@@ -1,0 +1,110 @@
+<?php
+/**
+ * RequestDesk Website Chat
+ *
+ * Puts an agent's RequestDesk website chat on this site, or takes it off. The
+ * chat itself (what it answers from, model, limits, look, allowed websites)
+ * lives on the agent in RequestDesk. WordPress only decides whether the page
+ * loads it, with one script tag in the footer:
+ *
+ *   <script src="<RequestDesk URL>/api/public/site-chat/widget.js"
+ *           data-chat="<slug>" async></script>
+ *
+ * Off by default. Switched on in Settings -> RequestDesk -> Website Chat.
+ *
+ * The RequestDesk URL has no default: this plugin ships to sites that are not
+ * ours, so the admin enters the address of the RequestDesk app they use.
+ *
+ * A switch that is on but cannot work (no slug, no RequestDesk URL, or one
+ * that is not https) prints nothing and says why on the settings tab, so the site never
+ * loads a broken widget and the admin is not left guessing.
+ *
+ * The chat answers only on websites listed in the agent's allowed websites
+ * (exact origin match). A site not on that list loads the widget and every
+ * message is refused with 403.
+ *
+ * @package RequestDesk
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+class RequestDesk_Site_Chat {
+
+    const OPTION_SETTINGS = 'requestdesk_site_chat_settings';
+    const WIDGET_PATH     = '/api/public/site-chat/widget.js';
+    const PREVIEW_PATH    = '/api/public/site-chat/%s/preview';
+
+    public function __construct() {
+        add_action('wp_footer', array($this, 'print_script_tag'), 20);
+    }
+
+    /**
+     * Saved settings merged over defaults. Kept in its own option, because the
+     * General tab's save rewrites requestdesk_settings and drops keys it does
+     * not list.
+     */
+    public static function get_settings() {
+        $defaults = array(
+            'enabled'  => false,
+            'slug'     => '',
+            'base_url' => '',
+        );
+        return wp_parse_args(get_option(self::OPTION_SETTINGS, array()), $defaults);
+    }
+
+    /**
+     * Why the switched-on chat cannot load, or '' when it can (or is off).
+     */
+    public static function config_error($settings = null) {
+        if ($settings === null) {
+            $settings = self::get_settings();
+        }
+        if (empty($settings['enabled'])) {
+            return '';
+        }
+        if ($settings['slug'] === '') {
+            return 'No chat slug is set.';
+        }
+        if ($settings['base_url'] === '') {
+            return 'No RequestDesk URL is set.';
+        }
+        if (wp_parse_url($settings['base_url'], PHP_URL_SCHEME) !== 'https') {
+            return 'The RequestDesk URL must use https.';
+        }
+        return '';
+    }
+
+    /**
+     * The widget URL for these settings.
+     */
+    public static function widget_url($settings) {
+        return untrailingslashit($settings['base_url']) . self::WIDGET_PATH;
+    }
+
+    /**
+     * The RequestDesk preview page for a slug.
+     */
+    public static function preview_url($settings) {
+        return untrailingslashit($settings['base_url']) . sprintf(self::PREVIEW_PATH, rawurlencode($settings['slug']));
+    }
+
+    /**
+     * Footer script tag on front-end pages, only when switched on and valid.
+     */
+    public function print_script_tag() {
+        if (is_admin() || is_feed() || (defined('REST_REQUEST') && REST_REQUEST)) {
+            return;
+        }
+        $settings = self::get_settings();
+        if (empty($settings['enabled']) || self::config_error($settings) !== '') {
+            return;
+        }
+        printf(
+            "<script src=\"%s\" data-chat=\"%s\" async></script>\n",
+            esc_url(self::widget_url($settings)),
+            esc_attr($settings['slug'])
+        );
+    }
+}

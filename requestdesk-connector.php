@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.65.5
+ * Version: 2.66.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.65.5');
+define('REQUESTDESK_VERSION', '2.66.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -120,6 +120,10 @@ $plugin_files = array(
     // and registers only the counter route while no test is running.
     'includes/class-requestdesk-ab-test.php',
     'admin/ab-test-settings-page.php',
+    // Shared, off until switched on in Settings -> Website Chat. Prints one
+    // footer script tag for the agent's RequestDesk website chat, nothing else.
+    'includes/class-requestdesk-site-chat.php',
+    'admin/site-chat-settings-page.php',
     'includes/class-requestdesk-comparison-table.php',
     'includes/class-requestdesk-indexnow.php',
     'includes/class-requestdesk-asset-hub.php',
@@ -347,7 +351,8 @@ function requestdesk_init() {
         'RequestDesk_Video',
         'RequestDesk_Event',
         'RequestDesk_Headless_Sites',
-        'RequestDesk_Comment_Link_Stripper'
+        'RequestDesk_Comment_Link_Stripper',
+        'RequestDesk_Site_Chat'
     );
 
     foreach ($aeo_classes as $class_name) {
@@ -418,6 +423,7 @@ function requestdesk_combined_settings_page() {
             <a href="#homepage-hero" class="nav-tab" onclick="openTab(event, 'homepage-hero')">Homepage Hero</a>
             <a href="#stats-bar" class="nav-tab" onclick="openTab(event, 'stats-bar')">Stats Bar</a>
             <a href="#ab-test" class="nav-tab" onclick="openTab(event, 'ab-test')">A/B Test</a>
+            <a href="#site-chat" class="nav-tab" onclick="openTab(event, 'site-chat')">Website Chat</a>
         </nav>
 
         <!-- General RequestDesk Settings Tab -->
@@ -484,6 +490,15 @@ function requestdesk_combined_settings_page() {
             <?php
             if (function_exists('requestdesk_ab_test_settings_page')) {
                 requestdesk_ab_test_settings_page();
+            }
+            ?>
+        </div>
+
+        <!-- Website Chat Settings Tab -->
+        <div id="site-chat" class="tab-content" style="display: none;">
+            <?php
+            if (function_exists('requestdesk_site_chat_settings_page')) {
+                requestdesk_site_chat_settings_page();
             }
             ?>
         </div>

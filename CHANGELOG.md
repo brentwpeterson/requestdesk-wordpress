@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.66.0] - 2026-11-12
+
+### Added
+- **Website Chat tab.** Settings -> RequestDesk -> Website Chat turns an agent's RequestDesk website chat on or off for this site. It holds three fields: the switch, the chat slug, and the RequestDesk URL (no default; the address of the RequestDesk app the agent lives in). When on, every front-end page gets one footer tag, `<script src=".../api/public/site-chat/widget.js" data-chat="<slug>" async>`. Never printed on admin, feed or REST requests. Off by default on every install. A switch that is on with no slug, no RequestDesk URL, or one that is not https, prints nothing and shows an error on the tab. Stored in its own option, `requestdesk_site_chat_settings`. The tab links to the chat's preview page on RequestDesk. What the chat answers from and which websites it answers on are set on the agent in RequestDesk.
+
 ## [2.65.5] - 2026-11-06
 
 ### Fixed
