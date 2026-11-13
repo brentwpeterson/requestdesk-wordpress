@@ -53,8 +53,8 @@ function requestdesk_site_chat_settings_page() {
                 <tr>
                     <th scope="row"><label for="site_chat_slug">Chat slug</label></th>
                     <td>
-                        <input type="text" id="site_chat_slug" name="site_chat_slug" class="regular-text" value="<?php echo esc_attr($settings['slug']); ?>" placeholder="content-cucumber">
-                        <p class="description">The slug on the agent's Website Chat settings in RequestDesk.</p>
+                        <input type="text" id="site_chat_slug" name="site_chat_slug" class="regular-text" value="<?php echo esc_attr($settings['slug']); ?>" placeholder="e.g. my-site-chat">
+                        <p class="description">The slug on the agent's Website Chat settings in RequestDesk. Type it in; the grey example is not saved.</p>
                     </td>
                 </tr>
                 <tr>
