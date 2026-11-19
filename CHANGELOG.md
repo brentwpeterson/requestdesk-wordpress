@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.68.0] - 2026-11-19
+
+### Added
+- **Vendor offer form route.** `POST /wp-json/requestdesk/v1/headless/offers/submit` (API key) takes a vendor's own description of an offer from the site's form and creates it at stage inbox as a draft. It accepts only the listing fields, the contact and an optional referral URL, code, limit and end date. It can never set the stage, the placement or an agreed share: what the vendor proposes to share goes into the internal notes, labeled, so the admin list still shows "none agreed". Required fields and lengths are checked and every error names its field. Five submissions per visitor address per hour, and the same vendor and contact twice in a day creates nothing new. Each new offer emails the site's admin address (filter `requestdesk_offer_submit_notify`) with the vendor as Reply-To.
+
 ## [2.67.0] - 2026-11-19
 
 ### Added

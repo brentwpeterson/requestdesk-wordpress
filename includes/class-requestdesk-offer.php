@@ -768,6 +768,14 @@ class RequestDesk_Offer {
             'callback'            => array($this, 'rest_public_one'),
             'permission_callback' => $auth,
         ));
+        // The vendor form on the site. The key stays on the Astro server, and
+        // this route takes only what a vendor may say about their own offer: it
+        // can never set the stage, the placement or an agreed share.
+        register_rest_route('requestdesk/v1', '/headless/offers/submit', array(
+            'methods'             => 'POST',
+            'callback'            => array($this, 'rest_submit'),
+            'permission_callback' => $auth,
+        ));
         register_rest_route('requestdesk/v1', '/offers', array(
             array(
                 'methods'             => 'GET',
@@ -985,6 +993,141 @@ class RequestDesk_Offer {
             'action'  => $post ? 'updated' : 'created',
             'offer'   => self::describe(get_post($id)),
         ), $post ? 200 : 201);
+    }
+
+    /**
+     * Fields a vendor fills in on the site's form, mapped to offer fields.
+     * Anything else they say goes into the internal notes, labeled, so nothing
+     * a vendor writes lands in a field that reads as agreed.
+     */
+    public static function submit_fields() {
+        return array(
+            'vendor_name'   => array('required' => true,  'max' => 120),
+            'vendor_url'    => array('required' => true,  'max' => 500),
+            'contact_name'  => array('required' => true,  'max' => 120),
+            'contact_email' => array('required' => true,  'max' => 200),
+            'headline'      => array('required' => true,  'max' => 160),
+            'deal'          => array('required' => true,  'max' => 2000),
+            'pitch'         => array('required' => true,  'max' => 2000),
+            'audience'      => array('required' => false, 'max' => 300),
+            'price_after'   => array('required' => false, 'max' => 120),
+            'referral_url'  => array('required' => false, 'max' => 1000),
+            'code'          => array('required' => false, 'max' => 80),
+            'cap'           => array('required' => false, 'max' => 120),
+            'expires'       => array('required' => false, 'max' => 10),
+        );
+    }
+
+    /** How many submissions one address may send in an hour. */
+    const SUBMIT_LIMIT_PER_HOUR = 5;
+
+    /**
+     * Create an offer at stage Inbox from the vendor form. Forced: stage inbox,
+     * post status draft, no share recorded. The vendor's proposed share and
+     * message go into the notes for Brent to read, never into share_terms.
+     */
+    public function rest_submit($request) {
+        $body   = (array) $request->get_json_params();
+        $fields = self::fields();
+        $values = array();
+        $errors = array();
+
+        foreach (self::submit_fields() as $key => $rule) {
+            $raw = isset($body[$key]) ? trim((string) $body[$key]) : '';
+            if ($raw === '') {
+                if ($rule['required']) {
+                    $errors[$key] = 'Required.';
+                }
+                continue;
+            }
+            if (mb_strlen($raw) > $rule['max']) {
+                $errors[$key] = 'Too long (' . $rule['max'] . ' characters at most).';
+                continue;
+            }
+            $clean = self::sanitize_value($fields[$key], $raw);
+            if ($clean === '' || $clean === null) {
+                $errors[$key] = 'Not valid.';
+                continue;
+            }
+            $values[$key] = $clean;
+        }
+        if (isset($values['contact_email']) && !is_email($values['contact_email'])) {
+            $errors['contact_email'] = 'Not a valid email address.';
+        }
+        $share   = isset($body['share_offer']) ? trim(sanitize_textarea_field((string) $body['share_offer'])) : '';
+        $message = isset($body['message']) ? trim(sanitize_textarea_field((string) $body['message'])) : '';
+        if (mb_strlen($share) > 1000) {
+            $errors['share_offer'] = 'Too long (1000 characters at most).';
+        }
+        if (mb_strlen($message) > 2000) {
+            $errors['message'] = 'Too long (2000 characters at most).';
+        }
+        if ($errors) {
+            return new WP_Error('invalid_submission', 'Some fields need fixing.', array('status' => 400, 'fields' => $errors));
+        }
+
+        // Rate limit per visitor address, which the site passes along because
+        // every request here comes from the site's own server.
+        $ip  = sanitize_text_field((string) ($body['client_ip'] ?? ''));
+        $key = 'rd_offer_submit_' . md5($ip !== '' ? $ip : 'unknown');
+        $count = (int) get_transient($key);
+        if ($count >= self::SUBMIT_LIMIT_PER_HOUR) {
+            return new WP_Error('too_many_submissions', 'Too many submissions from this address. Try again in an hour.', array('status' => 429));
+        }
+        set_transient($key, $count + 1, HOUR_IN_SECONDS);
+
+        // The same vendor and contact sending twice in a day updates nothing
+        // and creates nothing: the first one is already waiting in the inbox.
+        $dupes = get_posts(array(
+            'post_type'      => self::POST_TYPE,
+            'post_status'    => array('draft', 'pending', 'publish', 'private'),
+            'posts_per_page' => 1,
+            'date_query'     => array(array('after' => '1 day ago')),
+            'meta_query'     => array(
+                'relation' => 'AND',
+                array('key' => self::META_PREFIX . 'contact_email', 'value' => $values['contact_email']),
+                array('key' => self::META_PREFIX . 'vendor_name',   'value' => $values['vendor_name']),
+            ),
+            'fields'         => 'ids',
+        ));
+        if ($dupes) {
+            return new WP_REST_Response(array('success' => true, 'duplicate' => true), 200);
+        }
+
+        $notes = array('Submitted through the offer form on ' . current_time('Y-m-d H:i') . ($ip !== '' ? ' from ' . $ip : '') . '.');
+        $notes[] = 'Vendor proposed share for Talk Commerce: ' . ($share !== '' ? $share : '(none stated)');
+        if ($message !== '') {
+            $notes[] = "Vendor message:\n" . $message;
+        }
+        $values['notes'] = implode("\n\n", $notes);
+        $values['stage'] = 'inbox';
+
+        $id = wp_insert_post(array(
+            'post_type'             => self::POST_TYPE,
+            'post_title'            => $values['vendor_name'] . ': ' . $values['headline'],
+            'post_status'           => 'draft',
+            'rd_offer_stage'        => 'inbox',
+            'rd_offer_referral_url' => $values['referral_url'] ?? '',
+        ), true);
+        if (is_wp_error($id)) {
+            return new WP_Error('offer_save_failed', $id->get_error_message(), array('status' => 500));
+        }
+        self::save_values($id, $values);
+
+        $to = apply_filters('requestdesk_offer_submit_notify', get_option('admin_email'));
+        if ($to) {
+            wp_mail(
+                $to,
+                'New offer submitted: ' . $values['vendor_name'],
+                $values['vendor_name'] . ' submitted an offer: ' . $values['headline'] . "\n\n"
+                    . 'From ' . $values['contact_name'] . ' <' . $values['contact_email'] . ">\n\n"
+                    . 'Proposed share: ' . ($share !== '' ? $share : '(none stated)') . "\n\n"
+                    . 'Review it: ' . admin_url('post.php?post=' . $id . '&action=edit'),
+                array('Reply-To: ' . $values['contact_name'] . ' <' . $values['contact_email'] . '>')
+            );
+        }
+
+        return new WP_REST_Response(array('success' => true, 'duplicate' => false), 201);
     }
 
     /**
