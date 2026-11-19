@@ -757,16 +757,21 @@ class RequestDesk_Offer {
      */
     public function register_rest_routes() {
         $auth = array($this, 'verify_api_key');
+        // The headless site holds the headless key, not the main one (Talk
+        // Commerce sets both), so the routes the site calls take either, the
+        // same rule as RequestDesk_Headless_API::verify_api_key. The admin
+        // list and the upsert stay on the main key.
+        $site = array($this, 'verify_site_or_main_key');
         register_rest_route('requestdesk/v1', '/headless/offers', array(
             'methods'             => 'GET',
             'callback'            => array($this, 'rest_public_list'),
-            'permission_callback' => $auth,
+            'permission_callback' => $site,
             'args'                => array('category' => array('required' => false, 'type' => 'string')),
         ));
         register_rest_route('requestdesk/v1', '/headless/offers/(?P<slug>[a-zA-Z0-9-]+)', array(
             'methods'             => 'GET',
             'callback'            => array($this, 'rest_public_one'),
-            'permission_callback' => $auth,
+            'permission_callback' => $site,
         ));
         // The vendor form on the site. The key stays on the Astro server, and
         // this route takes only what a vendor may say about their own offer: it
@@ -774,7 +779,7 @@ class RequestDesk_Offer {
         register_rest_route('requestdesk/v1', '/headless/offers/submit', array(
             'methods'             => 'POST',
             'callback'            => array($this, 'rest_submit'),
-            'permission_callback' => $auth,
+            'permission_callback' => $site,
         ));
         register_rest_route('requestdesk/v1', '/offers', array(
             array(
@@ -801,6 +806,28 @@ class RequestDesk_Offer {
                 ),
             ),
         ));
+    }
+
+    /** The headless key or the main key, for the routes the site itself calls. */
+    public function verify_site_or_main_key($request) {
+        $settings = get_option('requestdesk_settings', array());
+        $headless = get_option('requestdesk_headless_settings', array());
+        $accepted = array_values(array_filter(array(
+            (string) ($headless['api_key'] ?? ''),
+            (string) ($settings['api_key'] ?? ''),
+        ), 'strlen'));
+        if (!$accepted) {
+            return new WP_Error('no_api_key', 'Headless API key not configured', array('status' => 401));
+        }
+        $provided = (string) $request->get_header('X-RequestDesk-API-Key');
+        if ($provided !== '') {
+            foreach ($accepted as $key) {
+                if (hash_equals($key, $provided)) {
+                    return true;
+                }
+            }
+        }
+        return new WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
     }
 
     public function verify_api_key($request) {

@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.68.1] - 2026-11-19
+
+### Fixed
+- **Offers on headless sites.** The three routes the site itself calls (`headless/offers`, `headless/offers/<slug>`, `headless/offers/submit`) now accept the headless key as well as the main key, the same rule as the other headless routes. Talk Commerce's Astro site holds the headless key, so with 2.68.0 every offer page answered "Invalid API key" and the site showed its 404 page. The admin list and the upsert stay on the main key.
+
 ## [2.68.0] - 2026-11-19
 
 ### Added
