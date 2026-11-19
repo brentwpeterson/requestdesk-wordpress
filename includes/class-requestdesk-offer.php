@@ -1046,7 +1046,8 @@ class RequestDesk_Offer {
             }
             $clean = self::sanitize_value($fields[$key], $raw);
             if ($clean === '' || $clean === null) {
-                $errors[$key] = 'Not valid.';
+                $errors[$key] = $key === 'contact_email' ? 'Not a valid email address.'
+                    : ($key === 'expires' ? 'Use a date like 2026-12-31.' : 'Not valid.');
                 continue;
             }
             $values[$key] = $clean;
