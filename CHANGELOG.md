@@ -5,6 +5,14 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.67.0] - 2026-11-19
+
+### Added
+- **Offers.** A new admin-only post type, `rd_offer`, for vendor deals offered to a site's audience (a listener discount, free months, a reserved seat). Each offer has two curation settings. **Stage** is inbox, reviewing, approved or expired, and only approved is live: the stage sets Published or Draft on every save, so the Publish button alone cannot take an offer live, and an approved offer with no referral URL stays a draft. **Placement** is featured (top of the page), standard (in the grid) or unlisted (reachable only by its own page and link). The business fields (revenue share %, share terms, vendor contact, the Gmail thread the pitch came from, HubSpot company id, notes) never leave wp-admin and the key-protected admin route. Offers are grouped by an `offer_category` taxonomy. The admin list shows stage, placement, clicks, end date and share, filters by stage, and says in red why an approved offer is not live.
+- **Tracked offer links.** `/go/<slug>` for a live offer counts the click (lifetime and per day, skipping crawlers, link previews and HEAD requests) and answers a 302 with no-store to the referral URL, adding `utm_source=<site>`, `utm_medium=offer`, `utm_campaign=offers` and `utm_content=<slug>` unless the referral URL already carries them. Any other `/go` request falls through untouched to QR Redirect or WordPress. The public routes never return the referral URL, so the counted link is the only way to it.
+- **Offer routes.** `GET /headless/offers` (live, listed offers, featured first, plus the category list; `?category=` filters) and `GET /headless/offers/<slug>` (one live offer, unlisted included) for the headless front end. `GET /offers` and `POST /offers` (create, or update by slug) for RequestDesk and the inbox sweep, with every stage and field. Unknown fields are refused. All need the RequestDesk API key.
+- **Expiry.** An offer leaves the site the day after its end date, checked on every read. A daily cron also moves those offers to stage expired.
+
 ## [2.66.0] - 2026-11-12
 
 ### Added

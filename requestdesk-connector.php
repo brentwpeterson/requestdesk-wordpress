@@ -3,7 +3,7 @@
  * Plugin Name: RequestDesk Connector
  * Plugin URI: https://requestdesk.ai
  * Description: Connects RequestDesk.ai to WordPress for publishing content with secure API key authentication and AEO/AIO/GEO optimization
- * Version: 2.66.0
+ * Version: 2.67.0
  * Author: RequestDesk Team
  * License: GPL v2 or later
  * Text Domain: requestdesk-connector
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('REQUESTDESK_VERSION', '2.66.0');
+define('REQUESTDESK_VERSION', '2.67.0');
 define('REQUESTDESK_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('REQUESTDESK_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -139,6 +139,12 @@ $plugin_files = array(
     // RequestDesk_Event::register_post_type); elsewhere the post type is
     // admin-only, so a client site gains no URL by activating the plugin.
     'includes/class-requestdesk-event.php',
+    // Shared, admin-only like video (public => false, no URL, no archive).
+    // Must load before the site-module files: it answers /go/<offer-slug> at
+    // init priority 0, and QR Redirect also hooks /go at 0, so this one has
+    // to be added first for an offer's slug to win. It answers nothing but a
+    // live offer's own slug, so an install with no offers gains no /go route.
+    'includes/class-requestdesk-offer.php',
     // Shared. Extra headless frontends served from this install, each with its
     // own types (public => false, like video). An install with no sites
     // configured registers nothing but the settings screen.
