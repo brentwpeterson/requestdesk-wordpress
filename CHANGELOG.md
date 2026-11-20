@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.69.1] - 2026-11-20
+
+### Fixed
+- **Offers hub showed an empty category pill.** `GET headless/offers` listed every `offer_category` term, including ones used only by draft or unlisted offers, so "Shopify themes" (held by ConvertDesign at stage reviewing) showed as a pill with no offers behind it. The list is now built from the live, listed offers, sorted by name, and stays the full list when a `?category=` filter is applied.
+
 ## [2.69.0] - 2026-11-20
 
 ### Added

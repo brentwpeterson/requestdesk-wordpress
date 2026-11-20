@@ -854,11 +854,18 @@ class RequestDesk_Offer {
         $category = sanitize_title((string) $request->get_param('category'));
 
         $offers = array();
+        // Only categories that hold a live, listed offer become filter pills. A
+        // category used only by a draft or unlisted offer showed as an empty pill
+        // (Brent, 2026-11-20: "why do we have a shopify themes pill and nothing there?").
+        $categories = array();
         foreach ($posts as $post) {
             if (self::problems($post) || self::get($post->ID, 'placement') === 'unlisted') {
                 continue;
             }
             $offer = self::format_for_api($post, false);
+            foreach ($offer['categories'] as $c) {
+                $categories[$c['slug']] = array('slug' => $c['slug'], 'name' => $c['name']);
+            }
             if ($category !== '' && !in_array($category, wp_list_pluck($offer['categories'], 'slug'), true)) {
                 continue;
             }
@@ -869,18 +876,12 @@ class RequestDesk_Offer {
         $rest     = array_values(array_filter($offers, function ($o) { return !$o['featured']; }));
         $offers   = array_merge($featured, $rest);
 
-        $terms = get_terms(array('taxonomy' => self::TAXONOMY, 'hide_empty' => false));
-        $categories = array();
-        if (!is_wp_error($terms)) {
-            foreach ($terms as $t) {
-                $categories[] = array('slug' => $t->slug, 'name' => $t->name);
-            }
-        }
+        uasort($categories, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
 
         return new WP_REST_Response(array(
             'offers'     => $offers,
             'count'      => count($offers),
-            'categories' => $categories,
+            'categories' => array_values($categories),
         ), 200);
     }
 
