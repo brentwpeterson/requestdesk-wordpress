@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **`RequestDesk_AEO_Core::set_qa_pairs()`.** The body of the Q&A REST endpoint is now a public method, so module importers write manual Q&A through the same path. The endpoint's behavior and response are unchanged.
 
+## [2.69.1] - 2026-11-20
+
+### Fixed
+- **Offers hub showed an empty category pill.** `GET headless/offers` listed every `offer_category` term, including ones used only by draft or unlisted offers, so "Shopify themes" (held by ConvertDesign at stage reviewing) showed as a pill with no offers behind it. The list is now built from the live, listed offers, sorted by name, and stays the full list when a `?category=` filter is applied.
+
 ## [2.69.0] - 2026-11-20
 
 ### Added
