@@ -792,12 +792,30 @@ class RequestDesk_AEO_Core {
      * and schema needs >= 2 pairs (see RequestDesk_Schema_Generator).
      */
     public function rest_set_qa_pairs($request) {
+        $result = $this->set_qa_pairs(
+            (int) $request->get_param('post_id'),
+            $request->get_param('qa_pairs'),
+            $request->get_param('mode') ?: 'replace'
+        );
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        return new WP_REST_Response($result, 200);
+    }
+
+    /**
+     * Set manual Q&A pairs on a post. The one write path for hand-authored
+     * Q&A: the REST endpoint above and module importers (research) call it.
+     *
+     * @param int    $post_id
+     * @param array  $incoming [ {question, answer, confidence?} ]
+     * @param string $mode     replace|append
+     * @return array|WP_Error  The response body the REST endpoint returns.
+     */
+    public function set_qa_pairs($post_id, $incoming, $mode = 'replace') {
         $this->init_components();
 
-        $post_id = (int) $request->get_param('post_id');
-        $incoming = $request->get_param('qa_pairs');
-        $mode = $request->get_param('mode') ?: 'replace';
-
+        $post_id = (int) $post_id;
         $post = get_post($post_id);
         if (!$post || !in_array($post->post_type, requestdesk_content_post_types(), true)) {
             return new WP_Error('invalid_post', 'Post not found', array('status' => 404));
@@ -850,7 +868,7 @@ class RequestDesk_AEO_Core {
         // Parity with the admin meta box quick-access meta
         update_post_meta($post_id, '_requestdesk_manual_qa_pairs', $pairs);
 
-        return new WP_REST_Response(array(
+        return array(
             'success' => true,
             'post_id' => $post_id,
             'mode' => $mode,
@@ -858,7 +876,7 @@ class RequestDesk_AEO_Core {
             'schema_emitted' => !empty($faq_schema),
             'schema_question_count' => !empty($faq_schema['mainEntity']) ? count($faq_schema['mainEntity']) : 0,
             'ai_questions' => $pairs,
-        ), 200);
+        );
     }
 
     /**

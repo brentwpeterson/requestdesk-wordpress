@@ -5,6 +5,17 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.70.0] - 2026-11-20
+
+### Added
+- **Research library (`cc_research`), Content Cucumber only.** One post per study, trends report, platform comparison, buyer's guide, benchmark or audit/checklist, with `research_type` and `research_topic` taxonomies. There are no term archives: filters are `?research_type=` and `?research_topic=` on the one archive, and filtered views are noindex,follow. A field registry drives the meta boxes, the save handler, the importer and REST: edition and snapshot date (study numbers are a dated snapshot, never fetched live), a frozen study summary, methodology, a 3-sentence summary, key findings (`value | label | note`), access mode (open PDF, inline HubSpot form, or gate page), PDF, partner, authors, related case studies and links, band color, listed, pinned and priority. Pre-ship checks show on the edit screen: a finding that is not a percentage, a study without a snapshot date, or an access mode with nothing to serve it.
+- **Routing switch** (Research > Settings). Staged, the default, serves items at `/research-library/<slug>/` with noindex, out of the sitemap and with no archive, so the existing `/research/` page keeps serving. Live moves the archive to `/research/` and items to `/research/<slug>/`. Rewrite rules flush on the next request after a switch and once on first load.
+- **Schema.** Each item prints a `Report` node (genre, keywords, `temporalCoverage`, sponsor, the PDF as a MediaObject, and `isBasedOn` Dataset only when a public data file is set). With Yoast it joins the graph as `#requestdesk-research`. The archive prints `CollectionPage` with an `ItemList`.
+- **Import.** A JSON inbox at `uploads/requestdesk/research/` (one object per file, upsert by slug, `assets/` for covers, PDFs and logos, sideloads deduped) and `POST /wp-json/requestdesk/v1/research` (main API key, `dry_run`) with the same JSON. `GET /wp-json/requestdesk/v1/research` lists every item with its routing, status and open pre-ship problems. A `faq` array goes through the AEO manual Q&A write path.
+
+### Changed
+- **`RequestDesk_AEO_Core::set_qa_pairs()`.** The body of the Q&A REST endpoint is now a public method, so module importers write manual Q&A through the same path. The endpoint's behavior and response are unchanged.
+
 ## [2.69.0] - 2026-11-20
 
 ### Added

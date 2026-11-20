@@ -171,6 +171,7 @@ class RequestDesk_Yoast_Schema {
 
         $pieces[] = new RequestDesk_Yoast_Schema_Piece('requestdesk_faq', array(__CLASS__, 'build_faq_node'));
         $pieces[] = new RequestDesk_Yoast_Schema_Piece('requestdesk_case_study', array(__CLASS__, 'build_case_study_node'));
+        $pieces[] = new RequestDesk_Yoast_Schema_Piece('requestdesk_research', array(__CLASS__, 'build_research_node'));
 
         return $pieces;
     }
@@ -250,6 +251,36 @@ class RequestDesk_Yoast_Schema {
 
         unset($schema['@context']);
         $schema['@id'] = $page_id . '#requestdesk-case-study';
+        $schema['isPartOf'] = array('@id' => $page_id);
+        $schema['mainEntityOfPage'] = array('@id' => $page_id);
+
+        return $schema;
+    }
+
+    /**
+     * Build the research Report node for Yoast's graph, or null.
+     *
+     * Report is its own node (an Article subtype) next to Yoast's WebPage,
+     * so it is added even when Yoast prints an Article for the post type.
+     *
+     * @param object $context Yoast Meta_Tags_Context.
+     * @return array|null
+     */
+    public static function build_research_node($context) {
+        if (!class_exists('RequestDesk_Research') || !is_singular(RequestDesk_Research::CPT)) {
+            return null;
+        }
+
+        $post_id = get_queried_object_id();
+        $schema = RequestDesk_Research::build_schema($post_id);
+        if (empty($schema)) {
+            return null;
+        }
+
+        $page_id = self::main_schema_id($context, $post_id);
+
+        unset($schema['@context']);
+        $schema['@id'] = $page_id . '#requestdesk-research';
         $schema['isPartOf'] = array('@id' => $page_id);
         $schema['mainEntityOfPage'] = array('@id' => $page_id);
 
