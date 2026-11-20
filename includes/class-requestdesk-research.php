@@ -416,7 +416,11 @@ class RequestDesk_Research {
             $out[] = 'Studies need a snapshot date ("Data as of").';
         }
         $access = get_post_meta($post_id, self::META_PREFIX . 'access', true);
-        if ($access === 'open' && !self::pdf_url($post_id)) $out[] = 'Access is "open" but no PDF resolves.';
+        // "open" with no PDF is fine when the item is read online; flag it only
+        // when there is neither a PDF nor any body text to read.
+        if ($access === 'open' && !self::pdf_url($post_id) && trim(wp_strip_all_tags((string) get_post_field('post_content', $post_id))) === '') {
+            $out[] = 'Access is "open" but there is no PDF and no text to read online.';
+        }
         if ($access === 'inline_form' && !get_post_meta($post_id, self::META_PREFIX . 'hubspot_form_id', true)) $out[] = 'Access is "inline_form" but no HubSpot form ID is set.';
         if ($access === 'gate_page' && !get_post_meta($post_id, self::META_PREFIX . 'gate_url', true)) $out[] = 'Access is "gate_page" but no gate page URL is set.';
         return $out;
@@ -840,7 +844,14 @@ class RequestDesk_Research {
             return array('result' => $existing ? 'updated' : 'created', 'post_id' => $existing ? $existing->ID : 0, 'dry_run' => true);
         }
 
-        $status = in_array(($e['status'] ?? 'draft'), array('draft', 'publish', 'pending', 'private'), true) ? $e['status'] : 'draft';
+        // New items default to draft. An update keeps the current status unless
+        // the entry names one, so a partial update never unpublishes a live item.
+        $allowed = array('draft', 'publish', 'pending', 'private');
+        if (isset($e['status']) && in_array($e['status'], $allowed, true)) {
+            $status = $e['status'];
+        } else {
+            $status = $existing ? $existing->post_status : 'draft';
+        }
         $postarr = array(
             'post_type'    => self::CPT,
             'post_status'  => $status,
