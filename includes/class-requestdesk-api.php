@@ -325,6 +325,32 @@ class RequestDesk_API {
             )
         ));
 
+        // Create or update one glossary term (cc_glossary) by slug. Content
+        // Cucumber only: answers 501 where the glossary module is not loaded.
+        register_rest_route($this->namespace, '/glossary', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'upsert_glossary'),
+            'permission_callback' => array($this, 'verify_api_key'),
+            'args' => array(
+                'slug' => array('required' => true, 'type' => 'string',
+                    'description' => 'Term slug. An existing term with this slug is updated in place.'),
+                'title' => array('required' => true, 'type' => 'string'),
+                'content' => array('required' => false, 'type' => 'string',
+                    'description' => 'The definition (HTML). Omit to leave an existing definition unchanged.'),
+                'excerpt' => array('required' => false, 'type' => 'string',
+                    'description' => 'One-line definition shown on the glossary page.'),
+                'topic' => array('required' => false, 'type' => 'string',
+                    'description' => 'Topic name or slug. Created when missing. Replaces the term\'s topic.'),
+                'status' => array('required' => false, 'type' => 'string',
+                    'description' => 'Omit to keep an existing term\'s status; a new term is created as draft.',
+                    'enum' => array('draft', 'publish', 'pending', 'private')),
+                'meta' => array('required' => false, 'type' => 'object',
+                    'description' => 'Fields keyed as in RequestDesk_Glossary::fields(). Only keys sent are written.'),
+                'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false,
+                    'description' => 'Report what would change and save nothing.')
+            )
+        ));
+
         // Pull categories endpoint
         register_rest_route($this->namespace, '/pull-categories', array(
             'methods' => 'GET',
@@ -2151,6 +2177,129 @@ class RequestDesk_API {
             // null when the event still lacks a start date or city; the site
             // leaves such an event out, so say so instead of reporting success alone.
             'event'     => RequestDesk_Event::format_for_api($post, true),
+        ));
+    }
+
+    /**
+     * Create or update one glossary term by slug, the same way upsert_event
+     * does for events: only the fields sent are written, a dry run reports the
+     * changes, and the result is read back rather than trusted.
+     */
+    public function upsert_glossary($request) {
+        if (!class_exists('RequestDesk_Glossary') || !post_type_exists(RequestDesk_Glossary::POST_TYPE)) {
+            return new WP_Error('glossary_unavailable', 'Glossary module is not enabled on this site.', array('status' => 501));
+        }
+
+        $slug  = sanitize_title((string) $request->get_param('slug'));
+        $title = sanitize_text_field((string) $request->get_param('title'));
+        if ($slug === '' || $title === '') {
+            return new WP_Error('invalid_term', 'slug and title are required.', array('status' => 400));
+        }
+        $meta = $request->get_param('meta');
+        if ($meta !== null && !is_array($meta)) {
+            return new WP_Error('invalid_meta', 'meta must be an object of glossary fields.', array('status' => 400));
+        }
+        $fields = RequestDesk_Glossary::fields();
+        $unknown = array_diff(array_keys((array) $meta), array_keys($fields));
+        if (!empty($unknown)) {
+            return new WP_Error('unknown_meta', 'Unknown glossary fields: ' . implode(', ', $unknown), array('status' => 400));
+        }
+
+        // Statuses named explicitly: with no logged-in user, 'any' drops a
+        // draft from a by-name lookup and an update becomes a duplicate.
+        $existing = get_posts(array(
+            'post_type'   => RequestDesk_Glossary::POST_TYPE,
+            'name'        => $slug,
+            'post_status' => array('publish', 'draft', 'pending', 'private', 'future'),
+            'numberposts' => 1,
+        ));
+        $final_status = $request->get_param('status') ?: ($existing ? $existing[0]->post_status : 'draft');
+
+        $changes = array();
+        $merged = array();
+        foreach ((array) $meta as $k => $v) {
+            $old = $existing ? RequestDesk_Glossary::get($existing[0]->ID, $k) : '';
+            $new = RequestDesk_Glossary::sanitize_value($fields[$k], $v);
+            if ($old !== $new) {
+                $changes[$k] = array('from' => $old, 'to' => $new);
+            }
+            $merged[$k] = $new;
+        }
+        if (!$existing) {
+            $changes['_created'] = array('from' => null, 'to' => $slug);
+        } else {
+            if ($existing[0]->post_title !== $title) {
+                $changes['_title'] = array('from' => $existing[0]->post_title, 'to' => $title);
+            }
+            if ($existing[0]->post_status !== $final_status) {
+                $changes['_status'] = array('from' => $existing[0]->post_status, 'to' => $final_status);
+            }
+        }
+        foreach (array('content' => 'post_content', 'excerpt' => 'post_excerpt') as $param => $col) {
+            if ($request->get_param($param) === null) {
+                continue;
+            }
+            $new = $param === 'content' ? trim(wp_kses_post((string) $request->get_param($param))) : trim(sanitize_textarea_field((string) $request->get_param($param)));
+            $old = $existing ? trim((string) $existing[0]->$col) : '';
+            if ($new !== $old) {
+                $changes['_' . $param] = array('from' => $old, 'to' => $new);
+            }
+        }
+        $topic = $request->get_param('topic');
+        if ($request->get_param('dry_run')) {
+            return rest_ensure_response(array('success' => true, 'dry_run' => true, 'action' => $existing ? 'update' : 'create', 'changes' => $changes, 'topic' => $topic));
+        }
+
+        $postarr = array(
+            'post_type'   => RequestDesk_Glossary::POST_TYPE,
+            'post_title'  => $title,
+            'post_name'   => $slug,
+            'post_status' => $final_status,
+        );
+        if ($request->get_param('content') !== null) {
+            $postarr['post_content'] = wp_kses_post((string) $request->get_param('content'));
+        }
+        if ($request->get_param('excerpt') !== null) {
+            $postarr['post_excerpt'] = sanitize_textarea_field((string) $request->get_param('excerpt'));
+        }
+        if ($existing) {
+            $postarr['ID'] = $existing[0]->ID;
+            $post_id = wp_update_post(wp_slash($postarr), true);
+        } else {
+            $post_id = wp_insert_post(wp_slash($postarr), true);
+        }
+        if (is_wp_error($post_id)) {
+            return new WP_Error('glossary_save_failed', $post_id->get_error_message(), array('status' => 500));
+        }
+        if (!empty($meta)) {
+            RequestDesk_Glossary::save_values($post_id, $meta);
+        }
+        if ($topic !== null && $topic !== '') {
+            try {
+                $this->set_terms_by_name($post_id, RequestDesk_Glossary::TAXONOMY, array($topic));
+            } catch (Exception $e) {
+                return new WP_Error('glossary_topic_failed', $e->getMessage(), array('status' => 500));
+            }
+        }
+
+        $post = get_post($post_id);
+        $mismatch = array();
+        foreach ($merged as $k => $v) {
+            if (RequestDesk_Glossary::get($post_id, $k) !== $v) {
+                $mismatch[] = $k;
+            }
+        }
+        if ($post->post_name !== $slug) {
+            $mismatch[] = '_slug (saved as ' . $post->post_name . ')';
+        }
+        return rest_ensure_response(array(
+            'success'  => empty($mismatch),
+            'dry_run'  => false,
+            'changes'  => $changes,
+            'mismatch' => $mismatch,
+            'action'   => $existing ? 'updated' : 'created',
+            'post_id'  => $post_id,
+            'term'     => RequestDesk_Glossary::format_for_api($post),
         ));
     }
 

@@ -5,6 +5,13 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.69.0] - 2026-11-20
+
+### Added
+- **Glossary terms (`cc_glossary`), Content Cucumber only.** One public post per term at `/aeo-glossary/<term>/`, under the glossary hub page, which keeps the slug `aeo-glossary`. There is no archive, so the hub is the only listing. The definition is the post body and the excerpt is the one-line definition the hub shows. A `cc_glossary_topic` taxonomy holds the four topics. A fields table drives the "Glossary Term Details" meta box, the save handler and the API: also called, why it matters, example, what to check, what this does not tell you, sources (`Title | URL | type`, one per line), evidence type, sources checked on, and related term slugs. Loaded through `$cc_only_files`, so client installs never get the URL. The rewrite rules flush once, on the first load of this version.
+- **`POST /wp-json/requestdesk/v1/glossary`** (API key) creates or updates one term by slug, the same pattern as `/events`. Only the fields sent are written, `dry_run` reports the changes, unknown fields are refused, a new term starts as draft, and the saved fields are read back and any mismatch is reported. It answers 501 where the glossary module is not loaded.
+- **`requestdesk_content_post_types` filter.** The shared content-type list now runs through a filter. The glossary adds itself, so AEO analysis, the AEO meta boxes, Q&A, FAQPage schema and the author and image-alt routes work on glossary terms.
+
 ## [2.68.1] - 2026-11-19
 
 ### Fixed

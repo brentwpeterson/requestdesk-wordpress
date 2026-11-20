@@ -1022,12 +1022,14 @@ class RequestDesk_Headless_Sites {
 
 /**
  * Every post type the Connector's content features work on: post, page, and
- * every type owned by a headless site. Use this instead of array('post','page').
+ * every type owned by a headless site, plus any type a module adds through the
+ * requestdesk_content_post_types filter. Use this instead of array('post','page').
  */
 function requestdesk_content_post_types() {
     $types = array('post', 'page');
     if (class_exists('RequestDesk_Headless_Sites')) {
         $types = array_merge($types, RequestDesk_Headless_Sites::all_type_slugs());
     }
-    return $types;
+    // Public types a module owns (cc_glossary) join through this filter.
+    return (array) apply_filters('requestdesk_content_post_types', $types);
 }
