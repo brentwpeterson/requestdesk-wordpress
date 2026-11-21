@@ -73,6 +73,9 @@ class RequestDesk_Research {
         add_filter('wp_robots', array($this, 'robots'));
         add_filter('wp_sitemaps_post_types', array($this, 'sitemap_post_types'));
         add_filter('wp_sitemaps_taxonomies', array($this, 'sitemap_taxonomies'));
+        // Yoast builds its own sitemaps and ignores the two core filters above.
+        add_filter('wpseo_sitemap_exclude_taxonomy', array($this, 'yoast_exclude_taxonomy'), 10, 2);
+        add_filter('wpseo_sitemap_exclude_post_type', array($this, 'yoast_exclude_post_type'), 10, 2);
         add_action('wp_head', array($this, 'output_schema'));
 
         // AEO Q&A, freshness, citations and the image-alt routes read this list
@@ -587,6 +590,14 @@ class RequestDesk_Research {
         return $taxonomies;
     }
 
+    public function yoast_exclude_taxonomy($exclude, $taxonomy) {
+        return ($taxonomy === self::TAX_TYPE || $taxonomy === self::TAX_TOPIC) ? true : $exclude;
+    }
+
+    public function yoast_exclude_post_type($exclude, $post_type) {
+        return ($post_type === self::CPT && !self::is_live()) ? true : $exclude;
+    }
+
     public function aeo_post_types($types) {
         $types[] = self::CPT;
         return array_values(array_unique($types));
@@ -703,6 +714,9 @@ class RequestDesk_Research {
                 <p><label><input type="radio" name="routing" value="staged"<?php checked(!$live); ?>> <strong>Staged</strong>: items at /research-library/&lt;slug&gt;/, noindex, out of the sitemap, no archive. The existing /research/ page keeps serving.</label></p>
                 <p><label><input type="radio" name="routing" value="live"<?php checked($live); ?>> <strong>Live</strong>: the library archive takes /research/ and items move to /research/&lt;slug&gt;/.</label></p>
                 <div class="notice notice-warning inline"><p><strong>Before going live:</strong> every research item that reuses a /research/&lt;slug&gt;/ URL must be published, and the old "research" page and its child pages must be set to Draft. Going live first sends those URLs to the old pages or 404s.</p></div>
+                <?php if (isset($_GET['blocked'])) : ?>
+                <div class="notice notice-error inline"><p><strong>Not switched.</strong> There are no published research items yet. Import and publish them first, then choose Live.</p></div>
+                <?php endif; ?>
                 <?php submit_button('Save routing'); ?>
             </form>
         </div>
@@ -713,6 +727,12 @@ class RequestDesk_Research {
         if (!current_user_can('manage_options')) wp_die('Insufficient permissions');
         check_admin_referer('requestdesk_research_routing', 'rs_routing_nonce');
         $routing = (isset($_POST['routing']) && $_POST['routing'] === 'live') ? 'live' : 'staged';
+        // Live with nothing published hands /research/ to an empty archive and
+        // 404s every item URL. Refuse it.
+        if ($routing === 'live' && (int) wp_count_posts(self::CPT)->publish === 0) {
+            wp_redirect(admin_url('edit.php?post_type=' . self::CPT . '&page=requestdesk-research-settings&blocked=1'));
+            exit;
+        }
         update_option(self::ROUTING_OPTION, $routing, true);
         // The CPT registered this request with the old slug. Flush on the next
         // request, after register_cpt() has run with the new routing.

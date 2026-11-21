@@ -5,6 +5,12 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.70.1] - 2026-11-21
+
+### Fixed
+- **Research filter views were in the Yoast sitemap.** `research_type` and `research_topic` term URLs are noindex filter views. They are now excluded from Yoast's sitemap index, and the research post type is excluded while routing is Staged.
+- **Routing could go Live with no published items.** That handed `/research/` to an empty archive and returned 404 on every item URL. The switch now refuses and says why.
+
 ## [2.70.0] - 2026-11-20
 
 ### Added
