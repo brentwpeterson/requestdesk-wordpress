@@ -800,7 +800,7 @@ class RequestDesk_Research {
             'aeo_summary' => '…', 'findings' => array(array('value' => '62%', 'label' => '…', 'note' => '')),
             'access' => 'inline_form', 'pdf' => 'report.pdf', 'pdf_pages' => 54, 'hubspot_form_id' => '…', 'gate_url' => '/b2b-commerce-trends-report/',
             'authors' => array(array('name' => 'Brent Peterson', 'title' => 'CEO, Content Cucumber', 'url' => '', 'role' => 'author')),
-            'sponsor_name' => 'Shopware', 'sponsor_url' => 'https://www.shopware.com/', 'sponsor_logo' => 'shopware.svg',
+            'sponsor_name' => 'Sponsor Name', 'sponsor_url' => 'https://example.com/', 'sponsor_logo' => 'sponsor.svg',
             'band_color' => 'ink', 'listed' => true, 'pinned' => true, 'display_priority' => 0,
             'faq' => array(array('question' => '…', 'answer' => '…')),
         ), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
