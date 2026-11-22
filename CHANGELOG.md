@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.71.0] - 2026-11-21
+
+### Added
+- **Research type "Newsletter" and an "Original article URL" field.** A newsletter issue is a summary page that links to where the full text ran. Newsletter items stay out of the unfiltered library and show when the visitor filters to the type; the theme lists the latest ones in a compact row. The Report schema carries `isBasedOn` when the field is set.
+
 ## [2.70.1] - 2026-11-21
 
 ### Fixed

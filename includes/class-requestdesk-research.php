@@ -55,7 +55,15 @@ class RequestDesk_Research {
         'buyers-guide'        => "Buyer's Guide",
         'benchmark'           => 'Benchmark',
         'audit-checklist'     => 'Audit and Checklist',
+        'newsletter'          => 'Newsletter',
     );
+
+    /**
+     * Types that come in volume (a weekly newsletter). They stay out of the
+     * unfiltered library, where each item is a full band, and show only when
+     * the visitor filters to that type. The theme lists them in a compact row.
+     */
+    const COMPACT_TYPES = array('newsletter');
 
     public function __construct() {
         add_action('init', array($this, 'register_cpt'));
@@ -182,13 +190,16 @@ class RequestDesk_Research {
     }
 
     public function maybe_seed_types() {
-        if (get_option('requestdesk_research_types_seeded')) return;
+        // Keyed on the type list, so a type added in a later release is seeded
+        // on sites that already ran the first seed.
+        $sig = md5(implode(',', array_keys(self::TYPES)));
+        if (get_option('requestdesk_research_types_seeded') === $sig) return;
         foreach (self::TYPES as $slug => $name) {
             if (!term_exists($slug, self::TAX_TYPE)) {
                 wp_insert_term($name, self::TAX_TYPE, array('slug' => $slug));
             }
         }
-        update_option('requestdesk_research_types_seeded', 1, false);
+        update_option('requestdesk_research_types_seeded', $sig, false);
     }
 
     /** Terms link to the filtered archive, never to a ?taxonomy= URL. */
@@ -226,6 +237,7 @@ class RequestDesk_Research {
             'campaign_code'    => array('label' => 'Campaign code', 'type' => 'text', 'box' => 'access', 'help' => 'Defaults to the slug.'),
             'gate_url'         => array('label' => 'Gate page URL', 'type' => 'url', 'box' => 'access'),
             'dataset_url'      => array('label' => 'Public data file URL', 'type' => 'url', 'box' => 'access', 'help' => 'Only when the data itself is published. Adds Dataset schema.'),
+            'source_url'       => array('label' => 'Original article URL', 'type' => 'url', 'box' => 'access', 'help' => 'Where the full text was first published (e.g. the newsletter issue). The page then carries a summary and links there.'),
             'dataset_license'  => array('label' => 'Data license URL', 'type' => 'url', 'box' => 'access'),
 
             'date_published'   => array('label' => 'Published', 'type' => 'date', 'box' => 'people'),
@@ -507,6 +519,7 @@ class RequestDesk_Research {
             'campaign_code'  => $m('campaign_code') ?: get_post_field('post_name', $post_id),
             'gate_url'       => $m('gate_url'),
             'dataset_url'    => $m('dataset_url'),
+            'source_url'     => $m('source_url'),
             'authors'        => is_array($m('authors')) ? $m('authors') : array(),
             'sponsor'        => $m('sponsor_name') ? array(
                 'name' => $m('sponsor_name'),
@@ -545,6 +558,15 @@ class RequestDesk_Research {
                 array('key' => self::META_PREFIX . 'listed', 'compare' => 'NOT EXISTS'),
             ),
         ));
+        // Compact types (newsletter issues) only show when filtered to that type.
+        if (!$query->get(self::TAX_TYPE)) {
+            $query->set('tax_query', array(array(
+                'taxonomy' => self::TAX_TYPE,
+                'field'    => 'slug',
+                'terms'    => self::COMPACT_TYPES,
+                'operator' => 'NOT IN',
+            )));
+        }
         // Order is set in archive_orderby() below.
         $query->set('posts_per_page', 24);
         add_filter('posts_orderby', array($this, 'archive_orderby'), 10, 2);
@@ -651,6 +673,7 @@ class RequestDesk_Research {
         if ($d['type'])          $schema['genre'] = $d['type']['name'];
         if ($d['topics'])        $schema['keywords'] = implode(', ', wp_list_pluck($d['topics'], 'name'));
         if ($d['snapshot_date']) $schema['temporalCoverage'] = $d['snapshot_date'];
+        if ($d['source_url'])    $schema['isBasedOn'] = $d['source_url'];
         if ($d['cover'])         $schema['image'] = $d['cover'];
         if ($d['sponsor'])       $schema['sponsor'] = array_filter(array('@type' => 'Organization', 'name' => $d['sponsor']['name'], 'url' => $d['sponsor']['url']));
         if ($d['pdf_url']) {
