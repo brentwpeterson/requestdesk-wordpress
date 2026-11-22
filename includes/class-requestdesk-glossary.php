@@ -55,7 +55,7 @@ class RequestDesk_Glossary {
                 'description' => 'Other names a reader might search for. One per line.'),
             'why' => array('type' => 'textarea', 'label' => 'Why it matters'),
             'example' => array('type' => 'textarea', 'label' => 'Example',
-                'description' => 'Shown labelled as illustrative. Never a client result.'),
+                'description' => 'Shown labeled as illustrative. Never a client result.'),
             'check' => array('type' => 'textarea', 'label' => 'What to check'),
             'limitation' => array('type' => 'textarea', 'label' => 'What this does not tell you'),
             'sources' => array('type' => 'lines', 'label' => 'Sources',
