@@ -903,6 +903,12 @@ class RequestDesk_Research {
         );
         if (array_key_exists('excerpt', $e)) $postarr['post_excerpt'] = sanitize_textarea_field($e['excerpt']);
         if (array_key_exists('content', $e)) $postarr['post_content'] = wp_kses_post($e['content']);
+        // A dated item (a past newsletter issue) keeps its own date, so the
+        // library sorts by when it ran and not by when it was imported.
+        if (!empty($e['date_published']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $e['date_published'])) {
+            $postarr['post_date']     = $e['date_published'] . ' 12:00:00';
+            $postarr['post_date_gmt'] = get_gmt_from_date($postarr['post_date']);
+        }
 
         if ($existing) {
             $postarr['ID'] = $existing->ID;
