@@ -803,6 +803,9 @@ class RequestDesk_Research {
             foreach (array('created' => 'success', 'updated' => 'info', 'failed' => 'warning') as $k => $cls) {
                 if (isset($_GET[$k])) echo '<div class="notice notice-' . $cls . '"><p><strong>' . intval($_GET[$k]) . '</strong> ' . $k . '.</p></div>';
             }
+            if (!empty($_GET['remaining'])) {
+                echo '<div class="notice notice-warning"><p><strong>' . intval($_GET['remaining']) . '</strong> still in the inbox. Run the import again to continue.</p></div>';
+            }
             if (!$pending) {
                 echo '<p>Inbox empty. Drop one JSON file per item into <code>' . esc_html($this->import_dir()) . '</code>. Images and PDFs named in a file go in <code>assets/</code>. The same JSON can be sent to <code>POST /wp-json/requestdesk/v1/research</code>.</p>';
             } else {
@@ -853,9 +856,14 @@ class RequestDesk_Research {
         if (!current_user_can('manage_options')) wp_die('Insufficient permissions');
         check_admin_referer('requestdesk_import_research', 'rs_import_nonce');
         $selected = array_map('sanitize_file_name', (array) ($_POST['files'] ?? array()));
-        $counts = array('created' => 0, 'updated' => 0, 'failed' => 0);
+        $counts = array('created' => 0, 'updated' => 0, 'failed' => 0, 'remaining' => 0);
+        // A big inbox outlasts the web server's gateway timeout. Work for about
+        // 20 seconds, leave the rest in the inbox, and say how many are left.
+        // Each finished file has already moved out, so the next run continues.
+        $started = microtime(true);
         foreach ($this->pending_files() as $it) {
             if (!in_array(basename($it['path']), $selected, true)) continue;
+            if (microtime(true) - $started > 20) { $counts['remaining']++; continue; }
             $res = is_array($it['entry']) ? $this->import_entry($it['entry']) : new WP_Error('bad_json', 'Invalid JSON');
             $ok = !is_wp_error($res);
             $counts[$ok ? $res['result'] : 'failed']++;

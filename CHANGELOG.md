@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.71.0] - 2026-11-21
 
 ### Added
+- **Research import works in rounds.** A large inbox ran past the gateway timeout. The import now works for about 20 seconds, leaves the rest in the inbox and says how many remain; running it again continues.
 - **Research type "Newsletter" and an "Original article URL" field.** A newsletter issue is a summary page that links to where the full text ran. Newsletter items stay out of the unfiltered library and show when the visitor filters to the type; the theme lists the latest ones in a compact row. The Report schema carries `isBasedOn` when the field is set.
 
 ## [2.70.1] - 2026-11-21
