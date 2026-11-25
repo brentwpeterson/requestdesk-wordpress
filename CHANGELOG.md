@@ -5,6 +5,11 @@ All notable changes to the RequestDesk Connector plugin will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.72.0] - 2026-11-25
+
+### Added
+- **`POST /podcast-meta` sets an episode's player.** A new `transistor_share_id` field (the id from `share.transistor.fm/s/<id>`) writes the Transistor embed into the Podcaster plugin's `cmb_thst_audio_embed_code`, which the headless API sends as `audio_embed`, and the share url into `cmb_thst_audio_embed`. The route builds the iframe itself and takes only the id, so a caller cannot put arbitrary HTML on the page. About 170 old Talk Commerce posts still carried Simplecast players: the show left Simplecast, and Simplecast's player page answers 200 for an episode it deleted, so those pages looked fine and played nothing. `dry_run` and the read-back work the same as for the other fields.
+
 ## [2.71.0] - 2026-11-21
 
 ### Added

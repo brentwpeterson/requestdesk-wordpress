@@ -449,7 +449,7 @@ class RequestDesk_API {
                 'episodes' => array(
                     'required' => true,
                     'type' => 'array',
-                    'description' => 'List of {post_id, guest: {name, company, title}, duration_seconds}',
+                    'description' => 'List of {post_id, guest: {name, company, title}, duration_seconds, transistor_share_id}',
                     'items' => array('type' => 'object'),
                 ),
                 'dry_run' => array('required' => false, 'type' => 'boolean', 'default' => false),
@@ -898,6 +898,23 @@ class RequestDesk_API {
                     continue;
                 }
                 $wanted['_requestdesk_episode_id'] = $rd_id;
+            }
+            // The episode's player. The show left Simplecast, and Simplecast's player
+            // page still answers 200 for an episode it deleted, so ~170 old posts
+            // rendered a player that plays nothing (2026-11-25). Takes only a
+            // Transistor share id and builds the embed here, so no caller can put
+            // arbitrary HTML into the page. Writes the Podcaster plugin's
+            // cmb_thst_audio_embed_code, which the headless API sends as audio_embed.
+            if (isset($episode['transistor_share_id'])) {
+                $share = (string) $episode['transistor_share_id'];
+                if (!preg_match('/^[A-Za-z0-9]{6,16}$/', $share)) {
+                    $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'transistor_share_id must be the id from share.transistor.fm/s/<id>');
+                    $failed++;
+                    continue;
+                }
+                $host = (string) apply_filters('requestdesk_transistor_share_host', 'https://share.transistor.fm');  // hardcode-ok: Transistor's public player host, the only place a share id resolves; filterable
+                $wanted['cmb_thst_audio_embed_code'] = '<iframe width="100%" height="180" frameborder="no" scrolling="no" seamless src="' . esc_url($host . '/e/' . $share) . '"></iframe>';
+                $wanted['cmb_thst_audio_embed'] = esc_url_raw($host . '/s/' . $share);
             }
             if (empty($wanted)) {
                 $results[] = array('post_id' => $id, 'ok' => false, 'error' => 'nothing to set');
